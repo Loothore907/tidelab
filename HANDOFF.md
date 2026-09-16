@@ -1,6 +1,6 @@
 # Handoff
 
-Updated 2026-09-16. Research-platform scope approved; implementation not started.
+Updated 2026-09-16. TL-001 implemented and locally validated; remote integration not started.
 
 ## Decisions carried forward
 
@@ -17,15 +17,23 @@ The user lives in Alaska and has a stale Coinbase account and prior Solana DeFi 
 - Created README, plan, architecture decisions, roadmap, and agent guidance.
 - Approved and documented the venue-agnostic research core, strategy protocol, execution modes, and second-adapter portability gate.
 - Registered this folder as the local Codex project TideLab.
+- Created a local Git repository with approved planning documents on `main`; TL-001 work is isolated on `feat/tl-001-market-data`.
+- Implemented versioned instrument, capability, and market-event contracts; Coinbase public product/hourly-candle parsing; bounded retries; restart-safe SQLite storage; ingestion/stream records; and gap/duplicate/freshness reporting.
+- Implemented bounded public WebSocket capture for five-minute candle observations and heartbeats. Live updates remain distinct from closed hourly strategy bars.
+- Added pinned Python dependencies, example no-secret configuration, CLI commands, fixture tests, and a GitHub Actions workflow for eventual exact-head CI.
+- Passed 15 local tests on Python 3.12.14, including interrupted-ingestion recovery and rejection of out-of-window upstream data.
+- Completed a bounded read-only smoke test: 24/24 closed hourly bars with no gaps, a second sync inserted zero and recognized all 24 duplicates, and a 10-second WebSocket session received 14 messages including 10 heartbeats and 101 candle observations with no connection-sequence gaps. See `docs/evidence/TL-001-VALIDATION.md`.
+- Probed 30 requested days of public hourly candles. The endpoint returned 1,050 objects across three requests, but after strict per-window admission only the latest 349 of 720 requested bars were valid; 371 earlier hours remained explicitly missing. Longer historical depth is not established.
 - Reviewed current official Coinbase API documentation and Codex project documentation.
 - Successfully read public BTC-USD metadata without authentication; see ARCHITECTURE.md for evidence and limitations.
-- Parent workspace is not a Git repository. No inherited repository changes exist in this new folder. No Git remote/CI status exists to report.
+- No Git remote, issue, PR, or remote CI result exists. Local success is not remote CI.
 
 ## Next actions and owners
 
-1. User/Codex: choose repository owner, visibility, and integration scope before remote creation. Planning files currently remain a non-repository deliverable.
-2. Codex, upon implementation instruction: implement TL-001 only, following AGENTS.md and the roadmap. Build the canonical data contracts and Coinbase BTC-USD reference adapter without speculative additional adapters.
-3. Codex, in later authorized slices: implement the shared strategy/execution contract, ledger, experiment registry, historical evaluation, and immutable forward-paper runner before any live work.
-4. User, before any private access: recover or establish the chosen account directly and verify residence, product eligibility, current fees, API terms, and intended permissions. Never paste keys, recovery phrases, passwords, or identity documents into chat.
+1. User: choose GitHub owner and public/private visibility. The authenticated account is `Loothore907`; no remote was guessed or created.
+2. Codex, once that choice is supplied: create the remote and TL-001 issue, push `main` and `feat/tl-001-market-data`, open a draft PR, inspect exact-head CI, and integrate only if authorized gates pass.
+3. Codex: create an owning follow-up before TL-003 to establish a sufficiently long historical source or accumulated archive; the current public endpoint evidence is only 349 continuous recent hourly bars.
+4. Codex, in a later authorized slice: begin TL-002 shared strategy/execution contracts and paper ledger. Do not fold it into the TL-001 integration.
+5. User, before any private access: recover or establish the chosen account directly and verify residence, product eligibility, current fees, API terms, and intended permissions. Never paste keys, recovery phrases, passwords, or identity documents into chat.
 
-No process is running. No account was accessed. No trade, paid service, GitHub issue, PR, repository, or deployment was created. Source files and runtime do not yet exist.
+No process is running. No private account was accessed. No trade, paid service, GitHub remote/issue/PR, or deployment was created. Runtime databases and validation configuration are local ignored artifacts.

@@ -1,0 +1,21 @@
+[storage]
+path = "data/tidelab.sqlite3"
+
+[coinbase]
+venue = "coinbase_advanced"
+product_id = "BTC-USD"
+rest_url = "https://api.coinbase.com/api/v3/brokerage"
+websocket_url = "wss://advanced-trade-ws.coinbase.com"
+granularity = "ONE_HOUR"
+granularity_seconds = 3600
+max_candles_per_request = 350
+request_timeout_seconds = 15
+max_attempts = 3
+retry_base_seconds = 0.5
+
+[stream]
+channels = ["candles", "heartbeats"]
+open_timeout_seconds = 15
+
+[report]
+stale_after_seconds = 7200
