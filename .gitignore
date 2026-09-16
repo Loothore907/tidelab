@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local runtime state and generated evidence
+data/
+artifacts/
+*.sqlite
+*.sqlite3
+*.db
+
+# Local configuration may later contain machine-specific paths. Commit examples only.
+config.toml
+.env
+.env.*
+!.env.example
