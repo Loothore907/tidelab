@@ -21,6 +21,7 @@ Open API access is not publication permission. Coinbase remains a bounded techni
 - [Exchange, access, and deployment decisions](docs/ARCHITECTURE.md)
 - [Roadmap and evaluation gates](docs/ROADMAP.md)
 - [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
+- [TL-001A synthetic engine checkpoint](docs/evidence/TL-001A-ENGINE-BAKEOFF.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Agent working instructions](AGENTS.md)
 - [Apache-2.0 license](LICENSE) and [project notice](NOTICE)

@@ -1,0 +1,2 @@
+# TL-001A isolated engine probe only; not a TideLab runtime dependency.
+nautilus-trader==2.0.0rc5
