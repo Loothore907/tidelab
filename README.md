@@ -31,7 +31,7 @@ TL-001 is implemented and locally validated on the feature branch: canonical ins
 
 A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create a publication-rights concern. A rights-cleared source with adequate historical depth is required before serious, publicly reproducible evaluation.
 
-This folder is registered as the local Codex project TideLab and is now a local Git repository. No GitHub remote, issue, PR, remote CI result, private account integration, or deployment exists yet. Venue eligibility, fees, private API access, and live operation remain unverified.
+This folder is registered as the local Codex project TideLab. The public [GitHub repository](https://github.com/Loothore907/tidelab) now contains the planning baseline; TL-001 is under draft review in [PR #5](https://github.com/Loothore907/tidelab/pull/5), and the open-source decision is stacked in [PR #6](https://github.com/Loothore907/tidelab/pull/6). Neither slice is merged. No private account integration or deployment exists. Venue eligibility, fees, private API access, and live operation remain unverified.
 
 ## Local setup
 
@@ -74,4 +74,4 @@ The WebSocket candle channel provides live five-minute updates. TideLab keeps th
 
 ## Current integration task
 
-The intended repository visibility is public, but no remote creation or publication was authorized in this documentation slice. Confirm the GitHub owner and remote-creation action, integrate TL-001 through an issue/PR with exact-head CI, then complete the TL-001A engine bakeoff and TL-001B data/publication-rights gate before TL-002. TL-002 strategy integration has not started.
+The public remote is now `Loothore907/tidelab`. Review and integrate TL-001 through [issue #1](https://github.com/Loothore907/tidelab/issues/1) and [draft PR #5](https://github.com/Loothore907/tidelab/pull/5) only after exact-head checks and review. Then retarget/recheck the stacked open-source decision in [issue #4](https://github.com/Loothore907/tidelab/issues/4) and [draft PR #6](https://github.com/Loothore907/tidelab/pull/6). TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) and TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) precede TL-002. TL-002 strategy integration has not started.
