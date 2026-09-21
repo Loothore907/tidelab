@@ -2,6 +2,10 @@
 
 Milestones advance on evidence, not a promised return or fixed calendar. TL identifiers are local backlog labels, not existing GitHub issues.
 
+Current state: TL-001 is implemented and locally validated on `feat/tl-001-market-data`. It remains pending remote issue/PR review and exact-head CI; TL-002 has not started.
+
+Data-depth finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Establish a sufficiently long historical source or accumulated archive before TL-003; never treat the current public depth as adequate backtest coverage.
+
 | ID | Slice | Deliverable and exit criteria |
 |---|---|---|
 | TL-000 | Project foundation | Plan and venue-agnostic research decisions saved; establish repository owner/visibility and integration authority before remote setup |

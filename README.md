@@ -21,10 +21,49 @@ Initial work remains public-data and simulation only. No exchange credentials, d
 
 ## Current state
 
-Planning workspace only: no application, running bot, Git repository, remote, issues, or CI yet. Public BTC-USD product access was successfully checked from this machine. The design now permits later centralized spot, event-contract, and on-chain adapters without pretending their execution and settlement semantics are interchangeable. Venue eligibility, fees, private API access, and live operation remain unverified.
+TL-001 is implemented and locally validated on the feature branch: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
 
-This folder is registered as the local Codex project TideLab. It remains a non-repository planning workspace until repository ownership, visibility, and integration authority are selected.
+A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. A longer historical source or accumulated archive is required before serious historical evaluation.
 
-## First implementation task
+This folder is registered as the local Codex project TideLab and is now a local Git repository. No GitHub remote, issue, PR, remote CI result, private account integration, or deployment exists yet. Venue eligibility, fees, private API access, and live operation remain unverified.
 
-Read AGENTS.md and HANDOFF.md. Establish repository ownership and integration scope, then build only TL-001: the canonical public-data foundation, Coinbase BTC-USD reference adapter, and validation report. Define narrow portability seams but do not implement additional venue adapters, strategy execution, credentials, or orders in this slice.
+## Local setup
+
+Requires Python 3.11 or newer. The validated environment used Python 3.12.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --requirement requirements.lock
+.\.venv\Scripts\python.exe -m pip install --editable . --no-deps
+Copy-Item config.example.toml config.toml
+```
+
+`config.toml`, local databases, and generated artifacts are ignored. The example configuration contains no secrets.
+
+## Commands
+
+```powershell
+# Initialize local storage and refresh point-in-time product rules.
+.\.venv\Scripts\python.exe -m tidelab --config config.toml init
+.\.venv\Scripts\python.exe -m tidelab --config config.toml metadata
+
+# Synchronize a UTC-aligned, end-exclusive range of closed hourly bars.
+.\.venv\Scripts\python.exe -m tidelab --config config.toml sync `
+  --start 2026-09-15T00:00:00Z --end 2026-09-16T00:00:00Z
+
+# Report missing bars, restart duplicates, and freshness for the same range.
+.\.venv\Scripts\python.exe -m tidelab --config config.toml report `
+  --start 2026-09-15T00:00:00Z --end 2026-09-16T00:00:00Z
+
+# Capture bounded public five-minute candle observations and heartbeats.
+.\.venv\Scripts\python.exe -m tidelab --config config.toml stream --seconds 10
+
+# Exercise metadata, first/restart sync, stream capture, and reporting together.
+.\.venv\Scripts\python.exe -m tidelab --config config.toml smoke --hours 24 --stream-seconds 10
+```
+
+The WebSocket candle channel provides live five-minute updates. TideLab keeps those as observations; strategy-ready hourly bars are admitted only after the public REST interval is closed.
+
+## Current integration task
+
+Choose the GitHub owner and public/private visibility. Then create the remote, owning TL-001 issue, and PR; run exact-head CI before integration. TL-002 strategy or paper-broker scope has not started.
