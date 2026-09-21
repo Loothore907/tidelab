@@ -6,9 +6,13 @@ A personal, multi-venue systematic market research and paper-trading project. Cr
 
 Build a venue- and product-agnostic research core around canonical market data, versioned strategies, deterministic replay, explicit execution models, complete experiment records, and reconciled accounting. Coinbase Advanced Trade BTC-USD is the first reference fixture because it provides a tractable public-data starting point; it is not TideLab's permanent market boundary.
 
+TideLab is licensed under Apache-2.0. It will adopt proven open-source engine components before building commodity trading infrastructure. NautilusTrader is the first engine candidate for a bounded compatibility bakeoff; it is not yet an adopted dependency. TideLab will remain an independent project and will not default to an upstream fork.
+
 The economic objective is to discover whether any strategy, combined with a feasible execution environment, has positive expectancy after realistic costs and can eventually support useful income within a defined loss budget. Backtests select candidates; immutable forward tests evaluate them on newly arriving data. No profitable strategy or regular income capability has been demonstrated.
 
 Initial work remains public-data and simulation only. No exchange credentials, deposits, paid infrastructure, live trading, or external account operation are authorized.
+
+Open API access is not publication permission. Coinbase remains a bounded technical fixture while TideLab selects a data source whose retention, reproducibility, charting, and public-demonstration rights fit the intended open-source workflow.
 
 ## Project documents
 
@@ -16,16 +20,18 @@ Initial work remains public-data and simulation only. No exchange credentials, d
 - [Strategy research protocol](docs/STRATEGY_RESEARCH.md)
 - [Exchange, access, and deployment decisions](docs/ARCHITECTURE.md)
 - [Roadmap and evaluation gates](docs/ROADMAP.md)
+- [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Agent working instructions](AGENTS.md)
+- [Apache-2.0 license](LICENSE) and [project notice](NOTICE)
 
 ## Current state
 
-TL-001 is implemented and locally validated on the feature branch: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
+TL-001 is implemented and integrated: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
 
-A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. A longer historical source or accumulated archive is required before serious historical evaluation.
+A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create a publication-rights concern. A rights-cleared source with adequate historical depth is required before serious, publicly reproducible evaluation.
 
-This folder is registered as the local Codex project TideLab and is now a local Git repository. No GitHub remote, issue, PR, remote CI result, private account integration, or deployment exists yet. Venue eligibility, fees, private API access, and live operation remain unverified.
+This folder is registered as the local Codex project TideLab. The public [GitHub repository](https://github.com/Loothore907/tidelab) contains TL-001 via [PR #5](https://github.com/Loothore907/tidelab/pull/5); the Apache/open-source decision is recorded in [PR #6](https://github.com/Loothore907/tidelab/pull/6). No private account integration or deployment exists. Venue eligibility, fees, private API access, and live operation remain unverified.
 
 ## Local setup
 
@@ -41,6 +47,8 @@ Copy-Item config.example.toml config.toml
 `config.toml`, local databases, and generated artifacts are ignored. The example configuration contains no secrets.
 
 ## Commands
+
+These commands document the completed TL-001 fixture. Pending TL-001B, do not use them to acquire new Coinbase data for strategy development or automated analysis. Use synthetic or otherwise rights-cleared fixtures for the engine bakeoff.
 
 ```powershell
 # Initialize local storage and refresh point-in-time product rules.
@@ -64,6 +72,6 @@ Copy-Item config.example.toml config.toml
 
 The WebSocket candle channel provides live five-minute updates. TideLab keeps those as observations; strategy-ready hourly bars are admitted only after the public REST interval is closed.
 
-## Current integration task
+## Next research gates
 
-Choose the GitHub owner and public/private visibility. Then create the remote, owning TL-001 issue, and PR; run exact-head CI before integration. TL-002 strategy or paper-broker scope has not started.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) and TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) are separate decisions that precede TL-002. Neither an engine nor a public research-data source has been adopted. TL-002 strategy integration has not started.
