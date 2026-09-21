@@ -292,6 +292,21 @@ def run_execution_probe(
         if len(cached_orders) != 1:
             raise AssertionError("the execution probe expected exactly one cached order")
         cached_order = cached_orders[0]
+        callback_qty = sum((Decimal(qty) for qty, _, _, _ in observer.fills), Decimal(0))
+        cached_qty = Decimal(str(cached_order.filled_qty))
+        if callback_qty != cached_qty:
+            raise AssertionError("fill callbacks and cached order quantity disagree")
+        spent = sum(
+            (Decimal(qty) * Decimal(price)
+             + (Decimal(0) if commission is None else Decimal(commission.split()[0]))
+             for qty, price, commission, _ in observer.fills),
+            Decimal(0),
+        )
+        usdt_total = Decimal(str(account.balance_total(usdt)).split()[0])
+        btc_balance = account.balance_total(btc)
+        btc_total = Decimal(0) if btc_balance is None else Decimal(str(btc_balance).split()[0])
+        if usdt_total != Decimal(10_000) - spent or btc_total != cached_qty:
+            raise AssertionError("cash/inventory and simulated fills do not reconcile")
         return {
             "submitted_at": observer.submitted_at,
             "fills": tuple(observer.fills),
@@ -299,7 +314,7 @@ def run_execution_probe(
             "cached_order_status": cached_order.status.name,
             "cached_filled_qty": str(cached_order.filled_qty),
             "usdt_total": str(account.balance_total(usdt)),
-            "btc_total": str(account.balance_total(btc)),
+            "btc_total": str(btc_balance),
             "fixture_id": admitted.fixture_id,
         }
     finally:
