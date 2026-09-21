@@ -43,7 +43,7 @@ Kraken's [archive notes](https://support.kraken.com/articles/360047124832-downlo
 4. Once a source passes, acquire only a bounded sample, record provenance/hashes privately, and validate coverage/quality before implementing an adapter. A change of source or material terms creates a new experiment input.
 5. If no zero-cost source clears both technical and publication gates, keep TL-001B open and return with a concrete rights/market pivot or capped paid-license proposal. Do not quietly lower the publication standard.
 
-## Provider clarification request — sent, reply pending
+## Provider clarification request — sent, substantive reply pending
 
 Kraken is the first provider asked because its published archives address the historical-depth problem. The owner approved outreach on 2026-09-21. A clarification request was sent that day to `marketdata@kraken.com`, the contact identified in [Kraken's API guidance](https://docs-legacy.kraken.com/api/docs/guides/global-intro/). It describes TideLab as an independent Apache-2.0 research-software project that may later publish a monetized educational process video, with **no raw Kraken data redistributed by TideLab**. It asks for written answers covering historical archives and public forward feeds:
 
@@ -55,6 +55,8 @@ Kraken is the first provider asked because its published archives address the hi
 
 An answer that only confirms public download access would **not** clear algorithmic research or public derived artifacts. Preserve the reply and applicable terms as dated evidence before changing this gate.
 
+Kraken's automated intake reply on 2026-09-21 asked for a company, partnership rationale, and operating country before routing the request. We replied that TideLab is an independent US-based open-source project, not a registered company or proposed business partnership, and asked for routing to the market-data licensing or legal team. This is an intake acknowledgment, not a substantive rights answer or permission. Do not infer approval from the automated response or silence.
+
 Full raw-dataset publication is optional. The intended public story is the documented research and build process, with any real-data-derived artifact separately cleared or replaced by a permissible illustration. A permission denial would trigger another source or a different public artifact, not a silent waiver of the research-use gate.
 
-No Kraken account was accessed, no market-data file was downloaded, and no data-derived result was published for this preflight. The inquiry is pending; it is not permission.
+No Kraken account was accessed, no market-data file was downloaded, and no data-derived result was published for this preflight. The substantive rights inquiry is pending; it is not permission.
