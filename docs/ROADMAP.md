@@ -8,6 +8,8 @@ Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only th
 
 Open-source direction: TideLab-authored work is Apache-2.0. Adopt established engine infrastructure before building it. NautilusTrader is the first bounded candidate, not yet an adopted dependency; LEAN is the fallback evaluation before any custom engine authorization. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.
 
+Publication standard approved 2026-09-21: publish all TideLab code and synthetic fixtures, pursue rights for public real-data-derived charts/results, but do not require hosting downloadable raw market data. Prefer a reproducible acquisition recipe where allowed. Initial data-source spend is $0; Coinbase and BTC-USD may be replaced if rights or technical coverage fail. See [TL-001B preflight](evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md). No real-data source has yet passed the gate.
+
 | ID | Slice | Deliverable and exit criteria |
 |---|---|---|
 | TL-000 | Project foundation | Plan and venue-agnostic research decisions saved; establish repository owner/visibility and integration authority before remote setup |
