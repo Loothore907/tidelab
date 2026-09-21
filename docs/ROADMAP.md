@@ -4,13 +4,17 @@ Milestones advance on evidence, not a promised return or fixed calendar. TL iden
 
 Current state: TL-001 is implemented and locally validated on `feat/tl-001-market-data`. It remains pending remote issue/PR review and exact-head CI; TL-002 has not started.
 
-Data-depth finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Establish a sufficiently long historical source or accumulated archive before TL-003; never treat the current public depth as adequate backtest coverage.
+Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Coinbase's Market Data Terms reviewed 2026-09-21 also create material automated-analysis and publication-rights questions for market data and derived artifacts. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis. Establish a sufficiently long, rights-cleared historical and forward source before TL-003; never treat endpoint access or the current depth as adequate public-research coverage.
+
+Open-source direction: TideLab-authored work is Apache-2.0. Adopt established engine infrastructure before building it. NautilusTrader is the first bounded candidate, not yet an adopted dependency; LEAN is the fallback evaluation before any custom engine authorization. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.
 
 | ID | Slice | Deliverable and exit criteria |
 |---|---|---|
 | TL-000 | Project foundation | Plan and venue-agnostic research decisions saved; establish repository owner/visibility and integration authority before remote setup |
 | TL-001 | Canonical public-data foundation | Versioned instrument/event contracts plus a Coinbase BTC-USD reference adapter; restart-safe metadata, historical bars and live feed capture; gap/duplicate/freshness report; no credentials, strategies, or orders |
-| TL-002 | Strategy, execution, and ledger contracts | Capability-aware strategy manifest; shared target-position/trade-intent and risk contracts; realistic Coinbase paper broker; cash/inventory accounting, costs, partial/missed fills, reconciliation, and failure tests |
+| TL-001A | Engine adoption bakeoff | Map TideLab contracts onto one pinned NautilusTrader release; reproduce the TL-001 fixture and test deterministic replay, costs/fills, accounting, recovery, dependency boundaries, and evidence export without an upstream fork; evaluate LEAN only if a critical requirement fails |
+| TL-001B | Research-data and publication gate | Select historical and forward sources with adequate depth and documented research, retention, reproducibility, redistribution, charting, video, and automated-analysis rights; keep Coinbase a local technical fixture unless its proposed use is cleared |
+| TL-002 | Strategy, execution, and ledger integration | Implement TideLab-owned manifest, target-position/trade-intent, risk, and execution-mode boundaries on the adopted engine; prove cash/inventory accounting, costs, partial/missed fills, reconciliation, and failure behavior; build custom engine components only for documented critical gaps |
 | TL-003 | Reproducible research harness | Immutable experiment registry, deterministic replay/backtester, trial accounting, chronological partitions, benchmarks, cost stress, and registered baseline strategy family including frozen H1 |
 | TL-004 | Forward paper and advisory runner | Unmodified strategy versions on newly arriving data; simulated mode first; optional separately authorized advisory proposals with actual-fill reconciliation; daily report and incident record |
 | TL-005 | Portability proof | Implement one structurally different public/read-only or paper adapter, such as an event-contract or on-chain market; pass core contract tests while preserving native costs, lifecycle, expiry/settlement or transaction semantics |
@@ -29,12 +33,32 @@ Data-depth finding: a 2026-09-16 public 30-day probe admitted only the latest 34
 - Test timestamp normalization, duplicate processing, gap detection, and retry behavior with bounded fixtures. Run one read-only integration smoke test; do not claim it validates unattended uptime.
 - Provide documented start/stop/report commands, dependency lock, configuration example with no secrets, and a short evidence report.
 
+## TL-001A engine bakeoff acceptance
+
+- Pin one released NautilusTrader version and record its source revision, license, supported Python/runtime, and migration risks.
+- Feed permitted TL-001 or synthetic fixtures through the candidate without credentials and reproduce closure, ordering, gap, duplicate, freshness, and provenance assertions.
+- Implement one H1 skeleton once and demonstrate identical strategy semantics under deterministic historical and forward-paper clocks.
+- Exercise fees, spread/slippage, rounding, partial/missed/rejected fills, restart/reconciliation, and ambiguous state without claiming that simulation proves live behavior.
+- Export a TideLab experiment identity containing engine, code, configuration, data, cost, and trial provenance.
+- Document every TideLab requirement not met by public extension points. Reject a permanent fork as the default; if a critical gap remains, run the same bounded evaluation against LEAN before proposing custom engine work.
+- Before distribution, define third-party notices, corresponding-source/replacement handling for bundled artifacts, and the independent-project trademark disclaimer.
+
+## TL-001B data and publication acceptance
+
+- Inventory the exact historical and forward artifacts needed for research, charts, reports, demonstrations, and reproducibility.
+- For each candidate source, record provenance, access date, depth/completeness, costs, retention, redistribution, derived-work, charting/video, and automated-analysis terms.
+- Select a source only when both technical coverage and intended publication rights are supportable. Unknown rights fail closed and require clarification or another source.
+- Keep restricted raw data and derived artifacts out of Git and public releases. Provide synthetic or expressly redistributable public fixtures plus acquisition instructions and hashes where permitted.
+- Re-run validation when a provider changes terms or the proposed public artifact changes materially.
+
 ## TL-002 implementation acceptance
 
+- Complete TL-001A and TL-001B first. Record the adopted engine version, data-source rights/provenance, and every approved exception.
 - Define strategy requirements, target positions/trade intents, independent risk decisions, order/fill states, cashflows, settlement extensions, and execution-mode boundaries.
 - Run identical strategy semantics against deterministic replay and forward-paper clocks; environment-specific code may supply data and fills but may not change the strategy rule.
 - Reconcile cash, inventory, fees, realized/unrealized P&L, and all modeled order states. Test duplicate, partial, missed, rejected, interrupted, and ambiguous outcomes.
 - Keep simulated, advisory, and automated configuration and storage fail-closed and visibly distinct. Automated submission remains absent.
+- Keep TideLab-owned policy and experiment records exportable independently of the engine. Do not copy or silently patch dependency internals to pass acceptance.
 
 ## Evaluation design for TL-003 and later
 
@@ -45,6 +69,8 @@ Use conservative execution: next available tradable price after signal plus fees
 Freeze numeric criteria for net expectancy, drawdown, cost stress, and uncertainty before the untouched test. Proposed drawdown settings are in PLAN.md; final research criteria need to be selected before results, not retrofitted afterward.
 
 Every public, open-source, or model-generated strategy and every tested parameter variant counts as a trial. Preserve failures and sources. Limit the search budget per hypothesis, and use search-aware/selection-aware statistics when the trial count warrants them. Do not repeatedly mine the untouched interval or promote the historical winner merely because it ranked first.
+
+Every experiment also records whether its data and derived artifacts may be retained, shared, charted, demonstrated, or used for automated analysis. Reproducibility claims may not depend on publishing material that TideLab has no right to publish.
 
 ## TL-005 portability acceptance
 
@@ -69,6 +95,8 @@ Positive expectancy is not regular income. After a strategy survives forward tes
 
 ## Integration plan for implementation
 
-Repository name proposal: tidelab. Owner, visibility, remote, default branch, and push/PR/merge authority are not yet selected. No external publication has been performed.
+Repository name proposal: tidelab. Public visibility is the approved intent, but owner, remote, default branch, and push/PR/merge authority are not yet selected. No external publication has been performed.
 
 Once established, use main as the proposed protected base and an issue-linked branch for each coherent slice, beginning with feat/tl-001-market-data. Create actual owning issues, reference them from Conventional commits and draft PRs, run required local checks and exact-head CI, and integrate passing slices within granted authority. Follow the user's global Git hygiene instructions. Do not invent remote evidence or bypass checks.
+
+TL-001A and TL-001B are separate reviewable slices after TL-001 integration. Evidence capture is ongoing and sanitized; selecting video software, purchasing services, recording private account activity, or publishing a video requires separate later scope.

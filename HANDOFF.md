@@ -1,12 +1,18 @@
 # Handoff
 
-Updated 2026-09-16. TL-001 implemented and locally validated; remote integration not started.
+Updated 2026-09-21. TL-001 implemented and locally validated; open-source/engine/data-publication decisions documented; remote integration not started.
 
 ## Decisions carried forward
 
 TideLab is an evidence-controlled, multi-venue strategy research platform. The economic goal is to identify positive expectancy after realistic execution costs and then determine whether any validated edge and available capital could support useful income. Engineering and learning are valuable outcomes but are not substitutes for trading evidence.
 
-Coinbase Advanced Trade BTC-USD remains the first public-data fixture and the initial hourly trend hypothesis remains the first baseline experiment. Neither defines the permanent scope. The core will use canonical research contracts, capability-aware venue/product adapters, versioned strategies, deterministic replay, a complete experiment registry, independent risk decisions, and reconciled accounting. Later candidates may include centralized crypto, event contracts, or Solana markets only through separate research and eligibility gates.
+Coinbase Advanced Trade BTC-USD remains the first public-data fixture and the initial hourly trend hypothesis remains the first baseline experiment. Neither defines the permanent scope or public research-data source. The core will use canonical research contracts, capability-aware venue/product adapters, versioned strategies, deterministic replay, a complete experiment registry, independent risk decisions, and reconciled accounting. Later candidates may include centralized crypto, event contracts, or Solana markets only through separate research and eligibility gates.
+
+TideLab-authored work is Apache-2.0 and is intended for eventual public release. The project will adopt proven open-source engine infrastructure before building commodity backtest, broker, portfolio, and ledger machinery. NautilusTrader is the first bounded candidate, not yet an adopted dependency; LEAN is the fallback before any custom engine authorization. Prefer a pinned, replaceable dependency and upstream fixes over vendoring or a permanent fork. Third-party licenses, source obligations, contributor agreements, and trademarks remain separate gates.
+
+Coinbase's current market-data terms create a material research-use and public-reproducibility concern in addition to the observed 349-hour depth. Pending TL-001B, do not fetch new Coinbase data for strategy development or automated analysis, and keep existing data and derived artifacts local. TL-001B must select a sufficiently deep source with documented research, retention, redistribution, derived-work, charting/video, and automated-analysis rights.
+
+Capture lightweight, sanitized evidence throughout development and assemble any polished process/results video later from versioned decisions, experiments, failures, and forward reports. Recording/editing software is deliberately unselected and no purchase or publication is authorized.
 
 Execution modes are explicit: simulated, advisory/manual, and automated. Historical and forward evaluation share strategy and risk semantics; venue-specific data, order, transaction, fee, expiry, and settlement behavior remains native behind adapters. No live orders, leverage, paid services, account access, or exchange credentials are authorized. MCP is optional reporting later. No edge is established.
 
@@ -26,14 +32,18 @@ The user lives in Alaska and has a stale Coinbase account and prior Solana DeFi 
 - Probed 30 requested days of public hourly candles. The endpoint returned 1,050 objects across three requests, but after strict per-window admission only the latest 349 of 720 requested bars were valid; 371 earlier hours remained explicitly missing. Longer historical depth is not established.
 - Reviewed current official Coinbase API documentation and Codex project documentation.
 - Successfully read public BTC-USD metadata without authentication; see ARCHITECTURE.md for evidence and limitations.
+- Added the Apache License 2.0 and TideLab notice; documented dependency-license, trademark, data-rights, and public-release gates in `docs/OPEN_SOURCE_AND_PUBLICATION.md`.
+- Added TL-001A for a pinned NautilusTrader-first engine bakeoff and TL-001B for a rights-cleared historical/forward data-source decision before TL-002.
+- Chose evidence-first process capture with later video assembly; no recording/editing product has been selected or purchased.
 - No Git remote, issue, PR, or remote CI result exists. Local success is not remote CI.
 
 ## Next actions and owners
 
-1. User: choose GitHub owner and public/private visibility. The authenticated account is `Loothore907`; no remote was guessed or created.
-2. Codex, once that choice is supplied: create the remote and TL-001 issue, push `main` and `feat/tl-001-market-data`, open a draft PR, inspect exact-head CI, and integrate only if authorized gates pass.
-3. Codex: create an owning follow-up before TL-003 to establish a sufficiently long historical source or accumulated archive; the current public endpoint evidence is only 349 continuous recent hourly bars.
-4. Codex, in a later authorized slice: begin TL-002 shared strategy/execution contracts and paper ledger. Do not fold it into the TL-001 integration.
-5. User, before any private access: recover or establish the chosen account directly and verify residence, product eligibility, current fees, API terms, and intended permissions. Never paste keys, recovery phrases, passwords, or identity documents into chat.
+1. User: confirm the GitHub owner and explicitly authorize remote creation when ready. Public visibility is the approved intent; the authenticated account is `Loothore907`, but no remote was guessed or created.
+2. Codex, once authorized: create the public remote and TL-001 issue, push `main` and `feat/tl-001-market-data`, open a draft PR, inspect exact-head CI, and integrate only if authorized gates pass.
+3. Codex, in a separate TL-001A slice: evaluate one pinned NautilusTrader release against the recorded acceptance criteria. Do not adopt, fork, or distribute it merely because the initial API fits.
+4. Codex, in a separate TL-001B slice: inventory required artifacts and compare rights-cleared historical/forward data sources. Do not acquire new Coinbase strategy data or publish Coinbase data/derived artifacts while the relevant rights are unresolved.
+5. Codex, only after TL-001A and TL-001B: implement TL-002 as TideLab integration/policy work on the adopted engine, with custom infrastructure limited to documented critical gaps.
+6. User, before any private access: recover or establish the chosen account directly and verify residence, product eligibility, current fees, API terms, and intended permissions. Never paste keys, recovery phrases, passwords, or identity documents into chat.
 
-No process is running. No private account was accessed. No trade, paid service, GitHub remote/issue/PR, or deployment was created. Runtime databases and validation configuration are local ignored artifacts.
+No process is running. No private account was accessed. No trade, paid service, recording software, public dataset, video, GitHub remote/issue/PR, or deployment was created. Runtime databases and validation configuration are local ignored artifacts.

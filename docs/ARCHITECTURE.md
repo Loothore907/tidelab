@@ -4,6 +4,8 @@
 
 Choose Coinbase Advanced Trade BTC-USD for the initial public-data fixture because it is tractable and offers documented REST and streaming access. This is a practical implementation starting point, not a claim that Coinbase, BTC, centralized spot, or hourly trend has the highest expectancy.
 
+The fixture does not establish that Coinbase data may be retained, redistributed, charted, or published in the form TideLab requires. Data rights and historical depth are independent selection gates. A different source may replace Coinbase for research and publication while the TL-001 adapter remains a conformance fixture.
+
 The research core must not contain Coinbase product identifiers, fee assumptions, order types, or availability rules. Venue adapters normalize common facts while preserving native payloads and semantics when normalization would hide material behavior. A second structurally different read-only/paper adapter must prove this portability before any live pilot.
 
 Different products remain genuinely different. Event contracts add expiry, outcome criteria, and settlement. On-chain swaps add wallet signing, routing, transaction construction, network and priority fees, confirmation/expiration, and MEV. Equities would add sessions and corporate actions. Do not force these into a lowest-common-denominator spot-order model.
@@ -41,23 +43,42 @@ Strategies share the same implementation in historical replay and forward operat
 
 Analysis, strategy generation, and optional AI assistance never bypass deterministic risk controls or mutate a live strategy. Each strategy/version is immutable during its evaluation window.
 
+## ADR-005: Adopt before building an engine
+
+TideLab owns hypotheses, strategy manifests, experiment/trial accounting, promotion gates, capability requirements, reporting, and public evidence. It does not assume that value comes from rebuilding event dispatch, backtesting, portfolio accounting, simulated execution, reconciliation, or standard venue adapters.
+
+NautilusTrader is the first engine candidate. Evaluate one exact release against the TL-001 fixture and TL-001A acceptance criteria. Integrate through public, replaceable interfaces and keep the TideLab control layer separable. Do not vendor its source, create a branded derivative, or accept a permanent fork as the default integration cost. A critical failure triggers a bounded LEAN evaluation before custom engine authorization.
+
+## ADR-006: Apache-2.0 project with explicit dependency boundaries
+
+TideLab-authored source and documentation use Apache-2.0. This does not relicense dependencies. A future NautilusTrader-backed distribution must preserve its LGPL terms, notices, corresponding-source and replacement/relinking rights where applicable, and the project's required independent-project trademark disclaimer. Upstream contributions are a separate choice subject to NautilusTrader's contributor agreement.
+
+Source-only development against a separately installed, pinned dependency is preferred. Container or executable distribution adds a release checklist for third-party source, licenses, notices, and replacement instructions. See `OPEN_SOURCE_AND_PUBLICATION.md`.
+
+## ADR-007: Rights-cleared reproducibility and evidence-first publication
+
+Public endpoint access is not a license to publish data or derived artifacts. Each data source must declare retention, research, reproducibility, redistribution, charting, video, and automated-analysis rights before its outputs can enter a public release. Restricted local artifacts remain ignored and unpublished; public tests use synthetic or expressly redistributable fixtures.
+
+Capture durable, sanitized evidence during development: decisions, source/config/data identities, failures, test results, experiment manifests, forward reports, and selected milestone visuals. Produce a polished video later from that record, after a validated result exists. Recording and editing software remain unselected and no purchase is authorized.
+
 ## Access phases
 
-1. Public Coinbase Advanced market endpoints for product rules, historical bars, and live data. Measure limits, depth, gaps, and freshness; public availability is not account eligibility or execution evidence.
-2. Historical simulation with complete experiment records and venue-specific cost assumptions.
-3. Forward-paper operation with newly arriving data and no private account access.
-4. A second structurally different public/read-only or simulated adapter to prove the core contracts without adding live authority.
-5. Advisory/manual execution only if separately requested, with time-limited proposals and fill reconciliation. Private read access, if needed, requires a user-created least-privilege key and a fresh permissions review.
-6. Only after explicit live approval: a dedicated minimally funded account/portfolio or wallet, current eligibility/API-terms verification, tested recovery, and credentials stored outside chat, Git, reports, logs, and model context. Use view/trade only where supported; never grant transfer/withdrawal permission merely for strategy execution.
+1. Completed bounded public Coinbase Advanced fixture work for product rules, recent bars, and live-data characterization. Keep resulting artifacts local. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis except any separately approved minimal terms/technical clarification.
+2. Engine bakeoff using permitted fixtures: pinned NautilusTrader first, LEAN only if required. No private account access or order submission.
+3. Rights-cleared historical simulation with complete experiment records and venue-specific cost assumptions.
+4. Forward-paper operation with newly arriving data and no private account access.
+5. A second structurally different public/read-only or simulated adapter to prove the core contracts without adding live authority.
+6. Advisory/manual execution only if separately requested, with time-limited proposals and fill reconciliation. Private read access, if needed, requires a user-created least-privilege key and a fresh permissions review.
+7. Only after explicit live approval: a dedicated minimally funded account/portfolio or wallet, current eligibility/API-terms verification, tested recovery, and credentials stored outside chat, Git, reports, logs, and model context. Use view/trade only where supported; never grant transfer/withdrawal permission merely for strategy execution.
 
 ## Application design
 
 Market adapter -> canonical timestamped event store -> feature view -> versioned strategy -> target position/trade intent -> independent risk check -> venue execution planner -> simulated/advisory/automated adapter -> append-only ledger -> reports.
 
-A future live broker implements the same intent interface with venue-specific state and reconciliation. Paper and live configurations and databases stay separate; missing or invalid configuration fails closed. No strategy runner, private adapter, or live broker is included in the first implementation slice.
+A future live broker implements the same intent interface with venue-specific state and reconciliation. Paper and live configurations and databases stay separate; missing or invalid configuration fails closed. Prefer adopted engine components where they satisfy TideLab's contracts; custom components require a documented gap from TL-001A. No strategy runner, private adapter, or live broker is included in the first implementation slice.
 
-- Python with pinned dependencies; verify supported versions when implementation begins.
-- SQLite for single-writer state/journal; bounded raw-data retention and file-based archives if needed. Use decimal arithmetic for money and quantities.
+- Python for the TideLab control layer with pinned dependencies; verify the adopted engine's supported versions before integration.
+- SQLite remains valid for TideLab's current single-writer fixture state and journals. Do not force the adopted engine into TideLab's storage choice; require exportable, versioned experiment and accounting evidence instead. Use decimal arithmetic for money and quantities.
 - UTC timestamps for market/event storage; optionally display America/Anchorage time.
 - Record exchange event time, local receipt time, product metadata version, strategy/config version, and source commit for each experiment.
 - Preserve raw/native records or content hashes sufficient to audit normalization and replay decisions.
@@ -84,8 +105,17 @@ Coinbase fixture, checked 2026-09-10:
 - [API key permissions](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/data-api/get-api-key-permissions)
 - [Static sandbox](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/sandbox)
 - [Coinbase US agreement](https://www.coinbase.com/legal/user_agreement/united_states) and [licenses](https://www.coinbase.com/legal/licenses)
+- [Coinbase Market Data Terms of Use](https://www.coinbase.com/legal/market_data), reviewed 2026-09-21; the page reported a 2026-08-07 update and broad restrictions on redistribution and derived works
 
 An unauthenticated GET to https://api.coinbase.com/api/v3/brokerage/market/products/BTC-USD succeeded from this machine. It reported status online, trading_disabled false, base_min_size 0.00000001, quote_min_size 1, base_increment 0.00000001, and quote_increment 0.01. This is a point-in-time public response, not proof of account eligibility or a permanent trading minimum. Refresh rules and validate complete order constraints at runtime.
+
+Open-source engine and publication sources reviewed 2026-09-21; no dependency was installed or adopted:
+
+- [NautilusTrader license](https://github.com/nautechsystems/nautilus_trader/blob/develop/LICENSE), [open-source policy](https://nautilustrader.io/legal/open-source-licensing/), [trademark policy](https://nautilustrader.io/legal/trademark-policy/), [backtesting concepts](https://nautilustrader.io/docs/latest/concepts/backtesting/), and [Coinbase integration](https://nautilustrader.io/docs/latest/integrations/coinbase/)
+- [GNU license FAQ](https://www.gnu.org/licenses/gpl-faq.en.html) for LGPL distribution/linking context
+- [QuantConnect LEAN](https://github.com/QuantConnect/Lean) as the fallback evaluation candidate
+
+These sources support a bounded technical and licensing bakeoff. They do not establish final stack fitness, legal advice, dependency adoption, or permission to publish third-party data and derived artifacts.
 
 Future-adapter feasibility reviewed 2026-09-16; no account access or integration was performed:
 

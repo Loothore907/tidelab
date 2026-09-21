@@ -23,12 +23,15 @@ Register a manifest before evaluation containing:
 - development, validation, and untouched evaluation dates;
 - benchmarks, metrics, and numeric pass/fail criteria;
 - source revision, data revision, configuration hash, and dependencies.
+- data-license/terms revision and whether retention, redistribution, derived charts/reports, video demonstration, and automated analysis are permitted, prohibited, or unknown.
 
 Changing any rule, parameter outside its registered range, data boundary, execution assumption, or pass criterion creates a new experiment version.
 
 ## Experiment record
 
 Keep an append-only record of every run, including failures and discarded variants. Record inputs, outputs, warnings, data gaps, code/config identity, environment, timestamps, and the relationship to prior runs. A model-generated variation counts as a trial even if it is never highlighted in a report.
+
+Research reproducibility does not override provider rights. Restricted market data and derived artifacts remain local and out of Git. Public fixtures must be synthetic or expressly redistributable, and public results must identify how an authorized user can reacquire or verify the permitted inputs. Unknown publication rights fail closed.
 
 Do not use the untouched interval as an iterative development set. Once inspected, it belongs to that experiment generation. Further adaptation requires a newly declared untouched period or honest forward data.
 
