@@ -1,7 +1,7 @@
 """Isolated TL-001A compatibility probe; not a production engine adapter.
 
 The optional NautilusTrader dependency is imported only when the probe runs.
-No venue connection, market-data download, account access, or order submission occurs.
+No venue connection, market-data download, account access, or live order occurs.
 """
 
 from __future__ import annotations
@@ -181,6 +181,126 @@ def run_probe(events: Sequence[MarketEvent]) -> dict[str, object]:
             "last_close": isoformat_utc(events[-1].event_time + HOUR),
             "signals": tuple(observer.signals),
             "orders_submitted": 0,
+        }
+    finally:
+        engine.dispose()
+
+
+def run_execution_probe(
+    events: Sequence[MarketEvent],
+    *,
+    quote_after_first_close: bool,
+    order_quantity: str = "1.000",
+    quote_size: str = "2.000",
+) -> dict[str, object]:
+    """Exercise one simulated buy against a later synthetic quote, not the signal bar.
+
+    This tests API/timing/accounting behavior only. It is deliberately not H1's
+    execution policy or a realistic market-impact model.
+    """
+    import nautilus_trader
+    from nautilus_trader.backtest import BacktestEngine, BacktestEngineConfig
+    from nautilus_trader.execution import StaticLatencyModel
+    from nautilus_trader.model import AccountType, Currency, CurrencyPair, InstrumentId
+    from nautilus_trader.model import Money, OmsType, OrderSide, Price, Quantity
+    from nautilus_trader.model import QuoteTick, Symbol, Venue
+    from nautilus_trader.trading import Strategy
+
+    if nautilus_trader.__version__ != "2.0.0rc5":
+        raise RuntimeError("TL-001A probe requires NautilusTrader 2.0.0rc5")
+    venue = Venue("SIM")
+    instrument_id = InstrumentId(Symbol("BTC-USDT"), venue)
+    admitted = admit_hourly_bars(events, instrument_id=instrument_id)
+    usdt = Currency.from_str("USDT")
+    btc = Currency.from_str("BTC")
+    instrument = CurrencyPair(
+        instrument_id=instrument_id,
+        raw_symbol=Symbol("BTC-USDT"),
+        base_currency=btc,
+        quote_currency=usdt,
+        price_precision=2,
+        size_precision=3,
+        price_increment=Price.from_str("0.01"),
+        size_increment=Quantity.from_str("0.001"),
+        ts_event=0,
+        ts_init=0,
+        min_quantity=Quantity.from_str("0.001"),
+        min_notional=Money(1, usdt),
+        maker_fee=Decimal("0.001"),
+        taker_fee=Decimal("0.001"),
+    )
+
+    class ExecutionObserver(Strategy):
+        def __init__(self) -> None:
+            super().__init__()
+            self.submitted_at: int | None = None
+            self.fills: list[tuple[str, str, str | None, int]] = []
+            self.rejections: list[str] = []
+
+        def on_start(self) -> None:
+            self.subscribe_bars(admitted.bars[0].bar_type)
+
+        def on_bar(self, bar: object) -> None:
+            if self.submitted_at is not None:
+                return
+            self.submitted_at = bar.ts_event
+            order = self.order_factory.market(
+                instrument_id=instrument_id,
+                order_side=OrderSide.BUY,
+                quantity=Quantity.from_str(order_quantity),
+            )
+            self.submit_order(order)
+
+        def on_order_filled(self, event: object) -> None:
+            commission = None if event.commission is None else str(event.commission)
+            self.fills.append((str(event.last_qty), str(event.last_px), commission, event.ts_event))
+
+        def on_order_rejected(self, event: object) -> None:
+            self.rejections.append(str(event.reason))
+
+    observer = ExecutionObserver()
+    engine = BacktestEngine(BacktestEngineConfig(bypass_logging=True, run_analysis=False))
+    try:
+        engine.add_venue(
+            venue=venue,
+            oms_type=OmsType.NETTING,
+            account_type=AccountType.CASH,
+            starting_balances=[Money(10_000, usdt)],
+            base_currency=None,
+            latency_model=StaticLatencyModel(base_latency_nanos=1_000_000_000),
+            bar_execution=False,
+            liquidity_consumption=True,
+        )
+        engine.add_instrument(instrument)
+        engine.add_strategy(observer)
+        data = list(admitted.bars)
+        if quote_after_first_close:
+            quote_ns = admitted.bars[0].ts_event + 60_000_000_000
+            data.append(QuoteTick(
+                instrument_id=instrument_id,
+                bid_price=Price.from_str("100.00"),
+                ask_price=Price.from_str("100.20"),
+                bid_size=Quantity.from_str(quote_size),
+                ask_size=Quantity.from_str(quote_size),
+                ts_event=quote_ns,
+                ts_init=quote_ns,
+            ))
+        engine.add_data(data)
+        engine.run()
+        account = engine.cache.account_for_venue(venue)
+        cached_orders = engine.cache.orders(venue=venue)
+        if len(cached_orders) != 1:
+            raise AssertionError("the execution probe expected exactly one cached order")
+        cached_order = cached_orders[0]
+        return {
+            "submitted_at": observer.submitted_at,
+            "fills": tuple(observer.fills),
+            "rejections": tuple(observer.rejections),
+            "cached_order_status": cached_order.status.name,
+            "cached_filled_qty": str(cached_order.filled_qty),
+            "usdt_total": str(account.balance_total(usdt)),
+            "btc_total": str(account.balance_total(btc)),
+            "fixture_id": admitted.fixture_id,
         }
     finally:
         engine.dispose()

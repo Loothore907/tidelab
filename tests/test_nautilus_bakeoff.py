@@ -7,7 +7,7 @@ pytest.importorskip("nautilus_trader")
 from nautilus_trader.model import InstrumentId
 
 from tidelab.domain import MarketEvent
-from tidelab.nautilus_bakeoff import admit_hourly_bars, run_probe
+from tidelab.nautilus_bakeoff import admit_hourly_bars, run_execution_probe, run_probe
 
 
 START = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -63,3 +63,38 @@ def test_rejects_non_synthetic_source() -> None:
     event = MarketEvent(**{**vars(event), "source": "coinbase.public_rest.candles"})
     with pytest.raises(ValueError, match="synthetic"):
         admit_hourly_bars([event], instrument_id=INSTRUMENT_ID)
+
+
+def test_simulated_order_waits_for_later_quote_and_updates_cash() -> None:
+    result = run_execution_probe([synthetic_bar(0, "100.00")], quote_after_first_close=True)
+    assert result["rejections"] == ()
+    fill_ns = int(START.timestamp()) * 1_000_000_000 + 3_660_000_000_000
+    assert result["fills"] == (("1.000", "100.20", "0.10020000 USDT", fill_ns),)
+    assert result["fills"][0][3] > result["submitted_at"]
+    assert result["usdt_total"] == "9899.69980000 USDT"
+    assert result["btc_total"] == "1.00000000 BTC"
+    assert result["cached_order_status"] == "FILLED"
+    assert result["cached_filled_qty"] == "1.000"
+    assert run_execution_probe([synthetic_bar(0, "100.00")], quote_after_first_close=True) == result
+
+
+def test_simulated_order_without_following_market_data_is_not_a_fill() -> None:
+    result = run_execution_probe([synthetic_bar(0, "100.00")], quote_after_first_close=False)
+    assert result["fills"] == ()
+    assert result["cached_order_status"] == "REJECTED"
+    assert result["cached_filled_qty"] == "0.000"
+    assert result["usdt_total"] == "10000.00000000 USDT"
+    assert result["btc_total"] == "None"
+
+
+def test_limited_quote_exposes_residual_fill_assumption() -> None:
+    result = run_execution_probe(
+        [synthetic_bar(0, "100.00")],
+        quote_after_first_close=True,
+        quote_size="0.400",
+    )
+    assert result["fills"][:1][0][:3] == ("0.400", "100.20", "0.04008000 USDT")
+    assert result["fills"][1][:3] == ("0.600", "100.21", "0.06012600 USDT")
+    assert result["usdt_total"] == "9899.69379400 USDT"
+    assert result["btc_total"] == "1.00000000 BTC"
+    assert result["cached_order_status"] == "FILLED"
