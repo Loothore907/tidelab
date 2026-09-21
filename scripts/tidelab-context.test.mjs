@@ -26,8 +26,8 @@ test("context reads one committed head and keeps working edits separate", () => 
     writeFileSync(join(root, "AGENTS.md"), "# Rules\nNo live trading without approval.\n");
     writeFileSync(join(root, "HANDOFF.md"), "# Handoff\n\nUpdated 2026-09-21.\n");
     writeFileSync(join(root, "docs", "CONTEXT_MAP.md"), "# Context map\nRead the handoff.\n");
-    writeFileSync(join(root, "docs", "ROADMAP.md"), "# Roadmap\nPaper first; live later.\n");
-    writeFileSync(join(root, "docs", "evidence", "probe.md"), "# Probe\nSynthetic only.\n");
+    writeFileSync(join(root, "docs", "ROADMAP.md"), "# Roadmap\nPaper first; live later.\nFull cost includes drawdown.\n");
+    writeFileSync(join(root, "docs", "evidence", "probe.md"), `# Probe\nSynthetic only.\n${"word ".repeat(100)}target-evidence\n`);
     git(root, "add", ".");
     git(root, "commit", "-m", "fixture");
 
@@ -42,9 +42,11 @@ test("context reads one committed head and keeps working edits separate", () => 
     const found = run(root, "decision", "paper first", "--json");
     assert.equal(found.status, 0);
     assert.deepEqual(JSON.parse(found.stdout).results.map((item) => [item.path, item.line]), [["docs/ROADMAP.md", 2]]);
+    assert.equal(run(root, "decision", "full raw").status, 1);
     assert.equal(run(root, "decision", "Uncommitted").status, 1);
     assert.match(run(root, "map").stdout, /Read the handoff/);
     assert.equal(run(root, "evidence", "Synthetic").status, 0);
+    assert.match(run(root, "evidence", "target-evidence").stdout, /target-evidence/);
     assert.equal(run(root, "impact", "live later").status, 0);
     assert.equal(run(root, "impact", "sk-123456789012345").status, 2);
     assert.equal(run(root, "impact", "C:\\private\\path").status, 2);

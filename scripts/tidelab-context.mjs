@@ -70,10 +70,20 @@ function eligible(path, mode) {
   return TEXT_EXTENSIONS.test(path) && !path.startsWith(".github/");
 }
 
+function excerpt(line, phrase, tokens) {
+  const safe = redact(line);
+  const lower = safe.toLowerCase();
+  const match = lower.indexOf(phrase);
+  const position = match >= 0 ? match : Math.max(0, lower.indexOf(tokens[0]));
+  const start = Math.max(0, position - 120);
+  const end = Math.min(safe.length, start + 400);
+  return `${start ? "…" : ""}${safe.slice(start, end).trim()}${end < safe.length ? "…" : ""}`;
+}
+
 function search(root, head, entries, mode, query) {
   const results = [];
   const phrase = query.toLowerCase();
-  const tokens = phrase.split(/\s+/u);
+  const tokens = phrase.split(/[^a-z0-9_]+/u).filter(Boolean);
   for (const entry of entries) {
     if (!eligible(entry.path, mode)) continue;
     const content = blob(root, head, entry);
@@ -81,8 +91,9 @@ function search(root, head, entries, mode, query) {
     let count = 0;
     for (const [index, line] of content.split(/\r?\n/u).entries()) {
       const lower = line.toLowerCase();
-      if (!lower.includes(phrase) && !tokens.every((token) => lower.includes(token))) continue;
-      results.push({ path: redact(entry.path), line: index + 1, text: redact(line.trim()).slice(0, 400) });
+      const words = lower.split(/[^a-z0-9_]+/u);
+      if (!lower.includes(phrase) && !tokens.every((token) => words.includes(token))) continue;
+      results.push({ path: redact(entry.path), line: index + 1, text: excerpt(line, phrase, tokens) });
       if (++count === MAX_PER_FILE || results.length === MAX_RESULTS) break;
     }
     if (results.length === MAX_RESULTS) break;
