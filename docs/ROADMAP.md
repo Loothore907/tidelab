@@ -2,7 +2,7 @@
 
 Milestones advance on evidence, not a promised return or fixed calendar. TL identifiers are local backlog labels, not existing GitHub issues.
 
-Current state: TL-001 is implemented and locally validated on `feat/tl-001-market-data`, with [draft PR #5](https://github.com/Loothore907/tidelab/pull/5) against `main` and exact-head CI passed at `16cf5d4`. The Apache/open-source decision is stacked in [draft PR #6](https://github.com/Loothore907/tidelab/pull/6). Neither is merged; TL-002 has not started.
+Current state: TL-001 integrated through [PR #5](https://github.com/Loothore907/tidelab/pull/5), with exact-head CI passed at `16cf5d4`. The Apache/open-source decision is recorded in [PR #6](https://github.com/Loothore907/tidelab/pull/6). TL-001A and TL-001B remain open gates; TL-002 has not started.
 
 Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Coinbase's Market Data Terms reviewed 2026-09-21 also create material automated-analysis and publication-rights questions for market data and derived artifacts. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis. Establish a sufficiently long, rights-cleared historical and forward source before TL-003; never treat endpoint access or the current depth as adequate public-research coverage.
 
@@ -97,6 +97,6 @@ Positive expectancy is not regular income. After a strategy survives forward tes
 
 The public repository is [Loothore907/tidelab](https://github.com/Loothore907/tidelab), with `main` as the default branch. The planning baseline and the two feature branches are pushed. Public source publication has begun; no market-data archive, strategy result, recording, or video has been published. Merge authority and gates remain separate from branch publication.
 
-Use `main` as the integration base and an issue-linked focused branch/PR for each coherent slice. Issues #1-#4 and draft PRs #5-#6 now own the current work; PR #6 is stacked on PR #5 and must be retargeted and rechecked after #5 integrates. Run required local checks and exact-head CI and integrate only within granted authority. Follow the user's global Git hygiene instructions. Do not invent remote evidence or bypass checks.
+Use `main` as the integration base and an issue-linked focused branch/PR for each coherent slice. Issues #1-#4 and PRs #5-#6 record the foundation and open-source decision. Run required local checks and exact-head CI and integrate only within granted authority. Follow the user's global Git hygiene instructions. Do not invent remote evidence or bypass checks.
 
 TL-001A and TL-001B are separate reviewable slices after TL-001 integration. Evidence capture is ongoing and sanitized; selecting video software, purchasing services, recording private account activity, or publishing a video requires separate later scope.

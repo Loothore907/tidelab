@@ -27,11 +27,11 @@ Open API access is not publication permission. Coinbase remains a bounded techni
 
 ## Current state
 
-TL-001 is implemented and locally validated on the feature branch: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
+TL-001 is implemented and integrated: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
 
 A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create a publication-rights concern. A rights-cleared source with adequate historical depth is required before serious, publicly reproducible evaluation.
 
-This folder is registered as the local Codex project TideLab. The public [GitHub repository](https://github.com/Loothore907/tidelab) now contains the planning baseline; TL-001 is under draft review in [PR #5](https://github.com/Loothore907/tidelab/pull/5), and the open-source decision is stacked in [PR #6](https://github.com/Loothore907/tidelab/pull/6). Neither slice is merged. No private account integration or deployment exists. Venue eligibility, fees, private API access, and live operation remain unverified.
+This folder is registered as the local Codex project TideLab. The public [GitHub repository](https://github.com/Loothore907/tidelab) contains TL-001 via [PR #5](https://github.com/Loothore907/tidelab/pull/5); the Apache/open-source decision is recorded in [PR #6](https://github.com/Loothore907/tidelab/pull/6). No private account integration or deployment exists. Venue eligibility, fees, private API access, and live operation remain unverified.
 
 ## Local setup
 
@@ -72,6 +72,6 @@ These commands document the completed TL-001 fixture. Pending TL-001B, do not us
 
 The WebSocket candle channel provides live five-minute updates. TideLab keeps those as observations; strategy-ready hourly bars are admitted only after the public REST interval is closed.
 
-## Current integration task
+## Next research gates
 
-The public remote is now `Loothore907/tidelab`. Review and integrate TL-001 through [issue #1](https://github.com/Loothore907/tidelab/issues/1) and [draft PR #5](https://github.com/Loothore907/tidelab/pull/5) only after exact-head checks and review. Then retarget/recheck the stacked open-source decision in [issue #4](https://github.com/Loothore907/tidelab/issues/4) and [draft PR #6](https://github.com/Loothore907/tidelab/pull/6). TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) and TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) precede TL-002. TL-002 strategy integration has not started.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) and TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) are separate decisions that precede TL-002. Neither an engine nor a public research-data source has been adopted. TL-002 strategy integration has not started.

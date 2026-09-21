@@ -1,6 +1,6 @@
 # Handoff
 
-Updated 2026-09-21. TL-001 implemented and locally validated; public remote, owning issues, and two draft PRs created. Neither PR is merged.
+Updated 2026-09-21. TL-001 was integrated through PR #5; PR #6 records the Apache/open-source decision. TL-001A and TL-001B remain separate gates before TL-002.
 
 ## Decisions carried forward
 
@@ -35,15 +35,13 @@ The user lives in Alaska and has a stale Coinbase account and prior Solana DeFi 
 - Added the Apache License 2.0 and TideLab notice; documented dependency-license, trademark, data-rights, and public-release gates in `docs/OPEN_SOURCE_AND_PUBLICATION.md`.
 - Added TL-001A for a pinned NautilusTrader-first engine bakeoff and TL-001B for a rights-cleared historical/forward data-source decision before TL-002.
 - Chose evidence-first process capture with later video assembly; no recording/editing product has been selected or purchased.
-- Public remote `Loothore907/tidelab` and owning issues #1-#4 now exist. TL-001 is in draft PR #5 against `main`; the open-source decision is stacked in draft PR #6 against the TL-001 branch. PR #5's exact-head CI passed at `16cf5d4`; PR #6's result must be rechecked after this handoff update. Local success and remote CI are distinct.
+- Public remote `Loothore907/tidelab` and owning issues #1-#4 exist. TL-001 passed exact-head CI at `16cf5d4` and merged through PR #5. PR #6 records the Apache/open-source decision. Local success and remote CI are distinct; check PR #6's final head and merge result before claiming it is integrated.
 
 ## Next actions and owners
 
-1. Review TL-001 in issue #1 and draft PR #5 against its exact head; integrate only when the applicable checks/review and merge authority are satisfied.
-2. Retarget stacked draft PR #6 to `main` after #5 integrates, then recheck its exact diff/head, CI, and notices before integration. Issue #4 owns this documentation/licensing slice.
-3. In separate issue #2 / TL-001A, evaluate one pinned NautilusTrader release against the recorded acceptance criteria. Do not adopt, fork, or distribute it merely because the initial API fits.
-4. In separate issue #3 / TL-001B, inventory required artifacts and compare rights-cleared historical/forward data sources. Do not acquire new Coinbase strategy data or publish Coinbase data/derived artifacts while the relevant rights are unresolved.
-5. Only after TL-001A and TL-001B, implement TL-002 as TideLab integration/policy work on the adopted engine, with custom infrastructure limited to documented critical gaps.
-6. Before any private access, the user handles account recovery directly and verifies residence, product eligibility, current fees, API terms, and intended permissions. Never paste keys, recovery phrases, passwords, or identity documents into chat.
+1. In separate issue #2 / TL-001A, evaluate one pinned NautilusTrader release against the recorded acceptance criteria. Do not adopt, fork, or distribute it merely because the initial API fits.
+2. In separate issue #3 / TL-001B, inventory required artifacts and compare rights-cleared historical/forward data sources. Do not acquire new Coinbase strategy data or publish Coinbase data/derived artifacts while the relevant rights are unresolved.
+3. Only after TL-001A and TL-001B, implement TL-002 as TideLab integration/policy work on the adopted engine, with custom infrastructure limited to documented critical gaps.
+4. Before any private access, the user handles account recovery directly and verifies residence, product eligibility, current fees, API terms, and intended permissions. Never paste keys, recovery phrases, passwords, or identity documents into chat.
 
-No private account was accessed. No trade, paid service, recording software, public dataset, video, or deployment was created. Runtime databases and validation configuration are local ignored artifacts. The public remote, four issues, and two draft PRs are the only new external artifacts.
+No private account was accessed. No trade, paid service, recording software, public dataset, video, or deployment was created. Runtime databases and validation configuration are local ignored artifacts.
