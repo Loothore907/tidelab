@@ -98,3 +98,16 @@ def test_limited_quote_exposes_residual_fill_assumption() -> None:
     assert result["usdt_total"] == "9899.69379400 USDT"
     assert result["btc_total"] == "1.00000000 BTC"
     assert result["cached_order_status"] == "FILLED"
+
+
+def test_cash_account_denies_oversized_simulated_buy() -> None:
+    result = run_execution_probe(
+        [synthetic_bar(0, "100.00")],
+        quote_after_first_close=True,
+        order_quantity="1000.000",
+    )
+    assert result["cached_order_status"] == "DENIED"
+    assert result["cached_filled_qty"] == "0.000"
+    assert result["fills"] == ()
+    assert result["usdt_total"] == "10000.00000000 USDT"
+    assert result["btc_total"] == "None"

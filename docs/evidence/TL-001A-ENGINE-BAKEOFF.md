@@ -14,7 +14,7 @@ Status: partial checkpoint, 2026-09-21. Issue [#2](https://github.com/Loothore90
 
 On Python 3.12 in a fresh, isolated environment, install `requirements.lock` and `requirements.bakeoff.lock`, install TideLab editable with `--no-deps`, then run `python -m pytest tests/test_nautilus_bakeoff.py`. The optional dependency is deliberately absent from ordinary runtime setup. CI has an independent Windows `engine-bakeoff` job.
 
-The original five probe tests and 20-test combined suite passed locally and at PR #7's first exact head. The extended suite passed 23 tests locally on 2026-09-21. The dedicated `engine-bakeoff` CI job must be checked at the final PR head; earlier CI is not proof of later changes.
+The original five probe tests and 20-test combined suite passed locally and at PR #7's first exact head. The extended suite passed 24 tests locally on 2026-09-21. The dedicated `engine-bakeoff` CI job must be checked at the final PR head; earlier CI is not proof of later changes.
 
 ## Observed behavior
 
@@ -23,6 +23,7 @@ The original five probe tests and 20-test combined suite passed locally and at P
 - The engine delivered five synthetic bars in timestamp order to one strategy callback. A 2-versus-3-bar moving-average signal skeleton produced `warming, warming, long, cash, cash` both inside the engine and in sequential evaluation. Two independent runs returned identical reported evidence. No orders were submitted.
 - In a separate execution probe, bars drive signals only (`bar_execution=False`). A one-second simulated submission delay and a synthetic bid/ask quote one minute after the closed bar produced a one-unit simulated buy at the later ask of 100.20, not the signal bar's close of 100.00. A 0.1% taker fee was 0.10020000 USDT; the simulated account moved from 10,000 USDT to 9,899.69980000 USDT plus 1 BTC. Without a subsequent quote, the cached order ended `REJECTED` with zero filled quantity and no account change. Repeated probe outputs matched.
 - A quote displaying only 0.400 BTC at the ask produced two engine fills: 0.400 at 100.20 and the 0.600 residual at 100.21. The latter is NautilusTrader's deterministic one-tick residual rule, **not** evidence that real liquidity existed. Do not promote this default to a realistic execution assumption without a separately justified fill model and more granular data.
+- A synthetic buy far above available cash ended `DENIED` in the cached order with zero filled quantity and unchanged balances. This is a narrow cash-account guard observation, not proof that TideLab's independent risk policy exists.
 - During exploration, a bar-execution-enabled run changed cash/inventory even though the Python observer recorded no fill callback at the end of the run. With bar-driven execution disabled, the no-quote order was rejected in the cache even though the observer recorded no rejection callback. Callback-only accounting is unsafe; the probe now reads cached order status and filled quantity alongside balances. Later work must reconcile these against a durable ledger, including end-of-stream and interruption cases.
 
 ## Not yet demonstrated; required before TL-001A completion
