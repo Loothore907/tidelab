@@ -12,7 +12,7 @@ TideLab-authored work is Apache-2.0 and is intended for eventual public release.
 
 Coinbase's current market-data terms create a material research-use and public-reproducibility concern in addition to the observed 349-hour depth. Pending TL-001B, do not fetch new Coinbase data for strategy development or automated analysis, and keep existing data and derived artifacts local. TL-001B must select a sufficiently deep source with documented research, retention, derived-work, charting/video, and automated-analysis rights. Publishing full raw datasets is optional; acquisition instructions and hashes may support reproducibility where permitted.
 
-The owner approved a narrow Kraken market-data rights inquiry on 2026-09-21, and it was sent to the contact in Kraken's API guidance. A reply is pending. Sending the inquiry does not grant permission, select Kraken, authorize spending, or authorize acquisition of real strategy data.
+The owner approved a narrow Kraken market-data rights inquiry on 2026-09-21, and it was sent to the contact in Kraken's API guidance. Kraken's automated intake reply asked for company, partnership rationale, and country; we answered truthfully that TideLab is an independent US-based project seeking rights clarification, not a proposed partnership. A substantive rights answer is still pending. Sending these messages does not grant permission, select Kraken, authorize spending, or authorize acquisition of real strategy data.
 
 Capture lightweight, sanitized evidence throughout development and assemble any polished process/results video later from versioned decisions, experiments, failures, and forward reports. Recording/editing software is deliberately unselected and no purchase or publication is authorized.
 
@@ -41,7 +41,7 @@ The owner is exploring a broader autonomous research process: candidate discover
 - Chose evidence-first process capture with later video assembly; no recording/editing product has been selected or purchased.
 - Public remote `Loothore907/tidelab` and owning issues #1-#4 exist. TL-001 passed exact-head CI at `16cf5d4` and merged through PR #5. PR #6 is merged into `main` at `efcc81a`.
 - [Draft PR #7](https://github.com/Loothore907/tidelab/pull/7) / issue #2 tests pinned NautilusTrader with synthetic bars, later quotes, fees, partial fills, cash/inventory reconciliation, and an oversized-order denial. Head `b08100c` passed 24 local optional-engine tests plus exact-head standard and engine CI on 2026-09-21. This does not settle durable restart recovery, realistic market fills, or engine adoption.
-- [Draft PR #8](https://github.com/Loothore907/tidelab/pull/8) / issue #3 documents data and publication-rights preflight. Head `9785456` passed 15 local tests and exact-head CI on 2026-09-21. The Kraken inquiry was sent; no real-data source is cleared or selected.
+- [Draft PR #8](https://github.com/Loothore907/tidelab/pull/8) / issue #3 documents data and publication-rights preflight. Head `9785456` passed 15 local tests and exact-head CI on 2026-09-21 before the automated Kraken intake reply; verify its latest head and checks after the factual reply update. No real-data source is cleared or selected.
 
 ## Next actions and owners
 
@@ -50,7 +50,7 @@ The owner is exploring a broader autonomous research process: candidate discover
 3. In issue #3 / TL-001B, check for a Kraken reply before interpreting rights; if none, compare other zero-cost sources and technical coverage without acquiring restricted strategy data. Do not acquire new Coinbase strategy data or publish Coinbase data/derived artifacts while rights are unresolved.
 4. Only after TL-001A and TL-001B, implement TL-002 as TideLab integration/policy work on the adopted engine, with custom infrastructure limited to documented critical gaps. Before any private access, the owner handles account recovery directly and verifies eligibility, fees, API terms, and intended permissions. Never paste credentials or identity documents into chat.
 
-No private account was accessed. No trade, paid service, recording software, public dataset, video, or deployment was created. Runtime databases and validation configuration are local ignored artifacts. The Kraken rights email was sent; a response and grant remain unknown.
+No private account was accessed. No trade, paid service, recording software, public dataset, video, or deployment was created. Runtime databases and validation configuration are local ignored artifacts. Kraken's automated intake request was answered; a substantive rights response and grant remain unknown.
 
 ## Next-session pickup
 

@@ -23,7 +23,7 @@ This is a navigation map, not a second source of authority. For a fresh session,
 ## Active research streams at this handoff
 
 - [Issue #2](https://github.com/Loothore907/tidelab/issues/2) / [draft PR #7](https://github.com/Loothore907/tidelab/pull/7): TL-001A synthetic NautilusTrader engine bakeoff. Adoption, realistic fills, and restart/reconciliation are not decided.
-- [Issue #3](https://github.com/Loothore907/tidelab/issues/3) / [draft PR #8](https://github.com/Loothore907/tidelab/pull/8): TL-001B data rights and technical coverage. Kraken permission inquiry sent; reply pending. Full raw-dataset publication is optional, but research use and each public derived artifact need a supportable basis.
+- [Issue #3](https://github.com/Loothore907/tidelab/issues/3) / [draft PR #8](https://github.com/Loothore907/tidelab/pull/8): TL-001B data rights and technical coverage. Kraken permission inquiry sent and its automated intake request answered; substantive rights reply pending. Full raw-dataset publication is optional, but research use and each public derived artifact need a supportable basis.
 - [Issue #9](https://github.com/Loothore907/tidelab/issues/9) / [draft PR #10](https://github.com/Loothore907/tidelab/pull/10): this context map and handoff. It does not adopt a data source, engine, strategy, or live execution mode.
 
 For questions outside these paths, start with a short `search-docs`, `decision`, `evidence`, or `impact` query. Open its cited lines and nearby context before acting. The map can become stale; current repository and provider state must be checked live.
