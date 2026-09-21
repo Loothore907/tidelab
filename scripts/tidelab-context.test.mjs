@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const cli = fileURLToPath(new URL("./tidelab-context.mjs", import.meta.url));
+
+test("repo-local context skill has complete routing metadata", () => {
+  const skill = readFileSync(new URL("../.agents/skills/tidelab-context/SKILL.md", import.meta.url), "utf8");
+  assert.match(skill, /^---\r?\nname: tidelab-context\r?\ndescription: .+\r?\n---\r?\n/u);
+  assert.doesNotMatch(skill, /\bTODO\b|\[TODO\]/u);
+});
 
 function git(root, ...args) {
   execFileSync("git", ["-C", root, ...args], { stdio: "ignore" });
