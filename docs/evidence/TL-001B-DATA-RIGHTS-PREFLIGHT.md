@@ -39,20 +39,22 @@ Kraken's [archive notes](https://support.kraken.com/articles/360047124832-downlo
 
 1. Choose a historical and forward source only after verifying the **specific** instrument, UTC timestamps, interval boundaries, gaps/revisions, depth across market regimes, and continued access. The published Kraken archive depth is a lead, not a validated TideLab dataset.
 2. Save dated copies or stable references to the exact provider terms and any written permission. Evaluate research, algorithmic use, retention, re-acquisition, reproducibility, public derived charts/reports/video, and commercial/monetized presentation separately. An unknown field fails closed.
-3. If permission is needed, prepare a precise provider inquiry that names TideLab's local research, open-source code, public charts/reports, monetized case-study video, and lack of raw-data redistribution. Do not presume silence means consent.
+3. If permission is needed, send a precise provider inquiry that names TideLab's local research, open-source code, possible public charts/reports, monetized case-study video, and lack of raw-data redistribution. Do not presume silence means consent.
 4. Once a source passes, acquire only a bounded sample, record provenance/hashes privately, and validate coverage/quality before implementing an adapter. A change of source or material terms creates a new experiment input.
 5. If no zero-cost source clears both technical and publication gates, keep TL-001B open and return with a concrete rights/market pivot or capped paid-license proposal. Do not quietly lower the publication standard.
 
-## Provider clarification brief — not sent
+## Provider clarification request — sent, reply pending
 
-Kraken is the first provider worth asking because its published archives address the historical-depth problem. Before any contact, the owner should approve external outreach. A concise inquiry should identify TideLab as a public Apache-2.0 research-software project that may later publish a monetized process/results video, with **no raw Kraken data redistributed by TideLab**. Request written answers for the proposed BTC/USD spot historical OHLCVT and trade archives plus public forward feeds:
+Kraken is the first provider asked because its published archives address the historical-depth problem. The owner approved outreach on 2026-09-21. A clarification request was sent that day to `marketdata@kraken.com`, the contact identified in [Kraken's API guidance](https://docs-legacy.kraken.com/api/docs/guides/global-intro/). It describes TideLab as an independent Apache-2.0 research-software project that may later publish a monetized educational process video, with **no raw Kraken data redistributed by TideLab**. It asks for written answers covering historical archives and public forward feeds:
 
 1. May a personal researcher download, retain, and use the archives and forward feed in scripted algorithmic backtests and forward-paper evaluation, including automated analysis?
 2. May TideLab publish derived price charts, trade plots, performance tables, experiment reports, screenshots, and monetized video segments? Specify attribution, delay, display, and volume limits.
 3. May TideLab publish acquisition scripts, source URLs, checksums, schemas, and reproduction instructions so each user obtains data directly from Kraken, without TideLab hosting raw files?
-4. Is a separate commercial or market-data agreement required for any of those uses? If so, what scope, price, duration, termination, and redistribution restrictions apply?
-5. Do the answers cover both historical archives and newly arriving public API/WebSocket data, and do any third-party rights narrow the grant?
+4. Would later automated live trading using Kraken data require separate permission or a commercial agreement? That use would have its own approval gate.
+5. Are historical top-of-book bid/ask quotes available, with coverage and terms sufficient for spread and fill research?
 
 An answer that only confirms public download access would **not** clear algorithmic research or public derived artifacts. Preserve the reply and applicable terms as dated evidence before changing this gate.
 
-No account was accessed, no market-data file was downloaded, and no publication or provider contact was made for this preflight.
+Full raw-dataset publication is optional. The intended public story is the documented research and build process, with any real-data-derived artifact separately cleared or replaced by a permissible illustration. A permission denial would trigger another source or a different public artifact, not a silent waiver of the research-use gate.
+
+No Kraken account was accessed, no market-data file was downloaded, and no data-derived result was published for this preflight. The inquiry is pending; it is not permission.
