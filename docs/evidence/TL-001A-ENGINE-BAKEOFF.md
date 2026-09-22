@@ -1,0 +1,41 @@
+# TL-001A NautilusTrader bakeoff: synthetic replay checkpoint
+
+Status: partial checkpoint, updated 2026-09-22. Issue [#2](https://github.com/Loothore907/tidelab/issues/2) remains open. This is not engine adoption, a strategy evaluation, or permission for live operation.
+
+## Candidate and boundary
+
+- Candidate: `nautilus-trader==2.0.0rc5`, an upstream release candidate, isolated in `requirements.bakeoff.lock`; TideLab's normal runtime dependencies do not include it.
+- Upstream tag: [`v2.0.0rc5`](https://github.com/nautechsystems/nautilus_trader/releases/tag/v2.0.0rc5), resolving on 2026-09-21 to source commit `1b0a49d2792a9432a3aca3fcb617ce7a630d905e`.
+- Installed wheel: Windows x64, CPython 3.12; package metadata reports `LGPL-3.0-only`. No source was vendored or patched.
+- This candidate was chosen for a compatibility probe, not because a release candidate is suitable for a production commitment. Upstream's [v2 migration roadmap](https://github.com/nautechsystems/nautilus_trader/issues/4042) describes significant v1/v2 API changes. Re-evaluate version, maintenance, licensing, and distribution obligations before adoption.
+- The probe uses only `SIM:BTC-USDT` synthetic prices and a simulated venue. One observer submits zero orders; a separate execution probe submits one **simulated** order. Neither makes a market-data request, account connection, live order, or real-data publication.
+
+## Reproduction
+
+On Python 3.12 in a fresh, isolated environment, install `requirements.lock` and `requirements.bakeoff.lock`, install TideLab editable with `--no-deps`, then run `python -m pytest tests/test_nautilus_bakeoff.py`. The optional dependency is deliberately absent from ordinary runtime setup. CI has an independent Windows `engine-bakeoff` job.
+
+The original five probe tests and 20-test combined suite passed locally and at PR #7's first exact head. A later 24-test combined suite passed locally and at PR head `b08100c`. The fresh-process replay test below is a subsequent addition; its final exact-head CI must be checked separately.
+
+## Observed behavior
+
+- A canonical TideLab `MarketEvent` at the **start** of a closed hourly interval maps to a Nautilus `Bar` with `ts_event` at the **end** of that interval; conversion never silently makes an open bar strategy-ready.
+- The converter rejects non-synthetic sources, open bars, non-UTC starts, gaps, duplicates, out-of-order hours, early receipt, invalid OHLCV, and excess synthetic instrument precision. Original event IDs and a stable fixture ID remain outside the engine objects for provenance.
+- The engine delivered five synthetic bars in timestamp order to one strategy callback. A 2-versus-3-bar moving-average signal skeleton produced `warming, warming, long, cash, cash` both inside the engine and in sequential evaluation. Two independent runs returned identical reported evidence. No orders were submitted.
+- In a separate execution probe, bars drive signals only (`bar_execution=False`). A one-second simulated submission delay and a synthetic bid/ask quote one minute after the closed bar produced a one-unit simulated buy at the later ask of 100.20, not the signal bar's close of 100.00. A 0.1% taker fee was 0.10020000 USDT; the simulated account moved from 10,000 USDT to 9,899.69980000 USDT plus 1 BTC. Without a subsequent quote, the cached order ended `REJECTED` with zero filled quantity and no account change. Repeated probe outputs matched.
+- A quote displaying only 0.400 BTC at the ask produced two engine fills: 0.400 at 100.20 and the 0.600 residual at 100.21. The latter is NautilusTrader's deterministic one-tick residual rule, **not** evidence that real liquidity existed. Do not promote this default to a realistic execution assumption without a separately justified fill model and more granular data.
+- A synthetic buy far above available cash ended `DENIED` in the cached order with zero filled quantity and unchanged balances. This is a narrow cash-account guard observation, not proof that TideLab's independent risk policy exists.
+- During exploration, a bar-execution-enabled run changed cash/inventory even though the Python observer recorded no fill callback at the end of the run. With bar-driven execution disabled, the no-quote order was rejected in the cache even though the observer recorded no rejection callback. Callback-only accounting is unsafe; the probe now checks cached filled quantity against fill callbacks and checks cash/inventory against fill notional plus fees. Later work must reconcile these against a durable ledger, including end-of-stream and interruption cases.
+- The pinned 2.0.0rc5 Python wheel exposes `save_state`/`load_state` configuration and strategy `on_save`/`on_load` hooks, but local inspection found no `EventStoreConfig` or `replay_from_run_id` in its exported Python stubs/API. Upstream's [event-sourcing guide](https://nautilustrader.io/docs/nightly/concepts/event_sourcing/) describes a newer, still-evolving recovery surface. That guide is for nightly, not proof that this pinned wheel can durably replay an interrupted order. Recovery remains an explicit adoption gate.
+- A synthetic execution was rerun in separate fresh Python processes. The second process rebuilt the same cached `FILLED` quantity, fee-bearing fill, and 9,899.69980000 USDT plus 1 BTC balances as a temporary reconciliation record from the first process. Each run independently checked fill callbacks against the cached order and account totals. This establishes repeatable **full replay** of this completed fixture across process boundaries; it does not load a persisted Nautilus engine state or prove mid-order recovery.
+- Running only the prefix without its later quote ended with a cached `REJECTED` order and unchanged balances. Therefore treating an ended prefix as a checkpoint for a pending submission would be unsafe. The follow-on test must interrupt before finalization, persist and restore the relevant order/account state, and reconcile ambiguous outcomes without blind resubmission.
+- A bounded streaming pause before the later quote retained one cached `SUBMITTED` order in the **same process**, with zero fills and unchanged cash/inventory. Resuming the stream with the quote produced the same fill, fee, cached order, and balances as an uninterrupted run. This identifies an in-memory continuation path, but it does not persist the pending order or restore it after process loss. The earlier ended-prefix `REJECTED` result still applies.
+
+## Not yet demonstrated; required before TL-001A completion
+
+- Identical *operational* strategy behavior under historical and forward-paper clocks, including restart and timer behavior. The current sequential comparison shares the signal function but is not a forward-paper runner.
+- Fee and spread handling beyond this one synthetic buy; deliberately constrained slippage/fill models; quantity rounding, missed/rejected states, realistic partial fills, sell-side/P&L accounting, and reconciliation after interruption or ambiguous order state. Fresh-process full replay is narrower than durable mid-order recovery. The limited-quote case demonstrates an optimistic residual assumption, not a complete liquidity test.
+- A complete experiment identity covering engine/source, TideLab code/config, allowed input data, cost model, and every trial; source event IDs alone are not sufficient.
+- Replaceability through public extension points, Windows/Linux portability, migration stability, and packaged-distribution obligations under LGPL-3.0 and upstream trademark policy.
+- LEAN comparison only if a critical Nautilus requirement fails. No such failure has been established by this small probe.
+
+No profitability, realistic execution, or live safety conclusion follows from this checkpoint. The public [Nautilus backtesting guide](https://nautilustrader.io/docs/latest/concepts/backtesting/data-and-venues/) notes that bars cannot establish intrabar path, spread, depth, or queue position; later execution tests must make these assumptions explicit.

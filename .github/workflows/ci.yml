@@ -30,3 +30,21 @@ jobs:
         run: python -m pytest
       - name: Context atlas tests
         run: node --test scripts/tidelab-context.test.mjs
+
+  engine-bakeoff:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install isolated pinned probe dependencies
+        run: |
+          python -m pip install --requirement requirements.lock
+          python -m pip install --requirement requirements.bakeoff.lock
+          python -m pip install --editable . --no-deps
+      - name: Compile
+        run: python -m compileall -q src
+      - name: Synthetic engine probe
+        run: python -m pytest tests/test_nautilus_bakeoff.py
