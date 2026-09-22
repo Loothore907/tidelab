@@ -23,6 +23,7 @@ Open API access is not publication permission. Coinbase remains a bounded techni
 - [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [Current handoff and next task](HANDOFF.md)
+- [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
 - [Apache-2.0 license](LICENSE) and [project notice](NOTICE)
 
