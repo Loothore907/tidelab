@@ -12,7 +12,7 @@ The economic objective is to discover whether any strategy, combined with a feas
 
 Initial work remains public-data and simulation only. No exchange credentials, deposits, paid infrastructure, live trading, or external account operation are authorized.
 
-Open API access is not publication permission. Coinbase remains a bounded technical fixture while TideLab selects a data source whose retention, reproducibility, charting, and public-demonstration rights fit the intended open-source workflow.
+Open API access alone does not establish research or publication rights. Coinbase remains a bounded technical fixture while TideLab selects a deep source that supports local scripted research and retention. Public real-data artifacts are optional and checked separately.
 
 ## Project documents
 
@@ -21,6 +21,7 @@ Open API access is not publication permission. Coinbase remains a bounded techni
 - [Exchange, access, and deployment decisions](docs/ARCHITECTURE.md)
 - [Roadmap and evaluation gates](docs/ROADMAP.md)
 - [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
+- [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
@@ -30,7 +31,7 @@ Open API access is not publication permission. Coinbase remains a bounded techni
 
 TL-001 is implemented and integrated: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
 
-A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create a publication-rights concern. A rights-cleared source with adequate historical depth is required before serious, publicly reproducible evaluation.
+A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create research-use and publication-rights concerns. A source with adequate historical depth and supportable local research rights is required before serious evaluation; public real-data presentation is a separate decision.
 
 This folder is registered as the local Codex project TideLab. The public [GitHub repository](https://github.com/Loothore907/tidelab) contains TL-001 via [PR #5](https://github.com/Loothore907/tidelab/pull/5); the Apache/open-source decision is recorded in [PR #6](https://github.com/Loothore907/tidelab/pull/6). No private account integration or deployment exists. Venue eligibility, fees, private API access, and live operation remain unverified.
 
