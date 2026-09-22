@@ -2,6 +2,8 @@
 
 Read README.md, HANDOFF.md, and docs/ROADMAP.md before changing scope. Preserve the user's global Git hygiene rules; these instructions supplement them.
 
+For bounded orientation across sessions, use the repo-local `tidelab-context` skill (`node scripts/tidelab-context.mjs current`) and `docs/CONTEXT_MAP.md`. Its committed-HEAD retrieval is advisory; check working changes, GitHub, provider replies, and exact-head CI separately.
+
 ## Scope and authority
 
 - TL-001 public-data recording is locally implemented. Before TL-002, complete the separate TL-001A engine bakeoff and TL-001B data/publication-rights decision; do not silently fold either into TL-001.

@@ -13,6 +13,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -25,6 +28,8 @@ jobs:
         run: python -m compileall -q src
       - name: Test
         run: python -m pytest
+      - name: Context atlas tests
+        run: node --test scripts/tidelab-context.test.mjs
 
   engine-bakeoff:
     runs-on: windows-latest
