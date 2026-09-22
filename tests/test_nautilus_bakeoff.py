@@ -1,4 +1,8 @@
 from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -111,3 +115,57 @@ def test_cash_account_denies_oversized_simulated_buy() -> None:
     assert result["fills"] == ()
     assert result["usdt_total"] == "10000.00000000 USDT"
     assert result["btc_total"] == "None"
+
+
+_RESTART_CHILD = """
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from tidelab.domain import MarketEvent
+from tidelab.nautilus_bakeoff import run_execution_probe
+
+start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+event = MarketEvent(
+    venue="SIM", instrument_id="SIM:BTC-USDT", event_type="bar",
+    event_time=start, received_at=start + timedelta(hours=1),
+    source="synthetic.fixture",
+    payload={"open": "100.00", "high": "100.00", "low": "100.00",
+             "close": "100.00", "volume": "1.000"},
+    native={"synthetic_hour": 0}, interval_seconds=3600,
+    closed=True, source_key="0",
+)
+result = run_execution_probe([event], quote_after_first_close=sys.argv[1] == "quote")
+print(json.dumps(result, sort_keys=True))
+"""
+
+
+def _fresh_process_probe(*, with_quote: bool) -> dict[str, object]:
+    completed = subprocess.run(
+        [sys.executable, "-c", _RESTART_CHILD, "quote" if with_quote else "no-quote"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+    )
+    return json.loads(completed.stdout.decode("utf-8").splitlines()[-1])
+
+
+def test_fresh_process_replay_reconciles_after_restart(tmp_path: Path) -> None:
+    # Closing a prefix without a later quote finalizes the simulated order as
+    # rejected. It is evidence, not a persisted pending-order checkpoint.
+    prefix = _fresh_process_probe(with_quote=False)
+    assert prefix["cached_order_status"] == "REJECTED"
+    assert prefix["cached_filled_qty"] == "0.000"
+    assert prefix["usdt_total"] == "10000.00000000 USDT"
+
+    # A fresh process reconstructs the completed synthetic run. The probe
+    # itself checks fills against the cached order and both account balances.
+    completed = _fresh_process_probe(with_quote=True)
+    checkpoint = tmp_path / "synthetic-reconciliation.json"
+    checkpoint.write_text(json.dumps(completed, sort_keys=True), encoding="utf-8")
+    replayed = _fresh_process_probe(with_quote=True)
+    assert replayed == json.loads(checkpoint.read_text(encoding="utf-8"))
+    assert replayed["fixture_id"] == prefix["fixture_id"]
+    assert replayed["cached_order_status"] == "FILLED"
+    assert replayed["cached_filled_qty"] == "1.000"
+    assert replayed["usdt_total"] == "9899.69980000 USDT"
+    assert replayed["btc_total"] == "1.00000000 BTC"
