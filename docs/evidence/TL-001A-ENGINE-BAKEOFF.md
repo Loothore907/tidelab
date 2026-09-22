@@ -1,6 +1,6 @@
 # TL-001A NautilusTrader bakeoff: synthetic replay checkpoint
 
-Status: partial checkpoint, 2026-09-21. Issue [#2](https://github.com/Loothore907/tidelab/issues/2) remains open. This is not engine adoption, a strategy evaluation, or permission for live operation.
+Status: partial checkpoint, updated 2026-09-22. Issue [#2](https://github.com/Loothore907/tidelab/issues/2) remains open. This is not engine adoption, a strategy evaluation, or permission for live operation.
 
 ## Candidate and boundary
 
@@ -28,6 +28,7 @@ The original five probe tests and 20-test combined suite passed locally and at P
 - The pinned 2.0.0rc5 Python wheel exposes `save_state`/`load_state` configuration and strategy `on_save`/`on_load` hooks, but local inspection found no `EventStoreConfig` or `replay_from_run_id` in its exported Python stubs/API. Upstream's [event-sourcing guide](https://nautilustrader.io/docs/nightly/concepts/event_sourcing/) describes a newer, still-evolving recovery surface. That guide is for nightly, not proof that this pinned wheel can durably replay an interrupted order. Recovery remains an explicit adoption gate.
 - A synthetic execution was rerun in separate fresh Python processes. The second process rebuilt the same cached `FILLED` quantity, fee-bearing fill, and 9,899.69980000 USDT plus 1 BTC balances as a temporary reconciliation record from the first process. Each run independently checked fill callbacks against the cached order and account totals. This establishes repeatable **full replay** of this completed fixture across process boundaries; it does not load a persisted Nautilus engine state or prove mid-order recovery.
 - Running only the prefix without its later quote ended with a cached `REJECTED` order and unchanged balances. Therefore treating an ended prefix as a checkpoint for a pending submission would be unsafe. The follow-on test must interrupt before finalization, persist and restore the relevant order/account state, and reconcile ambiguous outcomes without blind resubmission.
+- A bounded streaming pause before the later quote retained one cached `SUBMITTED` order in the **same process**, with zero fills and unchanged cash/inventory. Resuming the stream with the quote produced the same fill, fee, cached order, and balances as an uninterrupted run. This identifies an in-memory continuation path, but it does not persist the pending order or restore it after process loss. The earlier ended-prefix `REJECTED` result still applies.
 
 ## Not yet demonstrated; required before TL-001A completion
 

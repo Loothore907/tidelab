@@ -192,6 +192,7 @@ def run_execution_probe(
     quote_after_first_close: bool,
     order_quantity: str = "1.000",
     quote_size: str = "2.000",
+    pause_before_quote: bool = False,
 ) -> dict[str, object]:
     """Exercise one simulated buy against a later synthetic quote, not the signal bar.
 
@@ -274,6 +275,9 @@ def run_execution_probe(
         engine.add_instrument(instrument)
         engine.add_strategy(observer)
         data = list(admitted.bars)
+        if pause_before_quote and not quote_after_first_close:
+            raise ValueError("a quote is required for a paused execution probe")
+        quote_ns = None
         if quote_after_first_close:
             quote_ns = admitted.bars[0].ts_event + 60_000_000_000
             data.append(QuoteTick(
@@ -286,7 +290,23 @@ def run_execution_probe(
                 ts_init=quote_ns,
             ))
         engine.add_data(data)
-        engine.run()
+        paused_order_status = None
+        if pause_before_quote:
+            engine.run(end=quote_ns - 1, streaming=True)
+            paused_orders = engine.cache.orders(venue=venue)
+            if len(paused_orders) != 1:
+                raise AssertionError("the paused probe expected one cached order")
+            paused_order_status = paused_orders[0].status.name
+            paused_account = engine.cache.account_for_venue(venue)
+            if (Decimal(str(paused_orders[0].filled_qty)) != 0
+                    or observer.fills
+                    or Decimal(str(paused_account.balance_total(usdt)).split()[0]) != 10_000
+                    or paused_account.balance_total(btc) is not None):
+                raise AssertionError("the paused order changed cash or inventory before the quote")
+            engine.run(start=quote_ns, streaming=True)
+            engine.end()
+        else:
+            engine.run()
         account = engine.cache.account_for_venue(venue)
         cached_orders = engine.cache.orders(venue=venue)
         if len(cached_orders) != 1:
@@ -316,6 +336,7 @@ def run_execution_probe(
             "usdt_total": str(account.balance_total(usdt)),
             "btc_total": str(btc_balance),
             "fixture_id": admitted.fixture_id,
+            "paused_order_status": paused_order_status,
         }
     finally:
         engine.dispose()

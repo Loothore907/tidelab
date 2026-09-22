@@ -82,6 +82,18 @@ def test_simulated_order_waits_for_later_quote_and_updates_cash() -> None:
     assert run_execution_probe([synthetic_bar(0, "100.00")], quote_after_first_close=True) == result
 
 
+def test_streaming_pause_preserves_pending_order_until_later_quote() -> None:
+    bar = synthetic_bar(0, "100.00")
+    uninterrupted = run_execution_probe([bar], quote_after_first_close=True)
+    paused = run_execution_probe(
+        [bar], quote_after_first_close=True, pause_before_quote=True,
+    )
+    assert paused["paused_order_status"] == "SUBMITTED"
+    assert {key: value for key, value in paused.items() if key != "paused_order_status"} == {
+        key: value for key, value in uninterrupted.items() if key != "paused_order_status"
+    }
+
+
 def test_simulated_order_without_following_market_data_is_not_a_fill() -> None:
     result = run_execution_probe([synthetic_bar(0, "100.00")], quote_after_first_close=False)
     assert result["fills"] == ()
