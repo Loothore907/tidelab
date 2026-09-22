@@ -8,12 +8,14 @@ Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only th
 
 Open-source direction: TideLab-authored work is Apache-2.0. Adopt established engine infrastructure before building it. NautilusTrader is the first bounded candidate, not yet an adopted dependency; LEAN is the fallback evaluation before any custom engine authorization. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.
 
+Publication standard approved 2026-09-21 and priority clarified 2026-09-22: publish TideLab code and synthetic fixtures; prioritize a deep, usable dataset for local research and forward-paper testing. Public raw datasets and real-data-derived charts/results/video are optional and require separate artifact-specific rights. Prefer a reproducible acquisition recipe where allowed. Initial data-source spend is $0; Coinbase and BTC-USD may be replaced if rights or technical coverage fail. See [TL-001B preflight](evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md). No real-data source has yet passed the local research gate.
+
 | ID | Slice | Deliverable and exit criteria |
 |---|---|---|
 | TL-000 | Project foundation | Plan and venue-agnostic research decisions saved; establish repository owner/visibility and integration authority before remote setup |
 | TL-001 | Canonical public-data foundation | Versioned instrument/event contracts plus a Coinbase BTC-USD reference adapter; restart-safe metadata, historical bars and live feed capture; gap/duplicate/freshness report; no credentials, strategies, or orders |
 | TL-001A | Engine adoption bakeoff | Map TideLab contracts onto one pinned NautilusTrader release; reproduce the TL-001 fixture and test deterministic replay, costs/fills, accounting, recovery, dependency boundaries, and evidence export without an upstream fork; evaluate LEAN only if a critical requirement fails |
-| TL-001B | Research-data and publication gate | Select historical and forward sources with adequate depth and documented research, retention, reproducibility, redistribution, charting, video, and automated-analysis rights; keep Coinbase a local technical fixture unless its proposed use is cleared |
+| TL-001B | Research-data gate | Select historical and forward sources with adequate depth and supportable research, retention, and automated-analysis use; separately record rights for any optional public dataset, chart, report, or video; keep Coinbase a local technical fixture unless its proposed use is cleared |
 | TL-002 | Strategy, execution, and ledger integration | Implement TideLab-owned manifest, target-position/trade-intent, risk, and execution-mode boundaries on the adopted engine; prove cash/inventory accounting, costs, partial/missed fills, reconciliation, and failure behavior; build custom engine components only for documented critical gaps |
 | TL-003 | Reproducible research harness | Immutable experiment registry, deterministic replay/backtester, trial accounting, chronological partitions, benchmarks, cost stress, and registered baseline strategy family including frozen H1 |
 | TL-004 | Forward paper and advisory runner | Unmodified strategy versions on newly arriving data; simulated mode first; optional separately authorized advisory proposals with actual-fill reconciliation; daily report and incident record |
@@ -47,7 +49,7 @@ Open-source direction: TideLab-authored work is Apache-2.0. Adopt established en
 
 - Inventory the exact historical and forward artifacts needed for research, charts, reports, demonstrations, and reproducibility.
 - For each candidate source, record provenance, access date, depth/completeness, costs, retention, redistribution, derived-work, charting/video, and automated-analysis terms.
-- Select a source only when both technical coverage and intended publication rights are supportable. Unknown rights fail closed and require clarification or another source.
+- Select a local research source only when technical coverage and the intended research, retention, and automated-analysis rights are supportable. Unknown rights for that use fail closed and require clarification or another source. Public derived artifacts have a separate publication gate and may be omitted.
 - Keep restricted raw data and derived artifacts out of Git and public releases. Provide synthetic or expressly redistributable public fixtures plus acquisition instructions and hashes where permitted.
 - Re-run validation when a provider changes terms or the proposed public artifact changes materially.
 
