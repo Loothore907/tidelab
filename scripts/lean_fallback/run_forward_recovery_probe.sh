@@ -13,6 +13,7 @@ cp "$source_dir/TideLabSyntheticSignal.cs" \
   "$source_dir/TideLabSyntheticProbeAlgorithm.cs" \
   "$lean_root/Algorithm.CSharp/"
 cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
+  "$source_dir/TideLabExecutionLedgerProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -38,7 +39,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_LEAN_(FORWARD|FEED)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_LEAN_(FORWARD|FEED|LEDGER)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -56,6 +57,20 @@ run_phase manager_order managed_manager_submit_seed forced_exit 'signal=1 status
 run_phase manager_order settle success
 run_phase manager_order restore_filled success 'symbol=SPY .*record=created new_submissions=0'
 run_phase manager_order restore_filled success 'symbol=SPY .*record=verified_existing new_submissions=0'
+run_phase ledger_pre managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+run_phase ledger_pre ledger_partial_report success 'revision=2 executions=1'
+run_phase ledger_pre ledger_reconcile success 'state=created_from_report executions=1'
+run_phase ledger_pre ledger_full_report success 'revision=3 executions=2'
+run_phase ledger_pre ledger_crash_before_write forced_exit 'broker_executions=2 ledger_executions=1'
+run_phase ledger_pre ledger_reconcile success 'state=created_from_report executions=2'
+run_phase ledger_pre ledger_reconcile success 'state=verified_existing executions=2'
+run_phase ledger_flush managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+run_phase ledger_flush ledger_partial_report success 'revision=2 executions=1'
+run_phase ledger_flush ledger_reconcile success 'state=created_from_report executions=1'
+run_phase ledger_flush ledger_full_report success 'revision=3 executions=2'
+run_phase ledger_flush ledger_crash_after_flush forced_exit 'candidate_flushed=true'
+run_phase ledger_flush ledger_reconcile success 'state=recovered_flushed_candidate executions=2'
+run_phase ledger_flush ledger_reconcile success 'state=verified_existing executions=2'
 run_phase pending seed forced_exit
 run_phase pending restore success
 run_phase filled seed forced_exit

@@ -13,6 +13,11 @@ try
     {
         new TideLabManagedFeedProbe().LiveFeedEmitsThreeSyntheticHourlyBars();
     }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE")?.StartsWith(
+        "ledger_", StringComparison.Ordinal) == true)
+    {
+        new TideLabExecutionLedgerProbe().Run();
+    }
     else
     {
         new TideLabForwardRecoveryProbe()
