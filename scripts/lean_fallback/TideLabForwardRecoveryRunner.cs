@@ -7,7 +7,8 @@ using QuantConnect.Tests.Engine.DataFeeds;
 try
 {
     TestGlobals.Initialize();
-    if (Environment.GetEnvironmentVariable("TL001A_PHASE") == "managed_feed")
+    if (Environment.GetEnvironmentVariable("TL001A_PHASE") is
+        "managed_feed" or "managed_feed_submit_seed")
     {
         new TideLabManagedFeedProbe().LiveFeedEmitsThreeSyntheticHourlyBars();
     }

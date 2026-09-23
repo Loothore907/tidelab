@@ -60,6 +60,7 @@ namespace QuantConnect.Tests.Engine.Setup
         {
             public int Revision { get; set; }
             public int LeanOrderId { get; set; }
+            public string SymbolTicker { get; set; }
             public string BrokerId { get; set; }
             public string BrokerStatus { get; set; }
             public string ExecutionId { get; set; }
@@ -75,6 +76,7 @@ namespace QuantConnect.Tests.Engine.Setup
         private sealed class ReconciliationRecord
         {
             public string BrokerId { get; set; }
+            public string SymbolTicker { get; set; }
             public string ExecutionId { get; set; }
             public decimal Quantity { get; set; }
             public decimal FillPrice { get; set; }
@@ -89,6 +91,7 @@ namespace QuantConnect.Tests.Engine.Setup
             var record = new ReconciliationRecord
             {
                 BrokerId = report.BrokerId,
+                SymbolTicker = report.SymbolTicker,
                 ExecutionId = report.ExecutionId,
                 Quantity = report.Quantity,
                 FillPrice = report.FillPrice,
@@ -100,6 +103,7 @@ namespace QuantConnect.Tests.Engine.Setup
             {
                 var existing = JsonSerializer.Deserialize<ReconciliationRecord>(File.ReadAllText(path));
                 Assert.That(existing.BrokerId, Is.EqualTo(record.BrokerId));
+                Assert.That(existing.SymbolTicker, Is.EqualTo(record.SymbolTicker));
                 Assert.That(existing.ExecutionId, Is.EqualTo(record.ExecutionId));
                 Assert.That(existing.Quantity, Is.EqualTo(record.Quantity));
                 Assert.That(existing.FillPrice, Is.EqualTo(record.FillPrice));
@@ -187,6 +191,7 @@ namespace QuantConnect.Tests.Engine.Setup
                     {
                         Revision = 1,
                         LeanOrderId = order.Id,
+                        SymbolTicker = "TL001ASYN",
                         BrokerId = order.BrokerId[0],
                         BrokerStatus = "Submitted",
                         Cash = 10000m,
@@ -323,6 +328,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 {
                     Revision = 1,
                     BrokerId = "TL001A-BROKER-ORDER-1",
+                    SymbolTicker = "TL001ASYN",
                     BrokerStatus = "Submitted",
                     Cash = 10000m,
                     Holding = 0m,
@@ -390,9 +396,10 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_late_event", "restore_conflict", "restore_quantity_conflict",
                 "restore_partial",
                 "restore_partial_conflict", "restore_torn_record"));
-            var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
             Assert.That(snapshot, Is.Not.Null);
+            Assert.That(snapshot.SymbolTicker, Is.AnyOf("TL001ASYN", "SPY"));
+            var symbol = Symbol.Create(snapshot.SymbolTicker, SecurityType.Equity, Market.USA);
             Assert.That(snapshot.BrokerId, Is.EqualTo("TL001A-BROKER-ORDER-1"));
             Assert.That(snapshot.Quantity, Is.EqualTo(1m));
             Assert.That(snapshot.LimitPrice, Is.EqualTo(90m));
@@ -534,7 +541,7 @@ namespace QuantConnect.Tests.Engine.Setup
                     Console.WriteLine($"TL001A_LEAN_FORWARD phase=restore_late_event delivery=rejected_unknown_order record={recordState} cash={snapshot.Cash} holding={snapshot.Holding} new_submissions=0");
                     return;
                 }
-                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status={snapshot.BrokerStatus} broker_id={snapshot.BrokerId} cash={snapshot.Cash} holding={snapshot.Holding} open_orders={restored.Count} record={recordState} new_submissions=0");
+                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status={snapshot.BrokerStatus} symbol={snapshot.SymbolTicker} broker_id={snapshot.BrokerId} cash={snapshot.Cash} holding={snapshot.Holding} open_orders={restored.Count} record={recordState} new_submissions=0");
                 if (phase == "seed")
                 {
                     // Terminate with the LEAN transaction handler still holding the order.

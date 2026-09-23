@@ -35,13 +35,20 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_LEAN_(FORWARD|FEED)' "$report_dir/$report-$phase.log"
+  grep -E 'TL001A_LEAN_(FORWARD|FEED)' "$report_dir/$report-$phase.log" || {
+    cat "$report_dir/$report-$phase.log" >&2
+    return 1
+  }
   if [[ -n "$required" ]]; then
     grep -q "$required" "$report_dir/$report-$phase.log"
   fi
 }
 
 run_phase feed managed_feed success 'slices=3 closes=100,102,104 callback=3'
+run_phase managed_order managed_feed_submit_seed forced_exit 'signal=1 status=Submitted new_submissions=1'
+run_phase managed_order settle success
+run_phase managed_order restore_filled success 'symbol=SPY .*record=created new_submissions=0'
+run_phase managed_order restore_filled success 'symbol=SPY .*record=verified_existing new_submissions=0'
 run_phase pending seed forced_exit
 run_phase pending restore success
 run_phase filled seed forced_exit
