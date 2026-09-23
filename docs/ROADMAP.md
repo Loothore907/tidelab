@@ -72,6 +72,8 @@ Freeze numeric criteria for net expectancy, drawdown, cost stress, and uncertain
 
 Every public, open-source, or model-generated strategy and every tested parameter variant counts as a trial. Preserve failures and sources. Limit the search budget per hypothesis, and use search-aware/selection-aware statistics when the trial count warrants them. Do not repeatedly mine the untouched interval or promote the historical winner merely because it ranked first.
 
+When designing TL-003/TL-004, consider the optional Jev runtime judgment experiment in [issue #21](https://github.com/Loothore907/tidelab/issues/21) under the [strategy research protocol](STRATEGY_RESEARCH.md#optional-runtime-decision-model-evaluation). It must beat a frozen code-only baseline on relevant evidence before any runtime role; this note does not advance TL-001A/TL-001B or authorize model calls or trading.
+
 Every experiment also records whether its data and derived artifacts may be retained, shared, charted, demonstrated, or used for automated analysis. Reproducibility claims may not depend on publishing material that TideLab has no right to publish.
 
 ## TL-005 portability acceptance
