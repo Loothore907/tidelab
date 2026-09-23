@@ -14,8 +14,11 @@ using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Interfaces;
+using QuantConnect.Lean.Engine;
 using QuantConnect.Lean.Engine.DataFeeds;
+using QuantConnect.Lean.Engine.RealTime;
 using QuantConnect.Lean.Engine.Results;
+using QuantConnect.Lean.Engine.Server;
 using QuantConnect.Lean.Engine.TransactionHandlers;
 using QuantConnect.Orders;
 using QuantConnect.Orders.Fees;
@@ -29,6 +32,37 @@ namespace QuantConnect.Tests.Engine.DataFeeds
 {
     public class TideLabManagedFeedProbe
     {
+        private sealed class BoundedManagedSynchronizer : ISynchronizer
+        {
+            private readonly ISynchronizer _inner;
+            private readonly ManualTimeProvider _time;
+            private readonly FeedAlgorithm _algorithm;
+            private readonly DateTime _start;
+
+            public BoundedManagedSynchronizer(ISynchronizer inner, ManualTimeProvider time,
+                FeedAlgorithm algorithm, DateTime start)
+            {
+                _inner = inner;
+                _time = time;
+                _algorithm = algorithm;
+                _start = start;
+            }
+
+            public IEnumerable<TimeSlice> StreamData(CancellationToken cancellationToken)
+            {
+                foreach (var slice in _inner.StreamData(cancellationToken))
+                {
+                    yield return slice;
+                    if (_algorithm.Closes.Count == 3) yield break;
+                    // Move the invented clock only after AlgorithmManager has processed the slice.
+                    var boundary = _start.AddHours(_algorithm.Closes.Count + 1)
+                        .AddMinutes(1);
+                    var next = _time.GetUtcNow().AddMinutes(5);
+                    _time.SetCurrentTimeUtc(next < boundary ? next : boundary);
+                }
+            }
+        }
+
         private sealed class FeedAlgorithm : QCAlgorithm
         {
             public Symbol ProbeSymbol;
@@ -58,8 +92,9 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             var time = new ManualTimeProvider();
             time.SetCurrentTimeUtc(start);
             var algorithm = new FeedAlgorithm();
-            var submit = Environment.GetEnvironmentVariable("TL001A_PHASE") ==
-                "managed_feed_submit_seed";
+            var phase = Environment.GetEnvironmentVariable("TL001A_PHASE");
+            var managedDispatch = phase == "managed_manager_submit_seed";
+            var submit = phase == "managed_feed_submit_seed" || managedDispatch;
             algorithm.SubmitOrder = submit;
             if (submit) algorithm.SetCash(10000m);
             algorithm.SetStartDate(2026, 1, 5);
@@ -148,7 +183,18 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             try
             {
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-                foreach (var timeSlice in synchronizer.StreamData(deadline.Token))
+                if (managedDispatch)
+                {
+                    algorithm.SetStatus(AlgorithmStatus.Running);
+                    new AlgorithmManager(true).Run(new LiveNodePacket(), algorithm,
+                        new BoundedManagedSynchronizer(synchronizer, time, algorithm, start),
+                        transaction, new Mock<IResultHandler>().Object,
+                        new Mock<IRealTimeHandler>().Object, new Mock<ILeanManager>().Object,
+                        deadline, new PerformanceTrackingTool());
+                    Assert.That(algorithm.RunTimeError, Is.Null);
+                    slicesWithData = algorithm.Closes.Count;
+                }
+                else foreach (var timeSlice in synchronizer.StreamData(deadline.Token))
                 {
                     algorithm.SetDateTime(timeSlice.Time);
                     if (timeSlice.Slice != null &&
@@ -193,7 +239,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                         pending.BrokerId.Contains("TL001A-BROKER-ORDER-1")),
                         TimeSpan.FromSeconds(10)), Is.True);
                     brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Once);
-                    Console.WriteLine("TL001A_LEAN_FEED phase=managed_feed_submit_seed slices=3 signal=1 status=Submitted new_submissions=1 manager=not_run");
+                    Console.WriteLine($"TL001A_LEAN_FEED phase={phase} slices=3 signal=1 status=Submitted new_submissions=1 manager={(managedDispatch ? "run" : "not_run")}");
                     Environment.Exit(23);
                 }
                 Console.WriteLine("TL001A_LEAN_FEED phase=managed_feed slices=3 closes=100,102,104 callback=3 signal=1 manager=not_run");

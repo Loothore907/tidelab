@@ -52,6 +52,10 @@ run_phase managed_order managed_feed_submit_seed forced_exit 'signal=1 status=Su
 run_phase managed_order settle success
 run_phase managed_order restore_filled success 'symbol=SPY .*record=created new_submissions=0'
 run_phase managed_order restore_filled success 'symbol=SPY .*record=verified_existing new_submissions=0'
+run_phase manager_order managed_manager_submit_seed forced_exit 'signal=1 status=Submitted new_submissions=1 manager=run'
+run_phase manager_order settle success
+run_phase manager_order restore_filled success 'symbol=SPY .*record=created new_submissions=0'
+run_phase manager_order restore_filled success 'symbol=SPY .*record=verified_existing new_submissions=0'
 run_phase pending seed forced_exit
 run_phase pending restore success
 run_phase filled seed forced_exit
