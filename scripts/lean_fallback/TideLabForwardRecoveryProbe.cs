@@ -395,6 +395,7 @@ namespace QuantConnect.Tests.Engine.Setup
             Assert.That(phase, Is.AnyOf("seed", "restore", "restore_filled",
                 "restore_late_event", "restore_conflict", "restore_quantity_conflict",
                 "restore_partial", "restore_ledger_partial", "restore_ledger_full",
+                "restore_ledger_partial_late_events", "restore_ledger_full_late_events",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -405,8 +406,10 @@ namespace QuantConnect.Tests.Engine.Setup
             Assert.That(snapshot.Quantity, Is.EqualTo(1m));
             Assert.That(snapshot.LimitPrice, Is.EqualTo(90m));
             var pending = phase == "seed" || phase == "restore";
-            var ledgerPartial = phase == "restore_ledger_partial";
-            var ledgerFull = phase == "restore_ledger_full";
+            var ledgerPartial = phase == "restore_ledger_partial" ||
+                phase == "restore_ledger_partial_late_events";
+            var ledgerFull = phase == "restore_ledger_full" ||
+                phase == "restore_ledger_full_late_events";
             if (phase == "restore_ledger_full_lag")
             {
                 Assert.That(snapshot.BrokerStatus, Is.EqualTo("Filled"));
@@ -513,6 +516,61 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                if (phase == "restore_ledger_partial_late_events" ||
+                    phase == "restore_ledger_full_late_events")
+                {
+                    var ledgerBefore = File.ReadAllBytes(path + ".ledger.json");
+                    var lateOrder = new LimitOrder(symbol, snapshot.Quantity,
+                        snapshot.LimitPrice, DateTime.UtcNow)
+                    {
+                        Id = snapshot.LeanOrderId,
+                        BrokerId = new List<string> { snapshot.BrokerId }
+                    };
+                    var statuses = ledgerPartial ?
+                        new[] { OrderStatus.PartiallyFilled, OrderStatus.PartiallyFilled } :
+                        new[] { OrderStatus.PartiallyFilled, OrderStatus.Filled };
+                    foreach (var status in statuses)
+                    {
+                        brokerage.Raise(x => x.OrdersStatusChanged += null,
+                            brokerage.Object, new List<OrderEvent>
+                            {
+                                new OrderEvent(lateOrder, DateTime.UtcNow,
+                                    new OrderFee(new CashAmount(0.045m, Currencies.USD)))
+                                {
+                                    Status = status,
+                                    FillQuantity = 0.5m,
+                                    FillPrice = 90m
+                                }
+                            });
+                    }
+                    if (ledgerPartial)
+                    {
+                        Assert.That(algorithm.SeenEvents.Count, Is.EqualTo(2));
+                        Assert.That(File.ReadAllBytes(path + ".ledger.json")
+                            .SequenceEqual(ledgerBefore), Is.True);
+                        var cashAfter = algorithm.Portfolio.CashBook[Currencies.USD].Amount;
+                        var holdingAfter = algorithm.Portfolio[symbol].Quantity;
+                        var openAfter = transaction.GetOpenOrders().Count;
+                        Assert.That(cashAfter, Is.EqualTo(9864.865m));
+                        Assert.That(holdingAfter, Is.EqualTo(1.5m));
+                        Assert.That(openAfter, Is.EqualTo(1));
+                        brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                        Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} delivery=applied_duplicate events=2 cash={cashAfter} holding={holdingAfter} open_orders={openAfter} ledger=unchanged decision=BLOCK reason=duplicate_partial_event new_submissions=0");
+                        Environment.Exit(42);
+                    }
+                    Assert.That(algorithm.SeenEvents, Is.Empty);
+                    Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                        Is.EqualTo(snapshot.Cash));
+                    Assert.That(algorithm.Portfolio[symbol].Quantity,
+                        Is.EqualTo(snapshot.Holding));
+                    Assert.That(transaction.GetOpenOrders().Count,
+                        Is.EqualTo(ledgerPartial ? 1 : 0));
+                    Assert.That(File.ReadAllBytes(path + ".ledger.json")
+                        .SequenceEqual(ledgerBefore), Is.True);
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} delivery=rejected_unknown_order events=2 cash={snapshot.Cash} holding={snapshot.Holding} open_orders={(ledgerPartial ? 1 : 0)} ledger=unchanged new_submissions=0");
+                    return;
+                }
                 if (partialOrder)
                 {
                     Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status=PartiallyFilled cash={snapshot.Cash} holding={snapshot.Holding} open_orders=1 decision=HOLD_NEW_ORDERS new_submissions=0");
