@@ -24,6 +24,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A synthetic engine checkpoint](docs/evidence/TL-001A-ENGINE-BAKEOFF.md)
 - [TL-001A engine decision map and reconnect probe](docs/evidence/TL-001A-ENGINE-DECISION-MAP.md)
 - [TL-001A synthetic running-engine reconciliation](docs/evidence/TL-001A-LEAN-RUNNING-RECONCILIATION.md)
+- [TL-001A synthetic H1 strategy and risk parity](docs/evidence/TL-001A-LEAN-H1-RISK-PARITY.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)

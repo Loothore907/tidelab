@@ -11,7 +11,12 @@ test "$(git -C "$lean_root" rev-parse HEAD)" = \
 mkdir -p "$lean_root/TideLabForwardProbe"
 cp "$source_dir/TideLabSyntheticSignal.cs" \
   "$source_dir/TideLabSyntheticProbeAlgorithm.cs" \
+  "$source_dir/TideLabH1Skeleton.cs" \
+  "$source_dir/TideLabH1ProbeAlgorithm.cs" \
   "$lean_root/Algorithm.CSharp/"
+mkdir -p "$lean_root/Data/tidelab_h1"
+cp "$source_dir/fixtures/h1_20260101.csv" \
+  "$lean_root/Data/tidelab_h1/20260101.csv"
 cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabExecutionLedgerProbe.cs" \
   "$source_dir/TideLabExecutionDeliveryProbe.cs" \
@@ -40,7 +45,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_LEAN_(FORWARD|FEED|LEDGER)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -50,6 +55,8 @@ run_phase() {
 }
 
 run_phase feed managed_feed success 'slices=3 closes=100,102,104 callback=3'
+run_phase h1_baseline managed_h1_baseline success 'clock=forward scenario=baseline bars=4 decisions=3:EnterLong:Approve|4:ExitToCash:Approve'
+run_phase h1_drawdown managed_h1_drawdown success 'clock=forward scenario=drawdown bars=4 decisions=3:EnterLong:BlockDrawdown|4:ExitToCash:Approve'
 run_phase managed_order managed_feed_submit_seed forced_exit 'signal=1 status=Submitted new_submissions=1'
 run_phase managed_order settle success
 run_phase managed_order restore_filled success 'symbol=SPY .*record=created new_submissions=0'
