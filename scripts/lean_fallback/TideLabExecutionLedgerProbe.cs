@@ -136,6 +136,32 @@ namespace QuantConnect.Tests.Engine.Setup
             Executions = report.Executions
         };
 
+        private sealed class FileBrokerExecutionSource : ITideLabBrokerExecutionSource
+        {
+            private readonly string _reportPath;
+
+            public FileBrokerExecutionSource(string reportPath) =>
+                _reportPath = reportPath;
+
+            public TideLabBrokerSnapshot Read()
+            {
+                var report = ReadReport(_reportPath);
+                ValidateReport(report);
+                ReadAndValidateLedger(_reportPath + ".ledger.json", report);
+                return new TideLabBrokerSnapshot(report.Revision, report.BrokerId,
+                    10000m, 0m, report.Quantity, report.Cash, report.Holding,
+                    report.Executions.Select(x => new TideLabBrokerExecution(x.Id,
+                        x.Quantity, x.Price, x.Fee)).ToList());
+            }
+
+            public string Commit(TideLabBrokerExecution execution) =>
+                ScreenBrokerExecution(_reportPath, execution.Id,
+                    execution.Quantity, execution.Price, execution.Fee);
+        }
+
+        public static ITideLabBrokerExecutionSource OpenSyntheticSource(string reportPath) =>
+            new FileBrokerExecutionSource(reportPath);
+
         public static bool IsReadyForFreshSetup(string reportPath, int expectedExecutions)
         {
             var report = ReadReport(reportPath);

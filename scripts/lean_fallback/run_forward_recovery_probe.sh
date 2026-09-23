@@ -14,6 +14,7 @@ cp "$source_dir/TideLabSyntheticSignal.cs" \
   "$lean_root/Algorithm.CSharp/"
 cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabExecutionLedgerProbe.cs" \
+  "$source_dir/TideLabExecutionDeliveryProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -92,6 +93,16 @@ run_phase reconnect_gap ledger_partial_report success 'revision=2 executions=1'
 run_phase reconnect_gap ledger_reconcile success 'state=created_from_report executions=1'
 run_phase reconnect_gap restore_ledger_partial_reconnect_gap blocked 'reason=engine_behind_broker reconnect=suppressed_committed .*new_submissions=0'
 run_phase reconnect_gap restore_ledger_full success 'open_orders=0 record=ledger_verified new_submissions=0'
+run_phase reconcile_running managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+run_phase reconcile_running ledger_partial_report success 'revision=2 executions=1'
+run_phase reconcile_running ledger_reconcile success 'state=created_from_report executions=1'
+run_phase reconcile_running restore_ledger_partial_reconcile_running success 'reconnect=APPLIED_FROM_COMMITTED repeats=2 callbacks=1 .*new_submissions=0'
+run_phase reconcile_running restore_ledger_full success 'open_orders=0 record=ledger_verified new_submissions=0'
+run_phase ack_lost managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+run_phase ack_lost ledger_partial_report success 'revision=2 executions=1'
+run_phase ack_lost ledger_reconcile success 'state=created_from_report executions=1'
+run_phase ack_lost restore_ledger_partial_ack_lost success 'reconnect=ALREADY_APPLIED repeats=2 callbacks=1 .*new_submissions=0'
+run_phase ack_lost restore_ledger_full success 'open_orders=0 record=ledger_verified new_submissions=0'
 run_phase screened_crash managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
 run_phase screened_crash ledger_partial_report success 'revision=2 executions=1'
 run_phase screened_crash ledger_reconcile success 'state=created_from_report executions=1'
