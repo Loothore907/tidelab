@@ -25,10 +25,13 @@ runner="$lean_root/TideLabForwardProbe/bin/Release/net10.0/TideLabForwardRecover
 cd "$lean_root/Launcher/bin/Release"
 
 run_phase() {
-  local report=$1 phase=$2 expected=$3 rc=0
+  local report=$1 phase=$2 expected=$3 required=${4:-} rc=0
   TL001A_REPORT_PATH="$report_dir/$report.json" TL001A_PHASE="$phase" \
     "$dotnet_bin" "$runner" >"$report_dir/$report-$phase.log" 2>&1 || rc=$?
   grep 'TL001A_LEAN_FORWARD' "$report_dir/$report-$phase.log"
+  if [[ -n "$required" ]]; then
+    grep -q "$required" "$report_dir/$report-$phase.log"
+  fi
   if [[ "$expected" == "success" ]]; then
     test "$rc" -eq 0
   else
@@ -41,6 +44,12 @@ run_phase pending restore success
 run_phase filled seed forced_exit
 run_phase filled settle success
 run_phase filled restore_filled success
+run_phase submitted submit_seed forced_exit
+run_phase submitted settle success
+run_phase submitted restore_filled success 'record=created'
+run_phase submitted restore_filled success 'record=verified_existing'
+run_phase event submit_fill success
+run_phase event restore_filled success 'record=created'
 run_phase conflict seed forced_exit
 run_phase conflict settle_conflict success
 run_phase conflict restore_conflict blocked
