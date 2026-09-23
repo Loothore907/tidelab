@@ -11,6 +11,8 @@ test "$(git -C "$lean_root" rev-parse HEAD)" = \
 mkdir -p "$lean_root/TideLabForwardProbe"
 cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
+cp "$source_dir/TideLabManagedFeedProbe.cs" \
+  "$lean_root/Tests/Engine/DataFeeds/"
 cp "$source_dir/TideLabForwardRecoveryRunner.cs" \
   "$source_dir/TideLabForwardRecoveryRunner.csproj" \
   "$lean_root/TideLabForwardProbe/"
@@ -28,17 +30,18 @@ run_phase() {
   local report=$1 phase=$2 expected=$3 required=${4:-} rc=0
   TL001A_REPORT_PATH="$report_dir/$report.json" TL001A_PHASE="$phase" \
     "$dotnet_bin" "$runner" >"$report_dir/$report-$phase.log" 2>&1 || rc=$?
-  grep 'TL001A_LEAN_FORWARD' "$report_dir/$report-$phase.log"
+  if [[ "$expected" == "success" && "$rc" -ne 0 ]] ||
+     [[ "$expected" != "success" && "$rc" -eq 0 ]]; then
+    cat "$report_dir/$report-$phase.log" >&2
+    return 1
+  fi
+  grep -E 'TL001A_LEAN_(FORWARD|FEED)' "$report_dir/$report-$phase.log"
   if [[ -n "$required" ]]; then
     grep -q "$required" "$report_dir/$report-$phase.log"
   fi
-  if [[ "$expected" == "success" ]]; then
-    test "$rc" -eq 0
-  else
-    test "$rc" -ne 0
-  fi
 }
 
+run_phase feed managed_feed success 'slices=3 closes=100,102,104 callback=3'
 run_phase pending seed forced_exit
 run_phase pending restore success
 run_phase filled seed forced_exit
