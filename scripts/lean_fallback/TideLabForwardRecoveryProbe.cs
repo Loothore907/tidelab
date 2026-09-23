@@ -5,10 +5,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using Moq;
 using NUnit.Framework;
 using QuantConnect.Algorithm;
 using QuantConnect.Brokerages;
+using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.RealTime;
@@ -16,6 +18,7 @@ using QuantConnect.Lean.Engine.Results;
 using QuantConnect.Lean.Engine.Setup;
 using QuantConnect.Lean.Engine.TransactionHandlers;
 using QuantConnect.Orders;
+using QuantConnect.Orders.Fees;
 using QuantConnect.Securities;
 using QuantConnect.Tests.Engine.DataFeeds;
 
@@ -26,7 +29,12 @@ namespace QuantConnect.Tests.Engine.Setup
     {
         private sealed class ProbeAlgorithm : QCAlgorithm
         {
+            public readonly List<OrderEvent> SeenEvents = new List<OrderEvent>();
             public override void Initialize() { }
+            public override void OnOrderEvent(OrderEvent orderEvent)
+            {
+                SeenEvents.Add(orderEvent);
+            }
         }
 
         private sealed class BrokerReport
@@ -41,6 +49,51 @@ namespace QuantConnect.Tests.Engine.Setup
             public decimal LimitPrice { get; set; }
             public decimal FillPrice { get; set; }
             public decimal Fee { get; set; }
+        }
+
+        private sealed class ReconciliationRecord
+        {
+            public string BrokerId { get; set; }
+            public string ExecutionId { get; set; }
+            public decimal Quantity { get; set; }
+            public decimal FillPrice { get; set; }
+            public decimal Fee { get; set; }
+            public decimal CashAfter { get; set; }
+            public decimal HoldingAfter { get; set; }
+        }
+
+        private static string RecordOrVerifyExecution(string reportPath, BrokerReport report)
+        {
+            var path = reportPath + ".reconciled.json";
+            var record = new ReconciliationRecord
+            {
+                BrokerId = report.BrokerId,
+                ExecutionId = report.ExecutionId,
+                Quantity = report.Quantity,
+                FillPrice = report.FillPrice,
+                Fee = report.Fee,
+                CashAfter = report.Cash,
+                HoldingAfter = report.Holding
+            };
+            if (File.Exists(path))
+            {
+                var existing = JsonSerializer.Deserialize<ReconciliationRecord>(File.ReadAllText(path));
+                Assert.That(existing.BrokerId, Is.EqualTo(record.BrokerId));
+                Assert.That(existing.ExecutionId, Is.EqualTo(record.ExecutionId));
+                Assert.That(existing.Quantity, Is.EqualTo(record.Quantity));
+                Assert.That(existing.FillPrice, Is.EqualTo(record.FillPrice));
+                Assert.That(existing.Fee, Is.EqualTo(record.Fee));
+                Assert.That(existing.CashAfter, Is.EqualTo(record.CashAfter));
+                Assert.That(existing.HoldingAfter, Is.EqualTo(record.HoldingAfter));
+                return "verified_existing";
+            }
+            using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write,
+                FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                JsonSerializer.Serialize(file, record);
+                file.Flush(true);
+            }
+            return "created";
         }
 
         private static bool IsReconciledFill(BrokerReport report)
@@ -66,12 +119,134 @@ namespace QuantConnect.Tests.Engine.Setup
             File.Move(next, path, true);
         }
 
+        private static void RunSyntheticOrderSubmission(string path, bool fillNow)
+        {
+            var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
+            var algorithm = new ProbeAlgorithm();
+            var dataManager = new DataManagerStub(algorithm, new MockDataFeed(), liveMode: true);
+            algorithm.SubscriptionManager.SetDataManager(dataManager);
+            var transaction = new BrokerageTransactionHandler();
+            var results = new Mock<IResultHandler>();
+            var realTime = new Mock<IRealTimeHandler>();
+            var brokerage = new Mock<IBrokerage>();
+            using var submitted = new ManualResetEventSlim();
+
+            brokerage.Setup(x => x.IsConnected).Returns(true);
+            brokerage.Setup(x => x.AccountBaseCurrency).Returns(Currencies.USD);
+            brokerage.Setup(x => x.GetCashBalance()).Returns(new List<CashAmount>
+            {
+                new CashAmount(10000m, Currencies.USD)
+            });
+            brokerage.Setup(x => x.GetAccountHoldings()).Returns(new List<Holding>
+            {
+                new Holding { Symbol = symbol, Quantity = 0m, AveragePrice = 0m }
+            });
+            brokerage.Setup(x => x.GetOpenOrders()).Returns(new List<Order>());
+            brokerage.Setup(x => x.PlaceOrder(It.IsAny<Order>()))
+                .Callback<Order>(order =>
+                {
+                    order.BrokerId = new List<string> { "TL001A-BROKER-ORDER-1" };
+                    var report = new BrokerReport
+                    {
+                        Revision = 1,
+                        BrokerId = order.BrokerId[0],
+                        BrokerStatus = "Submitted",
+                        Cash = 10000m,
+                        Holding = 0m,
+                        Quantity = order.Quantity,
+                        LimitPrice = 90m
+                    };
+                    using (var file = new FileStream(path, FileMode.CreateNew,
+                        FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+                    {
+                        JsonSerializer.Serialize(file, report);
+                        file.Flush(true);
+                    }
+                    submitted.Set();
+                }).Returns(true);
+
+            transaction.Initialize(algorithm, brokerage.Object, results.Object);
+            using var setup = new BrokerageSetupHandler();
+            var job = BrokerageSetupHandlerTests.GetJob();
+            IBrokerageFactory factory;
+            setup.CreateBrokerage(job, algorithm, out factory);
+            factory.Dispose();
+            var ok = setup.Setup(new SetupHandlerParameters(dataManager.UniverseSelection,
+                algorithm, brokerage.Object, job, results.Object, transaction,
+                realTime.Object, TestGlobals.DataCacheProvider, TestGlobals.MapFileProvider));
+            Assert.That(ok, Is.True, string.Join(" | ", setup.Errors));
+            algorithm.Securities[symbol].SetMarketPrice(new Tick { Symbol = symbol, Value = 100m });
+            algorithm.SetFinishedWarmingUp();
+            algorithm.Transactions.SetOrderProcessor(transaction);
+
+            var ticket = algorithm.LimitOrder(symbol, 1m, 90m);
+            Assert.That(submitted.Wait(TimeSpan.FromSeconds(10)), Is.True,
+                "Synthetic broker did not receive the LEAN order");
+            Assert.That(ticket, Is.Not.Null);
+            var acknowledged = transaction.GetOpenOrders().Single();
+            brokerage.Raise(x => x.OrdersStatusChanged += null, brokerage.Object,
+                new List<OrderEvent>
+                {
+                    new OrderEvent(acknowledged, DateTime.UtcNow, OrderFee.Zero)
+                    {
+                        Status = OrderStatus.Submitted
+                    }
+                });
+            Assert.That(SpinWait.SpinUntil(() => transaction.GetOpenOrders().Any(order =>
+                order.Status == OrderStatus.Submitted &&
+                order.BrokerId.Contains("TL001A-BROKER-ORDER-1")),
+                TimeSpan.FromSeconds(10)), Is.True,
+                "LEAN did not retain the broker-acknowledged pending order");
+            brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Once);
+            if (fillNow)
+            {
+                var report = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
+                report.Revision = 2;
+                report.BrokerStatus = "Filled";
+                report.ExecutionId = "TL001A-EXECUTION-1";
+                report.FillPrice = 90m;
+                report.Fee = 0.09m;
+                report.Cash = 9909.91m;
+                report.Holding = 1m;
+                ReplaceReport(path, report);
+                brokerage.Raise(x => x.OrdersStatusChanged += null, brokerage.Object,
+                    new List<OrderEvent>
+                    {
+                        new OrderEvent(acknowledged, DateTime.UtcNow,
+                            new OrderFee(new CashAmount(0.09m, Currencies.USD)))
+                        {
+                            Status = OrderStatus.Filled,
+                            FillQuantity = 1m,
+                            FillPrice = 90m
+                        }
+                    });
+                Assert.That(SpinWait.SpinUntil(() => algorithm.SeenEvents.Any(e =>
+                    e.Status == OrderStatus.Filled), TimeSpan.FromSeconds(10)), Is.True);
+                Assert.That(transaction.GetOpenOrders().Count, Is.Zero);
+                Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                    Is.EqualTo(9909.91m));
+                Assert.That(algorithm.Portfolio[symbol].Quantity, Is.EqualTo(1m));
+                Console.WriteLine("TL001A_LEAN_FORWARD phase=submit_fill order_event=Filled cash=9909.91 holding=1 new_submissions=1");
+                transaction.Exit();
+                dataManager.RemoveAllSubscriptions();
+                return;
+            }
+            Console.WriteLine("TL001A_LEAN_FORWARD phase=submit_seed broker_id=TL001A-BROKER-ORDER-1 quantity=1 new_submissions=1");
+            Environment.Exit(23);
+        }
+
         [Test]
         public void PendingOrderComesFromAuthoritativeSyntheticBrokerReport()
         {
             var path = Environment.GetEnvironmentVariable("TL001A_REPORT_PATH");
             var phase = Environment.GetEnvironmentVariable("TL001A_PHASE");
             Assert.That(path, Is.Not.Null.And.Not.Empty);
+
+            if (phase == "submit_seed" || phase == "submit_fill")
+            {
+                RunSyntheticOrderSubmission(path, phase == "submit_fill");
+                return;
+            }
 
             if (phase == "seed")
             {
@@ -209,7 +384,8 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
-                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status={snapshot.BrokerStatus} broker_id={snapshot.BrokerId} cash={snapshot.Cash} holding={snapshot.Holding} open_orders={restored.Count} new_submissions=0");
+                var recordState = pending ? "none" : RecordOrVerifyExecution(path, snapshot);
+                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status={snapshot.BrokerStatus} broker_id={snapshot.BrokerId} cash={snapshot.Cash} holding={snapshot.Holding} open_orders={restored.Count} record={recordState} new_submissions=0");
                 if (phase == "seed")
                 {
                     // Terminate with the LEAN transaction handler still holding the order.
