@@ -9,7 +9,8 @@ try
     TestGlobals.Initialize();
     if (Environment.GetEnvironmentVariable("TL001A_PHASE") is
         "managed_feed" or "managed_feed_submit_seed" or
-        "managed_manager_submit_seed")
+        "managed_manager_submit_seed" or "managed_h1_baseline" or
+        "managed_h1_drawdown")
     {
         new TideLabManagedFeedProbe().LiveFeedEmitsThreeSyntheticHourlyBars();
     }

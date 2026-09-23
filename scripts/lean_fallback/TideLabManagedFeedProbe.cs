@@ -38,14 +38,16 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             private readonly ManualTimeProvider _time;
             private readonly FeedAlgorithm _algorithm;
             private readonly DateTime _start;
+            private readonly int _targetCount;
 
             public BoundedManagedSynchronizer(ISynchronizer inner, ManualTimeProvider time,
-                FeedAlgorithm algorithm, DateTime start)
+                FeedAlgorithm algorithm, DateTime start, int targetCount)
             {
                 _inner = inner;
                 _time = time;
                 _algorithm = algorithm;
                 _start = start;
+                _targetCount = targetCount;
             }
 
             public IEnumerable<TimeSlice> StreamData(CancellationToken cancellationToken)
@@ -53,7 +55,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 foreach (var slice in _inner.StreamData(cancellationToken))
                 {
                     yield return slice;
-                    if (_algorithm.Closes.Count == 3) yield break;
+                    if (_algorithm.Closes.Count == _targetCount) yield break;
                     // Move the invented clock only after AlgorithmManager has processed the slice.
                     var boundary = _start.AddHours(_algorithm.Closes.Count + 1)
                         .AddMinutes(1);
@@ -70,13 +72,24 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             public readonly List<DateTime> TimesUtc = new List<DateTime>();
             public bool SubmitOrder;
             public int Signals;
+            public string H1Scenario;
+            public readonly List<string> H1Decisions = new List<string>();
             private readonly TideLabSyntheticSignal _signal = new TideLabSyntheticSignal();
+            private readonly TideLabH1Skeleton _h1 = new TideLabH1Skeleton();
             public override void Initialize() { }
             public override void OnData(Slice slice)
             {
                 if (!slice.Bars.TryGetValue(ProbeSymbol, out var bar)) return;
                 Closes.Add(bar.Close);
                 TimesUtc.Add(UtcTime);
+                if (H1Scenario != null)
+                {
+                    var equity = H1Scenario == "drawdown" ? 940m : 1000m;
+                    var decision = _h1.OnClosedHour(bar.Close, equity, 1000m);
+                    if (decision.Intent != TideLabH1Intent.None)
+                        H1Decisions.Add($"{decision.ClosedHour}:{decision.Intent}:{decision.Risk}");
+                    return;
+                }
                 if (_signal.OnClose(bar.Close))
                 {
                     Signals++;
@@ -93,10 +106,15 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             time.SetCurrentTimeUtc(start);
             var algorithm = new FeedAlgorithm();
             var phase = Environment.GetEnvironmentVariable("TL001A_PHASE");
-            var managedDispatch = phase == "managed_manager_submit_seed";
+            var h1Scenario = phase == "managed_h1_drawdown" ? "drawdown" :
+                phase == "managed_h1_baseline" ? "baseline" : null;
+            var targetCount = h1Scenario == null ? 3 : 4;
+            var managedDispatch = phase == "managed_manager_submit_seed" ||
+                h1Scenario != null;
             var submit = phase == "managed_feed_submit_seed" || managedDispatch;
-            algorithm.SubmitOrder = submit;
-            if (submit) algorithm.SetCash(10000m);
+            algorithm.SubmitOrder = submit && h1Scenario == null;
+            algorithm.H1Scenario = h1Scenario;
+            if (submit) algorithm.SetCash(h1Scenario == null ? 10000m : 1000m);
             algorithm.SetStartDate(2026, 1, 5);
             algorithm.SetDateTime(start);
             algorithm.SetBenchmark(_ => 1m);
@@ -106,7 +124,9 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             {
                 DataPerSymbol = new Dictionary<Symbol, List<BaseData>>
                 {
-                    [symbol] = new[] { 100m, 102m, 104m }
+                    [symbol] = (h1Scenario == null ?
+                        new[] { 100m, 102m, 104m } :
+                        new[] { 100m, 102m, 104m, 98m })
                         .Select((close, index) => (BaseData)new TradeBar(
                             start.AddHours(index).ConvertFromUtc(TimeZones.NewYork),
                             symbol, close, close, close, close,
@@ -146,7 +166,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             if (submit)
             {
                 var path = Environment.GetEnvironmentVariable("TL001A_REPORT_PATH");
-                Assert.That(path, Is.Not.Null.And.Not.Empty);
+                if (h1Scenario == null) Assert.That(path, Is.Not.Null.And.Not.Empty);
                 brokerage = new Mock<IBrokerage>();
                 brokerage.Setup(x => x.IsConnected).Returns(true);
                 brokerage.Setup(x => x.AccountBaseCurrency).Returns(Currencies.USD);
@@ -187,7 +207,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 {
                     algorithm.SetStatus(AlgorithmStatus.Running);
                     new AlgorithmManager(true).Run(new LiveNodePacket(), algorithm,
-                        new BoundedManagedSynchronizer(synchronizer, time, algorithm, start),
+                        new BoundedManagedSynchronizer(synchronizer, time, algorithm,
+                            start, targetCount),
                         transaction, new Mock<IResultHandler>().Object,
                         new Mock<IRealTimeHandler>().Object, new Mock<ILeanManager>().Object,
                         deadline, new PerformanceTrackingTool());
@@ -206,7 +227,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                         // This harness dispatches the LEAN-produced slice. AlgorithmManager is not running.
                         algorithm.OnData(timeSlice.Slice);
                     }
-                    if (algorithm.Closes.Count == 3) break;
+                    if (algorithm.Closes.Count == targetCount) break;
                     // Hold at each expected bar boundary until the feed emits it.
                     // Advancing past a missing bar would conceal a gap in forward delivery.
                     var boundary = start.AddHours(algorithm.Closes.Count + 1)
@@ -214,13 +235,24 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     var next = time.GetUtcNow().AddMinutes(5);
                     time.SetCurrentTimeUtc(next < boundary ? next : boundary);
                 }
-                Assert.That(slicesWithData, Is.EqualTo(3),
+                Assert.That(slicesWithData, Is.EqualTo(targetCount),
                     $"Observed closes: {string.Join(",", algorithm.Closes)}");
-                Assert.That(algorithm.Closes, Is.EqualTo(new[] { 100m, 102m, 104m }));
-                Assert.That(algorithm.TimesUtc, Is.EqualTo(new[]
+                Assert.That(algorithm.Closes, Is.EqualTo(h1Scenario == null ?
+                    new[] { 100m, 102m, 104m } :
+                    new[] { 100m, 102m, 104m, 98m }));
+                Assert.That(algorithm.TimesUtc, Is.EqualTo(Enumerable.Range(1,
+                    targetCount).Select(i => start.AddHours(i))));
+                if (h1Scenario != null)
                 {
-                    start.AddHours(1), start.AddHours(2), start.AddHours(3)
-                }));
+                    var actual = string.Join("|", algorithm.H1Decisions);
+                    var expected = h1Scenario == "drawdown" ?
+                        "3:EnterLong:BlockDrawdown|4:ExitToCash:Approve" :
+                        "3:EnterLong:Approve|4:ExitToCash:Approve";
+                    Assert.That(actual, Is.EqualTo(expected));
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"TL001A_H1_PARITY clock=forward scenario={h1Scenario} bars=4 decisions={actual}");
+                    return;
+                }
                 Assert.That(algorithm.Signals, Is.EqualTo(1));
                 if (submit)
                 {
