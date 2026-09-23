@@ -66,6 +66,7 @@ namespace QuantConnect.Tests.Engine.Setup
             public decimal Cash { get; set; }
             public decimal Holding { get; set; }
             public decimal Quantity { get; set; }
+            public decimal ExecutedQuantity { get; set; }
             public decimal LimitPrice { get; set; }
             public decimal FillPrice { get; set; }
             public decimal Fee { get; set; }
@@ -122,9 +123,22 @@ namespace QuantConnect.Tests.Engine.Setup
                 report.BrokerId == "TL001A-BROKER-ORDER-1" &&
                 report.BrokerStatus == "Filled" &&
                 report.ExecutionId == "TL001A-EXECUTION-1" &&
-                report.Quantity == 1m && report.FillPrice == 90m &&
+                report.Quantity == 1m && report.ExecutedQuantity == report.Quantity &&
+                report.FillPrice == 90m &&
                 report.Fee == 0.09m && report.Holding == report.Quantity &&
                 report.Cash == 10000m - report.Quantity * report.FillPrice - report.Fee;
+        }
+
+        private static bool IsReconciledPartial(BrokerReport report)
+        {
+            return report != null && report.Revision == 2 &&
+                report.BrokerId == "TL001A-BROKER-ORDER-1" &&
+                report.BrokerStatus == "PartiallyFilled" &&
+                report.ExecutionId == "TL001A-EXECUTION-1" &&
+                report.Quantity == 1m && report.ExecutedQuantity == 0.5m &&
+                report.LimitPrice == 90m && report.FillPrice == 90m &&
+                report.Fee == 0.09m && report.Holding == report.ExecutedQuantity &&
+                report.Cash == 10000m - report.ExecutedQuantity * report.FillPrice - report.Fee;
         }
 
         private static void ReplaceReport(string path, BrokerReport report)
@@ -254,6 +268,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 report.Revision = 2;
                 report.BrokerStatus = "Filled";
                 report.ExecutionId = "TL001A-EXECUTION-1";
+                report.ExecutedQuantity = 1m;
                 report.FillPrice = 90m;
                 report.Fee = 0.09m;
                 report.Cash = 9909.91m;
@@ -322,20 +337,44 @@ namespace QuantConnect.Tests.Engine.Setup
                 }
             }
 
-            if (phase == "settle" || phase == "settle_conflict")
+            if (phase == "settle" || phase == "settle_conflict" ||
+                phase == "settle_quantity_conflict" ||
+                phase == "settle_partial" || phase == "settle_partial_conflict")
             {
                 var report = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
                 Assert.That(report.Revision, Is.EqualTo(1));
                 Assert.That(report.BrokerStatus, Is.EqualTo("Submitted"));
                 report.Revision = 2;
-                report.BrokerStatus = "Filled";
+                var partial = phase.StartsWith("settle_partial", StringComparison.Ordinal);
+                report.BrokerStatus = partial ? "PartiallyFilled" : "Filled";
                 report.ExecutionId = "TL001A-EXECUTION-1";
+                report.ExecutedQuantity = partial ? 0.5m : 1m;
+                if (phase == "settle_quantity_conflict") report.ExecutedQuantity = 0.5m;
                 report.FillPrice = 90m;
                 report.Fee = 0.09m;
-                report.Holding = 1m;
-                report.Cash = phase == "settle" ? 9909.91m : 10000m;
+                report.Holding = phase == "settle_quantity_conflict" ? 1m :
+                    report.ExecutedQuantity;
+                report.Cash = phase == "settle" ? 9909.91m :
+                    phase == "settle_partial" ? 9954.91m :
+                    phase == "settle_quantity_conflict" ? 9909.91m : 10000m;
                 ReplaceReport(path, report);
-                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} broker_status=Filled cash={report.Cash} holding={report.Holding}");
+                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} broker_status={report.BrokerStatus} cash={report.Cash} holding={report.Holding}");
+                return;
+            }
+
+            if (phase == "tear_record")
+            {
+                Assert.That(IsReconciledFill(JsonSerializer.Deserialize<BrokerReport>(
+                    File.ReadAllText(path))), Is.True);
+                using (var file = new FileStream(path + ".reconciled.json",
+                    FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096,
+                    FileOptions.WriteThrough))
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes("{\"ExecutionId\":");
+                    file.Write(bytes, 0, bytes.Length);
+                    file.Flush(true);
+                }
+                Console.WriteLine("TL001A_LEAN_FORWARD phase=tear_record record=truncated");
                 return;
             }
 
@@ -348,7 +387,9 @@ namespace QuantConnect.Tests.Engine.Setup
             }
 
             Assert.That(phase, Is.AnyOf("seed", "restore", "restore_filled",
-                "restore_late_event", "restore_conflict"));
+                "restore_late_event", "restore_conflict", "restore_quantity_conflict",
+                "restore_partial",
+                "restore_partial_conflict", "restore_torn_record"));
             var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
             Assert.That(snapshot, Is.Not.Null);
@@ -363,12 +404,20 @@ namespace QuantConnect.Tests.Engine.Setup
                 Assert.That(snapshot.Cash, Is.EqualTo(10000m));
                 Assert.That(snapshot.Holding, Is.Zero);
             }
-            else if (phase == "restore_conflict")
+            else if (phase == "restore_conflict" ||
+                phase == "restore_quantity_conflict" ||
+                phase == "restore_partial_conflict")
             {
-                Assert.That(IsReconciledFill(snapshot), Is.False);
-                Console.WriteLine("TL001A_LEAN_FORWARD phase=restore_conflict decision=BLOCK reason=account_execution_mismatch new_submissions=0");
+                Assert.That(phase != "restore_partial_conflict" ? IsReconciledFill(snapshot) :
+                    IsReconciledPartial(snapshot), Is.False);
+                Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} decision=BLOCK reason=account_execution_mismatch new_submissions=0");
                 Environment.Exit(42);
                 return;
+            }
+            else if (phase == "restore_partial")
+            {
+                Assert.That(IsReconciledPartial(snapshot), Is.True,
+                    "A partial execution requires an exact execution and account reconciliation");
             }
             else
             {
@@ -383,10 +432,12 @@ namespace QuantConnect.Tests.Engine.Setup
             var results = new Mock<IResultHandler>();
             var realTime = new Mock<IRealTimeHandler>();
             var brokerage = new Mock<IBrokerage>();
+            var partialOrder = phase == "restore_partial";
+            var hasOpenOrder = pending || partialOrder;
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
             {
-                Status = OrderStatus.Submitted,
+                Status = partialOrder ? OrderStatus.PartiallyFilled : OrderStatus.Submitted,
                 BrokerId = new List<string> { snapshot.BrokerId }
             };
             brokerage.Setup(x => x.IsConnected).Returns(true);
@@ -402,7 +453,7 @@ namespace QuantConnect.Tests.Engine.Setup
                     MarketPrice = pending ? 0m : snapshot.FillPrice }
             });
             brokerage.Setup(x => x.GetOpenOrders()).Returns(
-                pending ? new List<Order> { pendingOrder } : new List<Order>());
+                hasOpenOrder ? new List<Order> { pendingOrder } : new List<Order>());
 
             try
             {
@@ -418,10 +469,11 @@ namespace QuantConnect.Tests.Engine.Setup
                 Assert.That(ok, Is.True, string.Join(" | ", setup.Errors));
 
                 var restored = transaction.GetOpenOrders();
-                Assert.That(restored.Count, Is.EqualTo(pending ? 1 : 0));
-                if (pending)
+                Assert.That(restored.Count, Is.EqualTo(hasOpenOrder ? 1 : 0));
+                if (hasOpenOrder)
                 {
-                    Assert.That(restored[0].Status, Is.EqualTo(OrderStatus.Submitted));
+                    Assert.That(restored[0].Status, Is.EqualTo(partialOrder ?
+                        OrderStatus.PartiallyFilled : OrderStatus.Submitted));
                     Assert.That(restored[0].BrokerId, Does.Contain(snapshot.BrokerId));
                 }
                 else
@@ -437,7 +489,22 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
-                var recordState = pending ? "none" : RecordOrVerifyExecution(path, snapshot);
+                if (partialOrder)
+                {
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase=restore_partial status=PartiallyFilled cash={snapshot.Cash} holding={snapshot.Holding} open_orders=1 decision=HOLD_NEW_ORDERS new_submissions=0");
+                    return;
+                }
+                string recordState;
+                try
+                {
+                    recordState = pending ? "none" : RecordOrVerifyExecution(path, snapshot);
+                }
+                catch (JsonException) when (phase == "restore_torn_record")
+                {
+                    Console.WriteLine("TL001A_LEAN_FORWARD phase=restore_torn_record decision=BLOCK reason=truncated_reconciliation_record new_submissions=0");
+                    Environment.Exit(42);
+                    return;
+                }
                 if (phase == "restore_late_event")
                 {
                     Assert.That(snapshot.LeanOrderId, Is.GreaterThan(0));
