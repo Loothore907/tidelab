@@ -396,6 +396,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_late_event", "restore_conflict", "restore_quantity_conflict",
                 "restore_partial", "restore_ledger_partial", "restore_ledger_full",
                 "restore_ledger_partial_late_events", "restore_ledger_full_late_events",
+                "restore_ledger_partial_screened", "restore_ledger_partial_screened_crash",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -407,7 +408,9 @@ namespace QuantConnect.Tests.Engine.Setup
             Assert.That(snapshot.LimitPrice, Is.EqualTo(90m));
             var pending = phase == "seed" || phase == "restore";
             var ledgerPartial = phase == "restore_ledger_partial" ||
-                phase == "restore_ledger_partial_late_events";
+                phase == "restore_ledger_partial_late_events" ||
+                phase == "restore_ledger_partial_screened" ||
+                phase == "restore_ledger_partial_screened_crash";
             var ledgerFull = phase == "restore_ledger_full" ||
                 phase == "restore_ledger_full_late_events";
             if (phase == "restore_ledger_full_lag")
@@ -516,6 +519,54 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                if (phase == "restore_ledger_partial_screened" ||
+                    phase == "restore_ledger_partial_screened_crash")
+                {
+                    const string first = "TL001A-EXECUTION-1";
+                    const string second = "TL001A-EXECUTION-2";
+                    Assert.That(TideLabExecutionLedgerProbe.ScreenBrokerExecution(path,
+                        first, 0.5m, 90m, 0.045m), Is.EqualTo("SUPPRESS_COMMITTED"));
+                    Assert.That(TideLabExecutionLedgerProbe.ScreenBrokerExecution(path,
+                        second, 0.5m, 90m, 0.045m), Is.EqualTo("BLOCK_UNREPORTED"));
+                    Assert.That(TideLabExecutionLedgerProbe.ScreenBrokerExecution(path,
+                        first, 0.5m, 90m, 0.09m), Is.EqualTo("BLOCK_MISMATCH"));
+                    Assert.That(algorithm.SeenEvents, Is.Empty);
+                    TideLabExecutionLedgerProbe.AdvanceReportToFull(path);
+                    Assert.That(TideLabExecutionLedgerProbe.ScreenBrokerExecution(path,
+                        second, 0.5m, 90m, 0.045m), Is.EqualTo("DELIVER_AFTER_COMMIT"));
+                    if (phase == "restore_ledger_partial_screened_crash")
+                    {
+                        Console.WriteLine("TL001A_LEAN_FORWARD phase=restore_ledger_partial_screened_crash first=suppressed unreported=blocked second=committed delivery=not_started new_submissions=0");
+                        Environment.Exit(23);
+                    }
+                    var lateOrder = new LimitOrder(symbol, snapshot.Quantity,
+                        snapshot.LimitPrice, DateTime.UtcNow)
+                    {
+                        Id = snapshot.LeanOrderId,
+                        BrokerId = new List<string> { snapshot.BrokerId }
+                    };
+                    brokerage.Raise(x => x.OrdersStatusChanged += null,
+                        brokerage.Object, new List<OrderEvent>
+                        {
+                            new OrderEvent(lateOrder, DateTime.UtcNow,
+                                new OrderFee(new CashAmount(0.045m, Currencies.USD)))
+                            {
+                                Status = OrderStatus.Filled,
+                                FillQuantity = 0.5m,
+                                FillPrice = 90m
+                            }
+                        });
+                    Assert.That(algorithm.SeenEvents.Count, Is.EqualTo(1));
+                    Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                        Is.EqualTo(9909.91m));
+                    Assert.That(algorithm.Portfolio[symbol].Quantity, Is.EqualTo(1m));
+                    Assert.That(transaction.GetOpenOrders(), Is.Empty);
+                    Assert.That(TideLabExecutionLedgerProbe.ScreenBrokerExecution(path,
+                        second, 0.5m, 90m, 0.045m), Is.EqualTo("SUPPRESS_COMMITTED"));
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine("TL001A_LEAN_FORWARD phase=restore_ledger_partial_screened first=suppressed unreported=blocked second=delivered_after_commit callbacks=1 cash=9909.91 holding=1 open_orders=0 new_submissions=0");
+                    return;
+                }
                 if (phase == "restore_ledger_partial_late_events" ||
                     phase == "restore_ledger_full_late_events")
                 {

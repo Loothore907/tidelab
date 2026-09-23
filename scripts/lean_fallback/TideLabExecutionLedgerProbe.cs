@@ -145,6 +145,48 @@ namespace QuantConnect.Tests.Engine.Setup
             return ledger != null && ledger.Executions.Count == expectedExecutions;
         }
 
+        // Test adapter seam: the broker's stable execution ID is checked before
+        // constructing a LEAN OrderEvent, which has no broker execution ID here.
+        public static string ScreenBrokerExecution(string reportPath, string executionId,
+            decimal quantity, decimal price, decimal fee)
+        {
+            var report = ReadReport(reportPath);
+            ValidateReport(report);
+            var ledgerPath = reportPath + ".ledger.json";
+            var ledger = ReadAndValidateLedger(ledgerPath, report);
+            Assert.That(ledger, Is.Not.Null);
+            var execution = report.Executions.SingleOrDefault(x => x.Id == executionId);
+            if (execution == null) return "BLOCK_UNREPORTED";
+            if (execution.Quantity != quantity || execution.Price != price ||
+                execution.Fee != fee) return "BLOCK_MISMATCH";
+            if (ledger.Executions.Any(x => x.Id == executionId)) return "SUPPRESS_COMMITTED";
+            if (ledger.Executions.Count + 1 != report.Executions.Count ||
+                report.Executions.Last().Id != executionId) return "BLOCK_SEQUENCE";
+            var next = ledgerPath + ".next";
+            Assert.That(File.Exists(next), Is.False);
+            WriteDurable(next, FromReport(report));
+            File.Move(next, ledgerPath, true);
+            Assert.That(IsReadyForFreshSetup(reportPath, report.Executions.Count), Is.True);
+            return "DELIVER_AFTER_COMMIT";
+        }
+
+        public static void AdvanceReportToFull(string path)
+        {
+            var report = ReadReport(path);
+            ValidateReport(report);
+            Assert.That(report.Revision, Is.EqualTo(2));
+            report.Revision = 3;
+            report.BrokerStatus = "Filled";
+            report.Executions.Add(Second);
+            report.ExecutionId = Second.Id;
+            report.ExecutedQuantity = 1m;
+            report.Fee += Second.Fee;
+            report.Holding = 1m;
+            report.Cash = 9909.91m;
+            ValidateReport(report);
+            PublishReport(path, report);
+        }
+
         public void Run()
         {
             var path = Environment.GetEnvironmentVariable("TL001A_REPORT_PATH");
@@ -175,18 +217,7 @@ namespace QuantConnect.Tests.Engine.Setup
 
             if (phase == "ledger_full_report")
             {
-                ValidateReport(report);
-                Assert.That(report.Revision, Is.EqualTo(2));
-                report.Revision = 3;
-                report.BrokerStatus = "Filled";
-                report.Executions.Add(Second);
-                report.ExecutionId = Second.Id;
-                report.ExecutedQuantity = 1m;
-                report.Fee += Second.Fee;
-                report.Holding = 1m;
-                report.Cash = 9909.91m;
-                ValidateReport(report);
-                PublishReport(path, report);
+                AdvanceReportToFull(path);
                 Console.WriteLine("TL001A_LEAN_LEDGER phase=full_report revision=3 executions=2 cash=9909.91 holding=1");
                 return;
             }
