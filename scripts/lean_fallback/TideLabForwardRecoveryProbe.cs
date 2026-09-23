@@ -397,6 +397,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_partial", "restore_ledger_partial", "restore_ledger_full",
                 "restore_ledger_partial_late_events", "restore_ledger_full_late_events",
                 "restore_ledger_partial_screened", "restore_ledger_partial_screened_crash",
+                "restore_ledger_partial_reconnect_gap",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -410,7 +411,8 @@ namespace QuantConnect.Tests.Engine.Setup
             var ledgerPartial = phase == "restore_ledger_partial" ||
                 phase == "restore_ledger_partial_late_events" ||
                 phase == "restore_ledger_partial_screened" ||
-                phase == "restore_ledger_partial_screened_crash";
+                phase == "restore_ledger_partial_screened_crash" ||
+                phase == "restore_ledger_partial_reconnect_gap";
             var ledgerFull = phase == "restore_ledger_full" ||
                 phase == "restore_ledger_full_late_events";
             if (phase == "restore_ledger_full_lag")
@@ -520,7 +522,8 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
                 if (phase == "restore_ledger_partial_screened" ||
-                    phase == "restore_ledger_partial_screened_crash")
+                    phase == "restore_ledger_partial_screened_crash" ||
+                    phase == "restore_ledger_partial_reconnect_gap")
                 {
                     const string first = "TL001A-EXECUTION-1";
                     const string second = "TL001A-EXECUTION-2";
@@ -532,6 +535,29 @@ namespace QuantConnect.Tests.Engine.Setup
                         first, 0.5m, 90m, 0.09m), Is.EqualTo("BLOCK_MISMATCH"));
                     Assert.That(algorithm.SeenEvents, Is.Empty);
                     TideLabExecutionLedgerProbe.AdvanceReportToFull(path);
+                    if (phase == "restore_ledger_partial_reconnect_gap")
+                    {
+                        // Simulate transport loss after a durable broker execution
+                        // commit and before LEAN receives the corresponding event.
+                        Assert.Throws<IOException>(() =>
+                            TideLabExecutionLedgerProbe.DeliverScreenedExecution(path,
+                                second, 0.5m, 90m, 0.045m,
+                                () => throw new IOException("synthetic delivery interruption")));
+                        var reconnectDecision = TideLabExecutionLedgerProbe
+                            .DeliverScreenedExecution(path, second, 0.5m, 90m,
+                                0.045m, () => Assert.Fail("duplicate delivered"));
+                        Assert.That(reconnectDecision, Is.EqualTo("SUPPRESS_COMMITTED"));
+                        Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path, 2),
+                            Is.True);
+                        Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                            Is.EqualTo(9954.955m));
+                        Assert.That(algorithm.Portfolio[symbol].Quantity, Is.EqualTo(0.5m));
+                        Assert.That(transaction.GetOpenOrders().Count, Is.EqualTo(1));
+                        Assert.That(algorithm.SeenEvents, Is.Empty);
+                        brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                        Console.WriteLine("TL001A_LEAN_FORWARD phase=restore_ledger_partial_reconnect_gap decision=BLOCK reason=engine_behind_broker reconnect=suppressed_committed cash=9954.955 broker_cash=9909.91 holding=0.5 broker_holding=1 callbacks=0 new_submissions=0");
+                        Environment.Exit(42);
+                    }
                     Assert.That(TideLabExecutionLedgerProbe.ScreenBrokerExecution(path,
                         second, 0.5m, 90m, 0.045m), Is.EqualTo("DELIVER_AFTER_COMMIT"));
                     if (phase == "restore_ledger_partial_screened_crash")

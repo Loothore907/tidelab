@@ -170,6 +170,18 @@ namespace QuantConnect.Tests.Engine.Setup
             return "DELIVER_AFTER_COMMIT";
         }
 
+        // Test-owned delivery boundary: a different broker source can supply the
+        // stable execution fields and a different engine sink can receive the event.
+        // The callback is deliberately after the ledger commit to expose that gap.
+        public static string DeliverScreenedExecution(string reportPath, string executionId,
+            decimal quantity, decimal price, decimal fee, Action deliverToEngine)
+        {
+            var decision = ScreenBrokerExecution(reportPath, executionId,
+                quantity, price, fee);
+            if (decision == "DELIVER_AFTER_COMMIT") deliverToEngine();
+            return decision;
+        }
+
         public static void AdvanceReportToFull(string path)
         {
             var report = ReadReport(path);
