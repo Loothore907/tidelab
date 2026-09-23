@@ -11,6 +11,8 @@ namespace QuantConnect.Algorithm.CSharp
         private Symbol _symbol;
         private int _count;
         private decimal _sum;
+        private int _signals;
+        private readonly TideLabSyntheticSignal _signal = new TideLabSyntheticSignal();
 
         public override void Initialize()
         {
@@ -25,13 +27,16 @@ namespace QuantConnect.Algorithm.CSharp
         {
             if (!slice.ContainsKey(_symbol)) return;
             _count++;
-            _sum += slice[_symbol].Value;
+            var close = slice[_symbol].Value;
+            _sum += close;
+            if (_signal.OnClose(close)) _signals++;
         }
 
         public override void OnEndOfAlgorithm()
         {
-            Log($"TL001A_LEAN_SYNTHETIC count={_count} sum={_sum}");
-            if (_count != 3 || _sum != 306m) throw new Exception("Synthetic fixture mismatch");
+            Log($"TL001A_LEAN_SYNTHETIC count={_count} sum={_sum} signals={_signals}");
+            if (_count != 3 || _sum != 306m || _signals != 1)
+                throw new Exception("Synthetic fixture mismatch");
         }
     }
 
