@@ -233,3 +233,38 @@ def test_abrupt_process_loss_does_not_restore_in_memory_pending_order(tmp_path: 
     assert after["cached_quote_count"] == 1
     assert after["usdt_total"] == pending["usdt_total"]
     assert after["btc_total"] == pending["btc_total"]
+
+
+def test_pinned_live_node_rejects_python_client_with_cache_backing() -> None:
+    from nautilus_trader.common import Environment
+    from nautilus_trader.infrastructure import RedisCacheConfig
+    from nautilus_trader.live import DataClientConfig, LiveNode
+    from nautilus_trader.live.clients import DataClient, DataClientFactory
+    from nautilus_trader.model import TraderId, Venue
+
+    class SyntheticDataClient(DataClient):
+        async def _connect(self) -> None:
+            pass
+
+        async def _disconnect(self) -> None:
+            pass
+
+    class Factory(DataClientFactory):
+        @staticmethod
+        def create(*, name, config, cache, clock):
+            return SyntheticDataClient(
+                name=name, config=config, cache=cache, clock=clock, venue=Venue("SIM"),
+            )
+
+    builder = LiveNode.builder(
+        "TideLabCustomClientProbe", TraderId("TIDELAB-007"), Environment.SANDBOX,
+    )
+    # The runtime guard fires before connecting; port 1 is deliberately unusable.
+    builder.with_cache_database_factory(RedisCacheConfig(host="127.0.0.1", port=1))
+    builder.add_data_client("SIM", Factory, DataClientConfig())
+    node = builder.build()
+    try:
+        with pytest.raises(RuntimeError, match="cache database backing is not supported"):
+            node.run()
+    finally:
+        node.dispose()
