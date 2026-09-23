@@ -52,6 +52,19 @@ run_phase clock submit_clock_seed forced_exit 'data_count=3 signal_count=1'
 run_phase clock settle success
 run_phase clock restore_late_event success 'delivery=rejected_unknown_order record=created'
 run_phase clock restore_late_event success 'delivery=rejected_unknown_order record=verified_existing'
+run_phase partial submit_clock_seed forced_exit
+run_phase partial settle_partial success
+run_phase partial restore_partial success 'decision=HOLD_NEW_ORDERS'
+run_phase partial_conflict seed forced_exit
+run_phase partial_conflict settle_partial_conflict success
+run_phase partial_conflict restore_partial_conflict blocked 'reason=account_execution_mismatch'
+run_phase quantity_conflict seed forced_exit
+run_phase quantity_conflict settle_quantity_conflict success
+run_phase quantity_conflict restore_quantity_conflict blocked 'reason=account_execution_mismatch'
+run_phase torn submit_clock_seed forced_exit
+run_phase torn settle success
+run_phase torn tear_record success 'record=truncated'
+run_phase torn restore_torn_record blocked 'reason=truncated_reconciliation_record'
 run_phase event submit_fill success
 run_phase event restore_filled success 'record=created'
 run_phase conflict seed forced_exit
