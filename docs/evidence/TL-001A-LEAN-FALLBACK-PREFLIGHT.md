@@ -1,6 +1,6 @@
 # TL-001A LEAN fallback preflight
 
-Status: source/API screen and one synthetic historical replay on 2026-09-22 Alaska time, **not** a forward-paper recovery bakeoff or adoption. Issue [#2](https://github.com/Loothore907/tidelab/issues/2) stays open.
+Status: source/API screen and one synthetic historical replay on 2026-09-22 Alaska time. A separate [synthetic brokerage startup/restart probe](TL-001A-LEAN-FORWARD-RECOVERY.md) now demonstrates a narrower recovery seam, **not** a complete forward-paper runner or adoption. Issue [#2](https://github.com/Loothore907/tidelab/issues/2) stays open.
 
 ## Why this comparison is now due
 
@@ -22,4 +22,4 @@ This proves that the open-source source/launcher path can consume a small local 
 
 ## Executable comparison required before an engine decision
 
-The local historical input checkpoint is complete. Next, test a forward-paper process with a synthetic brokerage that reports the same pending order after restart, proving order/account reconciliation and no blind resubmission. Compare TideLab's contract mapping, shared strategy semantics, accounting, evidence export, Windows/Linux operation, license/distribution duties, and implementation burden against Nautilus. Keep real venue adapters, credentials, live orders, and restricted market data out of the probe. LEAN remains a fallback candidate, not a passed alternative.
+The local historical input checkpoint and a narrow synthetic brokerage-report startup/restart probe are complete. The latter reloads a pending order and account state from a durable synthetic broker report without a new submission, but it does not exercise a full forward-paper loop or a changed/ambiguous brokerage outcome during downtime. Compare TideLab's contract mapping, shared strategy semantics, accounting, evidence export, Windows/Linux operation, license/distribution duties, and implementation burden against Nautilus. Keep real venue adapters, credentials, live orders, and restricted market data out of the probe. LEAN remains a fallback candidate, not a passed alternative.

@@ -11,3 +11,17 @@ Reproduce in an **isolated** LEAN source checkout at commit [`88bce0fc6fe282378e
 5. From `Launcher/bin/Release/`, run `dotnet QuantConnect.Lean.Launcher.dll`.
 
 The expected log marker is `TL001A_LEAN_SYNTHETIC count=3 sum=306`, followed by analysis completion. A successful run establishes only local historical data delivery. It does not test TideLab's H1 strategy, order accounting, forward-paper operation, process-loss recovery, or LEAN adoption. See `docs/evidence/TL-001A-LEAN-FALLBACK-PREFLIGHT.md`.
+
+## Synthetic brokerage startup/restart probe
+
+The three `TideLabForwardRecovery*` files exercise LEAN's public brokerage setup path with a mock brokerage reading a durable synthetic report. The report is the test authority for a pending order, USD cash, and holdings. This is a setup-seam probe, not an unattended forward-paper runner.
+
+In the same pinned LEAN checkout:
+
+1. Copy `TideLabForwardRecoveryProbe.cs` into `Tests/Engine/Setup/`.
+2. Create `TideLabForwardProbe/` at the LEAN root and copy the runner `.cs` and `.csproj` there.
+3. Build `TideLabForwardProbe/TideLabForwardRecoveryRunner.csproj` with .NET 10 in Release mode.
+4. From LEAN's `Launcher/bin/Release` directory, set `TL001A_REPORT_PATH` to a new temporary path and `TL001A_PHASE=seed`, then run the built `TideLabForwardRecoveryRunner.dll` with `dotnet`. Expect `phase=seed status=pending` and a forced nonzero exit after LEAN registers the order.
+5. In a fresh process with the same report path and `TL001A_PHASE=restore`, run the same DLL. Expect a zero exit and `phase=restore status=pending ... new_submissions=0`.
+
+Keep the synthetic report local and discard it after the run. Details, observations, and limits are in [the recovery evidence](../../docs/evidence/TL-001A-LEAN-FORWARD-RECOVERY.md). The probe requires neither a QuantConnect login nor a paid CLI.
