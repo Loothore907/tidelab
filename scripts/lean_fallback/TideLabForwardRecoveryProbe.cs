@@ -394,7 +394,8 @@ namespace QuantConnect.Tests.Engine.Setup
 
             Assert.That(phase, Is.AnyOf("seed", "restore", "restore_filled",
                 "restore_late_event", "restore_conflict", "restore_quantity_conflict",
-                "restore_partial",
+                "restore_partial", "restore_ledger_partial", "restore_ledger_full",
+                "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
             Assert.That(snapshot, Is.Not.Null);
@@ -404,7 +405,23 @@ namespace QuantConnect.Tests.Engine.Setup
             Assert.That(snapshot.Quantity, Is.EqualTo(1m));
             Assert.That(snapshot.LimitPrice, Is.EqualTo(90m));
             var pending = phase == "seed" || phase == "restore";
-            if (pending)
+            var ledgerPartial = phase == "restore_ledger_partial";
+            var ledgerFull = phase == "restore_ledger_full";
+            if (phase == "restore_ledger_full_lag")
+            {
+                Assert.That(snapshot.BrokerStatus, Is.EqualTo("Filled"));
+                Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path, 2), Is.False);
+                Console.WriteLine("TL001A_LEAN_FORWARD phase=restore_ledger_full_lag decision=BLOCK reason=ledger_behind_broker new_submissions=0");
+                Environment.Exit(42);
+                return;
+            }
+            if (ledgerPartial || ledgerFull)
+            {
+                Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path,
+                    ledgerPartial ? 1 : 2), Is.True,
+                    "Do not start LEAN until every broker execution is committed");
+            }
+            else if (pending)
             {
                 Assert.That(snapshot.Revision, Is.EqualTo(1));
                 Assert.That(snapshot.BrokerStatus, Is.EqualTo("Submitted"));
@@ -439,7 +456,7 @@ namespace QuantConnect.Tests.Engine.Setup
             var results = new Mock<IResultHandler>();
             var realTime = new Mock<IRealTimeHandler>();
             var brokerage = new Mock<IBrokerage>();
-            var partialOrder = phase == "restore_partial";
+            var partialOrder = phase == "restore_partial" || ledgerPartial;
             var hasOpenOrder = pending || partialOrder;
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
@@ -498,13 +515,14 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
                 if (partialOrder)
                 {
-                    Console.WriteLine($"TL001A_LEAN_FORWARD phase=restore_partial status=PartiallyFilled cash={snapshot.Cash} holding={snapshot.Holding} open_orders=1 decision=HOLD_NEW_ORDERS new_submissions=0");
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status=PartiallyFilled cash={snapshot.Cash} holding={snapshot.Holding} open_orders=1 decision=HOLD_NEW_ORDERS new_submissions=0");
                     return;
                 }
                 string recordState;
                 try
                 {
-                    recordState = pending ? "none" : RecordOrVerifyExecution(path, snapshot);
+                    recordState = pending ? "none" : ledgerFull ? "ledger_verified" :
+                        RecordOrVerifyExecution(path, snapshot);
                 }
                 catch (JsonException) when (phase == "restore_torn_record")
                 {
