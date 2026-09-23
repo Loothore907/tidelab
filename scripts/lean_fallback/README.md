@@ -25,3 +25,11 @@ In the same pinned LEAN checkout:
 5. In a fresh process with the same report path and `TL001A_PHASE=restore`, run the same DLL. Expect a zero exit and `phase=restore status=pending ... new_submissions=0`.
 
 Keep the synthetic report local and discard it after the run. Details, observations, and limits are in [the recovery evidence](../../docs/evidence/TL-001A-LEAN-FORWARD-RECOVERY.md). The probe requires neither a QuantConnect login nor a paid CLI.
+
+### Changed outcome and blocked reports
+
+The same runner supports a second, separate synthetic sequence. Use a new report path and run `seed` as above. While LEAN is stopped, run with `TL001A_PHASE=settle` and the same path; this simulates a brokerage fill at 90 with a 0.09 USD fee. Run `TL001A_PHASE=restore_filled` in a fresh process. It should show cash `9909.91`, holding `1`, zero open orders, and zero new submissions. The closed execution is in the brokerage report; LEAN's fresh transaction handler does not reconstruct that closed order from `GetOpenOrders`.
+
+For the conflict case, use another new report path: run `seed`, then `settle_conflict`, then `restore_conflict`. The final phase must print `decision=BLOCK` and exit nonzero before LEAN setup. For an absent report, use a path that does not exist with `TL001A_PHASE=restore_missing`; it must also block and exit nonzero. These phases are synthetic test assertions, not a production submit policy. See [the downtime-outcome evidence](../../docs/evidence/TL-001A-LEAN-DOWNTIME-OUTCOME.md).
+
+On WSL/Linux, `bash scripts/lean_fallback/run_forward_recovery_probe.sh <pinned-LEAN-checkout> <dotnet-10-binary>` builds the probe and runs all four paths with isolated temporary reports. Its final exit code is zero only when the expected success and blocked outcomes are observed.
