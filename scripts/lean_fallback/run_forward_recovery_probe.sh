@@ -48,6 +48,10 @@ run_phase submitted submit_seed forced_exit
 run_phase submitted settle success
 run_phase submitted restore_filled success 'record=created'
 run_phase submitted restore_filled success 'record=verified_existing'
+run_phase clock submit_clock_seed forced_exit 'data_count=3 signal_count=1'
+run_phase clock settle success
+run_phase clock restore_late_event success 'delivery=rejected_unknown_order record=created'
+run_phase clock restore_late_event success 'delivery=rejected_unknown_order record=verified_existing'
 run_phase event submit_fill success
 run_phase event restore_filled success 'record=created'
 run_phase conflict seed forced_exit

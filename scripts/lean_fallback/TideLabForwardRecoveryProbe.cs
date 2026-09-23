@@ -10,6 +10,7 @@ using Moq;
 using NUnit.Framework;
 using QuantConnect.Algorithm;
 using QuantConnect.Brokerages;
+using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
 using QuantConnect.Lean.Engine.DataFeeds;
@@ -30,7 +31,25 @@ namespace QuantConnect.Tests.Engine.Setup
         private sealed class ProbeAlgorithm : QCAlgorithm
         {
             public readonly List<OrderEvent> SeenEvents = new List<OrderEvent>();
+            public Symbol SignalSymbol;
+            public bool EnableSignal;
+            public int DataCount;
+            public int SignalCount;
+            public readonly List<DateTime> DataTimesUtc = new List<DateTime>();
+            private decimal _firstClose;
             public override void Initialize() { }
+            public override void OnData(Slice slice)
+            {
+                if (!EnableSignal || !slice.Bars.TryGetValue(SignalSymbol, out var bar)) return;
+                DataCount++;
+                DataTimesUtc.Add(UtcTime);
+                if (DataCount == 1) _firstClose = bar.Close;
+                if (DataCount == 3 && bar.Close > _firstClose)
+                {
+                    SignalCount++;
+                    LimitOrder(SignalSymbol, 1m, 90m);
+                }
+            }
             public override void OnOrderEvent(OrderEvent orderEvent)
             {
                 SeenEvents.Add(orderEvent);
@@ -40,6 +59,7 @@ namespace QuantConnect.Tests.Engine.Setup
         private sealed class BrokerReport
         {
             public int Revision { get; set; }
+            public int LeanOrderId { get; set; }
             public string BrokerId { get; set; }
             public string BrokerStatus { get; set; }
             public string ExecutionId { get; set; }
@@ -119,10 +139,13 @@ namespace QuantConnect.Tests.Engine.Setup
             File.Move(next, path, true);
         }
 
-        private static void RunSyntheticOrderSubmission(string path, bool fillNow)
+        private static void RunSyntheticOrderSubmission(string path, bool fillNow,
+            bool forwardClock)
         {
             var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
             var algorithm = new ProbeAlgorithm();
+            algorithm.SignalSymbol = symbol;
+            algorithm.EnableSignal = forwardClock;
             var dataManager = new DataManagerStub(algorithm, new MockDataFeed(), liveMode: true);
             algorithm.SubscriptionManager.SetDataManager(dataManager);
             var transaction = new BrokerageTransactionHandler();
@@ -149,6 +172,7 @@ namespace QuantConnect.Tests.Engine.Setup
                     var report = new BrokerReport
                     {
                         Revision = 1,
+                        LeanOrderId = order.Id,
                         BrokerId = order.BrokerId[0],
                         BrokerStatus = "Submitted",
                         Cash = 10000m,
@@ -179,7 +203,33 @@ namespace QuantConnect.Tests.Engine.Setup
             algorithm.SetFinishedWarmingUp();
             algorithm.Transactions.SetOrderProcessor(transaction);
 
-            var ticket = algorithm.LimitOrder(symbol, 1m, 90m);
+            OrderTicket ticket = null;
+            if (forwardClock)
+            {
+                var start = new DateTime(2026, 1, 5, 15, 0, 0, DateTimeKind.Utc);
+                foreach (var (index, close) in new[] { 100m, 102m, 104m }.Select((value, i) => (i, value)))
+                {
+                    var time = start.AddHours(index);
+                    var bar = new TradeBar(time, symbol, close, close, close, close,
+                        1m, TimeSpan.FromHours(1));
+                    var slice = new Slice(bar.EndTime, new BaseData[] { bar }, bar.EndTime);
+                    algorithm.SetDateTime(bar.EndTime);
+                    algorithm.SetCurrentSlice(slice);
+                    algorithm.Securities[symbol].SetMarketPrice(bar);
+                    algorithm.OnData(slice);
+                }
+                Assert.That(algorithm.DataCount, Is.EqualTo(3));
+                Assert.That(algorithm.SignalCount, Is.EqualTo(1));
+                Assert.That(algorithm.DataTimesUtc, Is.EqualTo(new[]
+                {
+                    start.AddHours(1), start.AddHours(2), start.AddHours(3)
+                }));
+                ticket = transaction.GetOpenOrderTickets().Single();
+            }
+            else
+            {
+                ticket = algorithm.LimitOrder(symbol, 1m, 90m);
+            }
             Assert.That(submitted.Wait(TimeSpan.FromSeconds(10)), Is.True,
                 "Synthetic broker did not receive the LEAN order");
             Assert.That(ticket, Is.Not.Null);
@@ -231,7 +281,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 dataManager.RemoveAllSubscriptions();
                 return;
             }
-            Console.WriteLine("TL001A_LEAN_FORWARD phase=submit_seed broker_id=TL001A-BROKER-ORDER-1 quantity=1 new_submissions=1");
+            Console.WriteLine($"TL001A_LEAN_FORWARD phase={(forwardClock ? "submit_clock_seed" : "submit_seed")} data_count={algorithm.DataCount} signal_count={algorithm.SignalCount} broker_id=TL001A-BROKER-ORDER-1 quantity=1 new_submissions=1");
             Environment.Exit(23);
         }
 
@@ -242,9 +292,11 @@ namespace QuantConnect.Tests.Engine.Setup
             var phase = Environment.GetEnvironmentVariable("TL001A_PHASE");
             Assert.That(path, Is.Not.Null.And.Not.Empty);
 
-            if (phase == "submit_seed" || phase == "submit_fill")
+            if (phase == "submit_seed" || phase == "submit_fill" ||
+                phase == "submit_clock_seed")
             {
-                RunSyntheticOrderSubmission(path, phase == "submit_fill");
+                RunSyntheticOrderSubmission(path, phase == "submit_fill",
+                    phase == "submit_clock_seed");
                 return;
             }
 
@@ -295,7 +347,8 @@ namespace QuantConnect.Tests.Engine.Setup
                 return;
             }
 
-            Assert.That(phase, Is.AnyOf("seed", "restore", "restore_filled", "restore_conflict"));
+            Assert.That(phase, Is.AnyOf("seed", "restore", "restore_filled",
+                "restore_late_event", "restore_conflict"));
             var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
             Assert.That(snapshot, Is.Not.Null);
@@ -385,6 +438,35 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
                 var recordState = pending ? "none" : RecordOrVerifyExecution(path, snapshot);
+                if (phase == "restore_late_event")
+                {
+                    Assert.That(snapshot.LeanOrderId, Is.GreaterThan(0));
+                    var lateOrder = new LimitOrder(symbol, snapshot.Quantity,
+                        snapshot.LimitPrice, DateTime.UtcNow)
+                    {
+                        Id = snapshot.LeanOrderId,
+                        BrokerId = new List<string> { snapshot.BrokerId }
+                    };
+                    brokerage.Raise(x => x.OrdersStatusChanged += null, brokerage.Object,
+                        new List<OrderEvent>
+                        {
+                            new OrderEvent(lateOrder, DateTime.UtcNow,
+                                new OrderFee(new CashAmount(snapshot.Fee, Currencies.USD)))
+                            {
+                                Status = OrderStatus.Filled,
+                                FillQuantity = snapshot.Quantity,
+                                FillPrice = snapshot.FillPrice
+                            }
+                        });
+                    Assert.That(algorithm.SeenEvents, Is.Empty);
+                    Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                        Is.EqualTo(snapshot.Cash));
+                    Assert.That(algorithm.Portfolio[symbol].Quantity,
+                        Is.EqualTo(snapshot.Holding));
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase=restore_late_event delivery=rejected_unknown_order record={recordState} cash={snapshot.Cash} holding={snapshot.Holding} new_submissions=0");
+                    return;
+                }
                 Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} status={snapshot.BrokerStatus} broker_id={snapshot.BrokerId} cash={snapshot.Cash} holding={snapshot.Holding} open_orders={restored.Count} record={recordState} new_submissions=0");
                 if (phase == "seed")
                 {
