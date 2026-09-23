@@ -398,6 +398,8 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_ledger_partial_late_events", "restore_ledger_full_late_events",
                 "restore_ledger_partial_screened", "restore_ledger_partial_screened_crash",
                 "restore_ledger_partial_reconnect_gap",
+                "restore_ledger_partial_reconcile_running",
+                "restore_ledger_partial_ack_lost",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -412,7 +414,9 @@ namespace QuantConnect.Tests.Engine.Setup
                 phase == "restore_ledger_partial_late_events" ||
                 phase == "restore_ledger_partial_screened" ||
                 phase == "restore_ledger_partial_screened_crash" ||
-                phase == "restore_ledger_partial_reconnect_gap";
+                phase == "restore_ledger_partial_reconnect_gap" ||
+                phase == "restore_ledger_partial_reconcile_running" ||
+                phase == "restore_ledger_partial_ack_lost";
             var ledgerFull = phase == "restore_ledger_full" ||
                 phase == "restore_ledger_full_late_events";
             if (phase == "restore_ledger_full_lag")
@@ -521,6 +525,88 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                if (phase == "restore_ledger_partial_reconcile_running" ||
+                    phase == "restore_ledger_partial_ack_lost")
+                {
+                    const string second = "TL001A-EXECUTION-2";
+                    var source = TideLabExecutionLedgerProbe.OpenSyntheticSource(path);
+                    var lateOrder = new LimitOrder(symbol, snapshot.Quantity,
+                        snapshot.LimitPrice, DateTime.UtcNow)
+                    {
+                        Id = snapshot.LeanOrderId,
+                        BrokerId = new List<string> { snapshot.BrokerId }
+                    };
+                    TideLabEngineSnapshot ReadEngine()
+                    {
+                        var open = transaction.GetOpenOrders();
+                        return new TideLabEngineSnapshot(
+                            algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                            algorithm.Portfolio[symbol].Quantity, open.Count,
+                            open.Count == 1 ? open[0].BrokerId.SingleOrDefault() : null);
+                    }
+                    void Deliver(TideLabBrokerExecution execution, bool finalFill)
+                    {
+                        brokerage.Raise(x => x.OrdersStatusChanged += null,
+                            brokerage.Object, new List<OrderEvent>
+                            {
+                                new OrderEvent(lateOrder, DateTime.UtcNow,
+                                    new OrderFee(new CashAmount(execution.Fee,
+                                        Currencies.USD)))
+                                {
+                                    Status = finalFill ? OrderStatus.Filled :
+                                        OrderStatus.PartiallyFilled,
+                                    FillQuantity = execution.Quantity,
+                                    FillPrice = execution.Price
+                                }
+                            });
+                    }
+
+                    TideLabExecutionLedgerProbe.AdvanceReportToFull(path);
+                    var interrupted = new TideLabDelegateEnginePort(ReadEngine,
+                        (execution, finalFill) =>
+                        {
+                            if (phase == "restore_ledger_partial_ack_lost")
+                                Deliver(execution, finalFill);
+                            throw new IOException("synthetic acknowledgement loss");
+                        });
+                    Assert.That(TideLabExecutionDeliveryProbe.Reconcile(source,
+                        interrupted, second), Is.EqualTo("BLOCK_DELIVERY_INTERRUPTED"));
+                    Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path, 2),
+                        Is.True);
+                    var deliveredBeforeReconnect = algorithm.SeenEvents.Count;
+                    Assert.That(deliveredBeforeReconnect, Is.EqualTo(
+                        phase == "restore_ledger_partial_ack_lost" ? 1 : 0));
+
+                    var mismatch = new TideLabDelegateEnginePort(
+                        () => new TideLabEngineSnapshot(1m, 0.5m, 1,
+                            snapshot.BrokerId),
+                        (_, _) => Assert.Fail("mismatched state delivered"));
+                    Assert.That(TideLabExecutionDeliveryProbe.Reconcile(source,
+                        mismatch, second), Is.EqualTo("BLOCK_ENGINE_MISMATCH"));
+                    var wrongOrder = new TideLabDelegateEnginePort(
+                        () => new TideLabEngineSnapshot(9954.955m, 0.5m, 1,
+                            "DIFFERENT-BROKER-ORDER"),
+                        (_, _) => Assert.Fail("different order delivered"));
+                    Assert.That(TideLabExecutionDeliveryProbe.Reconcile(source,
+                        wrongOrder, second), Is.EqualTo("BLOCK_ENGINE_MISMATCH"));
+
+                    var connected = new TideLabDelegateEnginePort(ReadEngine, Deliver);
+                    var firstReconnect = TideLabExecutionDeliveryProbe.Reconcile(
+                        source, connected, second);
+                    Assert.That(firstReconnect, Is.EqualTo(
+                        phase == "restore_ledger_partial_ack_lost" ?
+                        "ALREADY_APPLIED" : "APPLIED_FROM_COMMITTED"));
+                    Assert.That(TideLabExecutionDeliveryProbe.Reconcile(source,
+                        connected, second), Is.EqualTo("ALREADY_APPLIED"));
+                    Assert.That(TideLabExecutionDeliveryProbe.Reconcile(source,
+                        connected, second), Is.EqualTo("ALREADY_APPLIED"));
+                    Assert.That(algorithm.SeenEvents.Count, Is.EqualTo(1));
+                    Assert.That(ReadEngine(), Is.EqualTo(new TideLabEngineSnapshot(
+                        9909.91m, 1m, 0, null)));
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} interrupted=blocked reconnect={firstReconnect} repeats=2 callbacks=1 cash=9909.91 holding=1 open_orders=0 new_submissions=0");
+                    return;
+                }
                 if (phase == "restore_ledger_partial_screened" ||
                     phase == "restore_ledger_partial_screened_crash" ||
                     phase == "restore_ledger_partial_reconnect_gap")
