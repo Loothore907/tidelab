@@ -55,6 +55,14 @@ Do not use the untouched interval as an iterative development set. Once inspecte
 - The initial review floor remains at least eight weeks and 50 closed trades, extending as needed. It is neither statistical proof nor an automatic live gate.
 - Advisory mode, if separately approved, creates a time-limited proposal and records the user's actual execution or rejection. Never treat a proposal as a fill.
 
+## Optional runtime decision-model evaluation
+
+Track [issue #21](https://github.com/Loothore907/tidelab/issues/21) as a research candidate while designing TL-003 and TL-004. A fast typed decision model such as TypeSafe Jev might classify a narrow, ambiguous market state from precomputed features. This is a hypothesis to test, not a selected strategy component or authorization for model calls or automated trading. TypeSafe's [model documentation](https://docs.typesafe.ai/introduction) describes bounded Choice, Score, and Noul outputs; its [Jev 1.13 limitations](https://docs.typesafe.ai/model-jaggedness/jev-1.13) advise keeping arithmetic and time comparisons in code. Typed output does not establish correct market judgment or profitable trades.
+
+Register a code-only strategy as the baseline before adding any model input. Freeze the model's version, questions, feature schema, timeframe, decision deadline, confidence policy, permitted variants, and pass/fail criteria before evaluation. Use only information available at each decision time. Compare the same strategy and periods with and without the model, counting every question, threshold, or parameter change as a trial. Measure incremental net results after execution costs, drawdown, missed opportunities, calibration against defined labels, wrong or inconsistent judgments, unavailable or late responses, end-to-end tail latency, and total workflow cost. Begin with synthetic or rights-cleared data and shadow/paper operation; advance only if the model shows a repeatable benefit over simpler code.
+
+Keep indicators, numeric thresholds, timing, position sizing, shared portfolio limits, order management, and reconciliation deterministic. An absent, stale, malformed, or late model answer blocks a new model-dependent entry; it must not delay management of an existing position. Log the exact input identity, returned model version, question/configuration version, response, and deadline outcome so each decision can be audited without calling the model again. Evaluate each proposed timeframe separately: a response suitable for an hourly strategy may miss a faster strategy's decision deadline. No model may override independent risk controls or change a running strategy version.
+
 ## Initial hypothesis family
 
 The first research cycle may implement a deliberately small baseline set after TL-001 and TL-002:
