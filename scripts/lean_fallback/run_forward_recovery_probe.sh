@@ -82,6 +82,16 @@ run_phase ledger_flush ledger_reconcile success 'state=recovered_flushed_candida
 run_phase ledger_flush restore_ledger_full success 'open_orders=0 record=ledger_verified new_submissions=0'
 run_phase ledger_flush restore_ledger_full_late_events success 'events=2 .*open_orders=0 ledger=unchanged new_submissions=0'
 run_phase ledger_flush ledger_reconcile success 'state=verified_existing executions=2'
+run_phase screened managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+run_phase screened ledger_partial_report success 'revision=2 executions=1'
+run_phase screened ledger_reconcile success 'state=created_from_report executions=1'
+run_phase screened restore_ledger_partial_screened success 'second=delivered_after_commit callbacks=1 cash=9909.91 holding=1 open_orders=0 new_submissions=0'
+run_phase screened restore_ledger_full success 'open_orders=0 record=ledger_verified new_submissions=0'
+run_phase screened_crash managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+run_phase screened_crash ledger_partial_report success 'revision=2 executions=1'
+run_phase screened_crash ledger_reconcile success 'state=created_from_report executions=1'
+run_phase screened_crash restore_ledger_partial_screened_crash forced_exit 'second=committed delivery=not_started new_submissions=0'
+run_phase screened_crash restore_ledger_full success 'open_orders=0 record=ledger_verified new_submissions=0'
 run_phase pending seed forced_exit
 run_phase pending restore success
 run_phase filled seed forced_exit
