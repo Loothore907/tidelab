@@ -9,6 +9,9 @@ source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 test "$(git -C "$lean_root" rev-parse HEAD)" = \
   "88bce0fc6fe282378ee73c54cef1090d0d7a73ee"
 mkdir -p "$lean_root/TideLabForwardProbe"
+cp "$source_dir/TideLabSyntheticSignal.cs" \
+  "$source_dir/TideLabSyntheticProbeAlgorithm.cs" \
+  "$lean_root/Algorithm.CSharp/"
 cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \

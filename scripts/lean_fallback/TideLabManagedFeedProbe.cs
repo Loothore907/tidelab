@@ -8,6 +8,7 @@ using System.Threading;
 using Moq;
 using NUnit.Framework;
 using QuantConnect.Algorithm;
+using QuantConnect.Algorithm.CSharp;
 using QuantConnect.Brokerages;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
@@ -35,15 +36,14 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             public readonly List<DateTime> TimesUtc = new List<DateTime>();
             public bool SubmitOrder;
             public int Signals;
-            private decimal _firstClose;
+            private readonly TideLabSyntheticSignal _signal = new TideLabSyntheticSignal();
             public override void Initialize() { }
             public override void OnData(Slice slice)
             {
                 if (!slice.Bars.TryGetValue(ProbeSymbol, out var bar)) return;
                 Closes.Add(bar.Close);
                 TimesUtc.Add(UtcTime);
-                if (Closes.Count == 1) _firstClose = bar.Close;
-                if (Closes.Count == 3 && bar.Close > _firstClose)
+                if (_signal.OnClose(bar.Close))
                 {
                     Signals++;
                     if (SubmitOrder) LimitOrder(ProbeSymbol, 1m, 90m);

@@ -4,13 +4,13 @@ These TideLab-authored files use only three synthetic hourly values. They submit
 
 Reproduce in an **isolated** LEAN source checkout at commit [`88bce0fc6fe282378ee73c54cef1090d0d7a73ee`](https://github.com/QuantConnect/Lean/commit/88bce0fc6fe282378ee73c54cef1090d0d7a73ee) with .NET SDK 10:
 
-1. Copy `TideLabSyntheticProbeAlgorithm.cs` into LEAN's `Algorithm.CSharp/`.
+1. Copy `TideLabSyntheticProbeAlgorithm.cs` and `TideLabSyntheticSignal.cs` into LEAN's `Algorithm.CSharp/`.
 2. Copy the three `fixtures/*.csv` files into LEAN's `Data/tidelab/`.
 3. Build `Launcher/QuantConnect.Lean.Launcher.csproj` in `Release` mode.
 4. In the **built copy** at `Launcher/bin/Release/config.json`, set `algorithm-type-name` to `TideLabSyntheticProbeAlgorithm`. Keep `environment` as `backtesting`, `algorithm-language` as `CSharp`, and `data-folder` pointing to LEAN's local `Data/` directory.
 5. From `Launcher/bin/Release/`, run `dotnet QuantConnect.Lean.Launcher.dll`.
 
-The expected log marker is `TL001A_LEAN_SYNTHETIC count=3 sum=306`, followed by analysis completion. A successful run establishes only local historical data delivery. It does not test TideLab's H1 strategy, order accounting, forward-paper operation, process-loss recovery, or LEAN adoption. See `docs/evidence/TL-001A-LEAN-FALLBACK-PREFLIGHT.md`.
+The expected log marker is `TL001A_LEAN_SYNTHETIC count=3 sum=306 signals=1`, followed by analysis completion. A successful run establishes local historical data delivery and the shared synthetic signal rule. It does not test TideLab's H1 strategy, order accounting, forward-paper operation, process-loss recovery, or LEAN adoption. See `docs/evidence/TL-001A-LEAN-SIGNAL-PARITY.md`.
 
 ## Synthetic brokerage startup/restart probe
 
@@ -18,7 +18,7 @@ The three `TideLabForwardRecovery*` files exercise LEAN's public brokerage setup
 
 In the same pinned LEAN checkout:
 
-1. Copy `TideLabForwardRecoveryProbe.cs` into `Tests/Engine/Setup/`.
+1. Copy `TideLabSyntheticSignal.cs` into `Algorithm.CSharp/`, and `TideLabForwardRecoveryProbe.cs` into `Tests/Engine/Setup/`.
 2. Create `TideLabForwardProbe/` at the LEAN root and copy the runner `.cs` and `.csproj` there.
 3. Build `TideLabForwardProbe/TideLabForwardRecoveryRunner.csproj` with .NET 10 in Release mode.
 4. From LEAN's `Launcher/bin/Release` directory, set `TL001A_REPORT_PATH` to a new temporary path and `TL001A_PHASE=seed`, then run the built `TideLabForwardRecoveryRunner.dll` with `dotnet`. Expect `phase=seed status=pending` and a forced nonzero exit after LEAN registers the order.
@@ -42,4 +42,4 @@ The runner additionally restores a synthetic partial fill with the order still o
 
 The `managed_feed` phase uses LEAN's `LiveTradingDataFeed` and `LiveSynchronizer` to emit three invented hourly values from a local test queue at exchange-local timestamps. The harness consumes the LEAN-produced slices and invokes `OnData`; LEAN's `AlgorithmManager` is not running. See [the managed-feed checkpoint](../../docs/evidence/TL-001A-LEAN-MANAGED-FEED.md). This phase does not submit an order or prove historical/forward strategy parity.
 
-The `managed_feed_submit_seed` phase adds one `LimitOrder` from that callback through LEAN's transaction handler to the mock broker. The broker writes a pending report and acknowledges it before the process exits. The runner settles the report while LEAN is stopped, then restores the same synthetic instrument and balances twice with zero resubmissions and one test reconciliation record. See [the joined feed/broker checkpoint](../../docs/evidence/TL-001A-LEAN-FEED-BROKER-JOIN.md). `AlgorithmManager`, historical/forward strategy parity, and a production ledger remain open.
+The `managed_feed_submit_seed` phase adds one `LimitOrder` from that callback through LEAN's transaction handler to the mock broker. The broker writes a pending report and acknowledges it before the process exits. The runner settles the report while LEAN is stopped, then restores the same synthetic instrument and balances twice with zero resubmissions and one test reconciliation record. See [the joined feed/broker checkpoint](../../docs/evidence/TL-001A-LEAN-FEED-BROKER-JOIN.md). The historical replay and forward probes now call one shared synthetic signal rule; see [the parity checkpoint](../../docs/evidence/TL-001A-LEAN-SIGNAL-PARITY.md). `AlgorithmManager`, full strategy/risk parity, and a production ledger remain open.
