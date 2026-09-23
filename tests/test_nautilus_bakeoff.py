@@ -131,8 +131,10 @@ def test_cash_account_denies_oversized_simulated_buy() -> None:
 
 _RESTART_CHILD = """
 import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from tidelab.domain import MarketEvent
 from tidelab.nautilus_bakeoff import run_execution_probe
 
@@ -146,7 +148,26 @@ event = MarketEvent(
     native={"synthetic_hour": 0}, interval_seconds=3600,
     closed=True, source_key="0",
 )
-result = run_execution_probe([event], quote_after_first_close=sys.argv[1] == "quote")
+mode = sys.argv[1]
+if mode == "crash-pending":
+    def crash_with_record(snapshot):
+        with Path(sys.argv[2]).open("w", encoding="utf-8") as out:
+            json.dump(snapshot, out, sort_keys=True)
+            out.flush()
+            os.fsync(out.fileno())
+        os._exit(23)
+
+    run_execution_probe(
+        [event], quote_after_first_close=True, pause_before_quote=True,
+        on_pause=crash_with_record,
+        request_state_save_load=True,
+    )
+    raise AssertionError("the pause callback did not terminate the child")
+result = run_execution_probe(
+    [event], quote_after_first_close=mode != "no-quote",
+    submit_order_on_bar=mode != "resume-without-resubmit",
+    request_state_save_load=mode == "resume-without-resubmit",
+)
 print(json.dumps(result, sort_keys=True))
 """
 
@@ -181,3 +202,34 @@ def test_fresh_process_replay_reconciles_after_restart(tmp_path: Path) -> None:
     assert replayed["cached_filled_qty"] == "1.000"
     assert replayed["usdt_total"] == "9899.69980000 USDT"
     assert replayed["btc_total"] == "1.00000000 BTC"
+
+
+def test_abrupt_process_loss_does_not_restore_in_memory_pending_order(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "pending-intent.json"
+    crashed = subprocess.run(
+        [sys.executable, "-c", _RESTART_CHILD, "crash-pending", str(checkpoint)],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+    )
+    assert crashed.returncode == 23
+    pending = json.loads(checkpoint.read_text(encoding="utf-8"))
+    assert pending["client_order_id"]
+    assert pending["status"] == "SUBMITTED"
+    assert pending["filled_qty"] == "0.000"
+    assert pending["usdt_total"] == "10000.00000000 USDT"
+    assert pending["btc_total"] == "None"
+
+    # A new backtest engine has no backing store. Suppressing a new submission
+    # reveals the missing order rather than making full replay resemble recovery.
+    resumed = subprocess.run(
+        [sys.executable, "-c", _RESTART_CHILD, "resume-without-resubmit"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+    )
+    after = json.loads(resumed.stdout.decode("utf-8").splitlines()[-1])
+    assert after["fixture_id"] == pending["fixture_id"]
+    assert after["cached_order_count"] == 0
+    assert after["cached_quote_count"] == 1
+    assert after["usdt_total"] == pending["usdt_total"]
+    assert after["btc_total"] == pending["btc_total"]

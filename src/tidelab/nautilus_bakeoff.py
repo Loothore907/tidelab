@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
-from typing import Sequence
+from typing import Callable, Sequence
 
 from tidelab.domain import MarketEvent, isoformat_utc, stable_id
 
@@ -193,6 +193,9 @@ def run_execution_probe(
     order_quantity: str = "1.000",
     quote_size: str = "2.000",
     pause_before_quote: bool = False,
+    submit_order_on_bar: bool = True,
+    on_pause: Callable[[dict[str, str]], None] | None = None,
+    request_state_save_load: bool = False,
 ) -> dict[str, object]:
     """Exercise one simulated buy against a later synthetic quote, not the signal bar.
 
@@ -242,7 +245,7 @@ def run_execution_probe(
             self.subscribe_bars(admitted.bars[0].bar_type)
 
         def on_bar(self, bar: object) -> None:
-            if self.submitted_at is not None:
+            if self.submitted_at is not None or not submit_order_on_bar:
                 return
             self.submitted_at = bar.ts_event
             order = self.order_factory.market(
@@ -260,7 +263,12 @@ def run_execution_probe(
             self.rejections.append(str(event.reason))
 
     observer = ExecutionObserver()
-    engine = BacktestEngine(BacktestEngineConfig(bypass_logging=True, run_analysis=False))
+    engine = BacktestEngine(BacktestEngineConfig(
+        bypass_logging=True,
+        run_analysis=False,
+        save_state=request_state_save_load,
+        load_state=request_state_save_load,
+    ))
     try:
         engine.add_venue(
             venue=venue,
@@ -277,6 +285,8 @@ def run_execution_probe(
         data = list(admitted.bars)
         if pause_before_quote and not quote_after_first_close:
             raise ValueError("a quote is required for a paused execution probe")
+        if on_pause is not None and not pause_before_quote:
+            raise ValueError("a pause callback requires a paused execution probe")
         quote_ns = None
         if quote_after_first_close:
             quote_ns = admitted.bars[0].ts_event + 60_000_000_000
@@ -303,12 +313,33 @@ def run_execution_probe(
                     or Decimal(str(paused_account.balance_total(usdt)).split()[0]) != 10_000
                     or paused_account.balance_total(btc) is not None):
                 raise AssertionError("the paused order changed cash or inventory before the quote")
+            if on_pause is not None:
+                on_pause({
+                    "client_order_id": str(paused_orders[0].client_order_id),
+                    "status": paused_order_status,
+                    "filled_qty": str(paused_orders[0].filled_qty),
+                    "usdt_total": str(paused_account.balance_total(usdt)),
+                    "btc_total": str(paused_account.balance_total(btc)),
+                    "fixture_id": admitted.fixture_id,
+                })
             engine.run(start=quote_ns, streaming=True)
             engine.end()
         else:
             engine.run()
         account = engine.cache.account_for_venue(venue)
         cached_orders = engine.cache.orders(venue=venue)
+        if not submit_order_on_bar:
+            if (cached_orders or observer.fills
+                    or str(account.balance_total(usdt)) != "10000.00000000 USDT"
+                    or account.balance_total(btc) is not None):
+                raise AssertionError("fresh engine changed state without a new order")
+            return {
+                "cached_order_count": 0,
+                "cached_quote_count": engine.cache.quote_count(instrument_id),
+                "usdt_total": str(account.balance_total(usdt)),
+                "btc_total": str(account.balance_total(btc)),
+                "fixture_id": admitted.fixture_id,
+            }
         if len(cached_orders) != 1:
             raise AssertionError("the execution probe expected exactly one cached order")
         cached_order = cached_orders[0]
