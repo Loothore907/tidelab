@@ -21,10 +21,16 @@ namespace QuantConnect.Tests.Engine.Setup
         private sealed class Report
         {
             public int Revision { get; set; }
+            public int LeanOrderId { get; set; }
             public string SymbolTicker { get; set; }
             public string BrokerId { get; set; }
             public string BrokerStatus { get; set; }
+            public string ExecutionId { get; set; }
             public decimal Quantity { get; set; }
+            public decimal ExecutedQuantity { get; set; }
+            public decimal LimitPrice { get; set; }
+            public decimal FillPrice { get; set; }
+            public decimal Fee { get; set; }
             public decimal Cash { get; set; }
             public decimal Holding { get; set; }
             public List<Execution> Executions { get; set; }
@@ -80,7 +86,9 @@ namespace QuantConnect.Tests.Engine.Setup
             Assert.That(report, Is.Not.Null);
             Assert.That(report.SymbolTicker, Is.EqualTo("SPY"));
             Assert.That(report.BrokerId, Is.EqualTo("TL001A-BROKER-ORDER-1"));
+            Assert.That(report.LeanOrderId, Is.GreaterThan(0));
             Assert.That(report.Quantity, Is.EqualTo(1m));
+            Assert.That(report.LimitPrice, Is.EqualTo(90m));
             Assert.That(report.Executions, Is.Not.Null);
             Assert.That(report.Executions.Count, Is.InRange(1, 2));
             ValidateExecution(report.Executions[0], First);
@@ -89,6 +97,10 @@ namespace QuantConnect.Tests.Engine.Setup
             Assert.That(report.Executions.Select(x => x.Id).Distinct().Count(),
                 Is.EqualTo(report.Executions.Count));
             Assert.That(report.Holding, Is.EqualTo(report.Executions.Sum(x => x.Quantity)));
+            Assert.That(report.ExecutedQuantity, Is.EqualTo(report.Holding));
+            Assert.That(report.FillPrice, Is.EqualTo(90m));
+            Assert.That(report.Fee, Is.EqualTo(report.Executions.Sum(x => x.Fee)));
+            Assert.That(report.ExecutionId, Is.EqualTo(report.Executions.Last().Id));
             Assert.That(report.Cash, Is.EqualTo(10000m - report.Executions.Sum(
                 x => x.Quantity * x.Price + x.Fee)));
             Assert.That(report.Revision, Is.EqualTo(report.Executions.Count + 1));
@@ -124,6 +136,15 @@ namespace QuantConnect.Tests.Engine.Setup
             Executions = report.Executions
         };
 
+        public static bool IsReadyForFreshSetup(string reportPath, int expectedExecutions)
+        {
+            var report = ReadReport(reportPath);
+            ValidateReport(report);
+            Assert.That(report.Executions.Count, Is.EqualTo(expectedExecutions));
+            var ledger = ReadAndValidateLedger(reportPath + ".ledger.json", report);
+            return ledger != null && ledger.Executions.Count == expectedExecutions;
+        }
+
         public void Run()
         {
             var path = Environment.GetEnvironmentVariable("TL001A_REPORT_PATH");
@@ -140,6 +161,10 @@ namespace QuantConnect.Tests.Engine.Setup
                 report.Revision = 2;
                 report.BrokerStatus = "PartiallyFilled";
                 report.Executions = new List<Execution> { First };
+                report.ExecutionId = First.Id;
+                report.ExecutedQuantity = First.Quantity;
+                report.FillPrice = First.Price;
+                report.Fee = First.Fee;
                 report.Holding = 0.5m;
                 report.Cash = 9954.955m;
                 ValidateReport(report);
@@ -155,6 +180,9 @@ namespace QuantConnect.Tests.Engine.Setup
                 report.Revision = 3;
                 report.BrokerStatus = "Filled";
                 report.Executions.Add(Second);
+                report.ExecutionId = Second.Id;
+                report.ExecutedQuantity = 1m;
+                report.Fee += Second.Fee;
                 report.Holding = 1m;
                 report.Cash = 9909.91m;
                 ValidateReport(report);
