@@ -406,6 +406,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_ledger_partial_journal_fresh",
                 "restore_snapshot_race", "restore_snapshot_stable",
                 "restore_snapshot_handoff",
+                "restore_paper_intent_join", "restore_paper_intent_join_mismatch",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -432,6 +433,10 @@ namespace QuantConnect.Tests.Engine.Setup
             var snapshotRace = phase == "restore_snapshot_race";
             var snapshotStable = phase == "restore_snapshot_stable";
             var snapshotHandoff = phase == "restore_snapshot_handoff";
+            var paperJoined = phase is "restore_paper_intent_join" or
+                "restore_paper_intent_join_mismatch";
+            TideLabPaperIntent paperIntent = null;
+            TideLabPaperOrderReport paperReport = null;
             TideLabAtomicBrokerSnapshot atomicBefore = null;
             if (phase == "restore_ledger_full_lag")
             {
@@ -447,18 +452,28 @@ namespace QuantConnect.Tests.Engine.Setup
                     ledgerPartial ? 1 : 2), Is.True,
                     "Do not start LEAN until every broker execution is committed");
             }
-            else if (snapshotRace || snapshotStable || snapshotHandoff)
+            else if (snapshotRace || snapshotStable || snapshotHandoff || paperJoined)
             {
                 atomicBefore = TideLabAtomicSnapshotProbe.Read(path);
                 var journal = TideLabCorrectionJournalProbe.Replay(
                     path + ".correction-journal.jsonl");
-                Assert.That(atomicBefore.Revision, Is.EqualTo(snapshotStable ? 3 : 2));
+                Assert.That(atomicBefore.Revision, Is.EqualTo(
+                    snapshotStable || paperJoined ? 3 : 2));
                 Assert.That(journal.EventCount, Is.EqualTo(atomicBefore.JournalEvents));
                 Assert.That(journal.Cash, Is.EqualTo(atomicBefore.Cash));
                 Assert.That(journal.Holding, Is.EqualTo(atomicBefore.Holding));
                 snapshot.Cash = atomicBefore.Cash;
                 snapshot.Holding = atomicBefore.Holding;
-                snapshot.FillPrice = snapshotStable ? 89m : 90m;
+                snapshot.FillPrice = snapshotStable || paperJoined ? 89m : 90m;
+                if (paperJoined)
+                {
+                    (paperIntent, paperReport) =
+                        TideLabPaperIntentRecoveryProbe.ReadAcceptedOrder(path);
+                    Assert.That(paperReport.SnapshotRevision,
+                        Is.EqualTo(atomicBefore.Revision));
+                    Assert.That(paperReport.Cash, Is.EqualTo(atomicBefore.Cash));
+                    Assert.That(paperReport.Holding, Is.EqualTo(atomicBefore.Holding));
+                }
             }
             else if (journalFresh)
             {
@@ -506,11 +521,12 @@ namespace QuantConnect.Tests.Engine.Setup
             var realTime = new Mock<IRealTimeHandler>();
             var brokerage = new Mock<IBrokerage>();
             var partialOrder = phase == "restore_partial" || ledgerPartial ||
-                journalFresh || snapshotRace || snapshotStable || snapshotHandoff;
+                journalFresh || snapshotRace || snapshotStable || snapshotHandoff ||
+                paperJoined;
             var hasOpenOrder = pending || partialOrder;
             var concurrent = phase == "restore_ledger_partial_concurrent" ||
                 phase == "restore_ledger_partial_journal_correction" || journalFresh ||
-                snapshotRace || snapshotStable || snapshotHandoff;
+                snapshotRace || snapshotStable || snapshotHandoff || paperJoined;
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
             {
@@ -541,6 +557,19 @@ namespace QuantConnect.Tests.Engine.Setup
                     BrokerId = new List<string> { "TL001A-BROKER-ORDER-2" }
                 });
             }
+            if (paperJoined)
+            {
+                brokerOpenOrders.Add(new LimitOrder(symbol, paperIntent.Quantity,
+                    paperIntent.LimitPrice,
+                    new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                {
+                    Id = snapshot.LeanOrderId + 2,
+                    Status = OrderStatus.Submitted,
+                    BrokerId = new List<string> { phase ==
+                        "restore_paper_intent_join_mismatch" ?
+                        "TL001A-WRONG-BROKER-ORDER" : paperReport.BrokerId }
+                });
+            }
             brokerage.Setup(x => x.GetOpenOrders()).Returns(() =>
             {
                 if (snapshotRace)
@@ -566,7 +595,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 Assert.That(ok, Is.True, string.Join(" | ", setup.Errors));
 
                 var restored = transaction.GetOpenOrders();
-                Assert.That(restored.Count, Is.EqualTo(concurrent ? 2 :
+                Assert.That(restored.Count, Is.EqualTo(paperJoined ? 3 : concurrent ? 2 :
                     hasOpenOrder ? 1 : 0));
                 if (hasOpenOrder)
                 {
@@ -589,19 +618,57 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
-                if (snapshotRace || snapshotStable || snapshotHandoff)
+                if (snapshotRace || snapshotStable || snapshotHandoff || paperJoined)
                 {
                     var atomicAfter = TideLabAtomicSnapshotProbe.Read(path);
                     var journalAfter = TideLabCorrectionJournalProbe.Replay(
                         path + ".correction-journal.jsonl");
                     Assert.That(journalAfter.Cash, Is.EqualTo(atomicAfter.Cash));
                     Assert.That(journalAfter.Holding, Is.EqualTo(atomicAfter.Holding));
-                    Assert.That(restored.Select(order => order.BrokerId.Single()),
-                        Is.EquivalentTo(new[] { atomicAfter.FirstBrokerId,
-                            atomicAfter.SecondBrokerId }));
+                    var restoredBrokerIds = restored.Select(order =>
+                        order.BrokerId.Single()).ToArray();
+                    var expectedBrokerIds = paperJoined ?
+                        new[] { atomicAfter.FirstBrokerId, atomicAfter.SecondBrokerId,
+                            paperReport.BrokerId } :
+                        new[] { atomicAfter.FirstBrokerId, atomicAfter.SecondBrokerId };
                     Assert.That(algorithm.SeenEvents, Is.Empty);
-                    if (snapshotHandoff)
+                    if (paperJoined)
                     {
+                        Assert.That(atomicAfter, Is.EqualTo(atomicBefore));
+                        Assert.That(atomicAfter.Revision, Is.EqualTo(3));
+                        Assert.That(paperIntent.ClientId,
+                            Is.EqualTo(paperReport.ClientId));
+                        if (phase == "restore_paper_intent_join_mismatch")
+                        {
+                            Assert.That(restoredBrokerIds,
+                                Is.Not.EquivalentTo(expectedBrokerIds));
+                            Console.WriteLine("TL001A_LEAN_INTENT phase=join_mismatch " +
+                                "decision=BLOCK_ORDER_IDENTITY open_orders=3 " +
+                                "new_submissions=0");
+                        }
+                        else
+                        {
+                            Assert.That(restoredBrokerIds,
+                                Is.EquivalentTo(expectedBrokerIds));
+                            var second = restored.Single(order =>
+                                order.BrokerId.Contains(atomicAfter.SecondBrokerId));
+                            Assert.That(second.Status, Is.EqualTo(OrderStatus.Submitted));
+                            var third = restored.Single(order =>
+                                order.BrokerId.Contains(paperReport.BrokerId));
+                            Assert.That(third.Status, Is.EqualTo(OrderStatus.Submitted));
+                            Assert.That(third.Quantity, Is.EqualTo(paperIntent.Quantity));
+                            Assert.That(((LimitOrder)third).LimitPrice,
+                                Is.EqualTo(paperIntent.LimitPrice));
+                            Console.WriteLine("TL001A_LEAN_INTENT phase=join " +
+                                "decision=JOINED_RESTART_MATCH revision=3 " +
+                                "cash=9955.455 holding=0.5 open_orders=3 " +
+                                "callbacks=0 new_submissions=0");
+                        }
+                    }
+                    else if (snapshotHandoff)
+                    {
+                        Assert.That(restoredBrokerIds,
+                            Is.EquivalentTo(expectedBrokerIds));
                         Assert.That(atomicBefore, Is.EqualTo(atomicAfter));
                         Assert.That(atomicAfter.Revision, Is.EqualTo(2));
                         // A stable final read does not freeze a remote broker.
@@ -618,6 +685,8 @@ namespace QuantConnect.Tests.Engine.Setup
                     }
                     else if (snapshotRace)
                     {
+                        Assert.That(restoredBrokerIds,
+                            Is.EquivalentTo(expectedBrokerIds));
                         Assert.That(atomicAfter.Revision, Is.EqualTo(3));
                         Assert.That(atomicBefore.Revision, Is.EqualTo(2));
                         Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
@@ -627,6 +696,8 @@ namespace QuantConnect.Tests.Engine.Setup
                     }
                     else
                     {
+                        Assert.That(restoredBrokerIds,
+                            Is.EquivalentTo(expectedBrokerIds));
                         Assert.That(atomicAfter.Revision, Is.EqualTo(3));
                         Assert.That(atomicBefore, Is.EqualTo(atomicAfter));
                         Console.WriteLine("TL001A_LEAN_SNAPSHOT phase=restore_snapshot_stable " +
