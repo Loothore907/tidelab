@@ -38,6 +38,13 @@ try
             Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
             Environment.GetEnvironmentVariable("TL001A_PHASE"));
     }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE")?.StartsWith(
+        "intent_", StringComparison.Ordinal) == true)
+    {
+        TideLabPaperIntentRecoveryProbe.Run(
+            Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
+            Environment.GetEnvironmentVariable("TL001A_PHASE"));
+    }
     else
     {
         new TideLabForwardRecoveryProbe()
