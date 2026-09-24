@@ -404,6 +404,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_ledger_partial_concurrent",
                 "restore_ledger_partial_journal_correction",
                 "restore_ledger_partial_journal_fresh",
+                "restore_snapshot_race", "restore_snapshot_stable",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -427,6 +428,9 @@ namespace QuantConnect.Tests.Engine.Setup
             var ledgerFull = phase == "restore_ledger_full" ||
                 phase == "restore_ledger_full_late_events";
             var journalFresh = phase == "restore_ledger_partial_journal_fresh";
+            var snapshotRace = phase == "restore_snapshot_race";
+            var snapshotStable = phase == "restore_snapshot_stable";
+            TideLabAtomicBrokerSnapshot atomicBefore = null;
             if (phase == "restore_ledger_full_lag")
             {
                 Assert.That(snapshot.BrokerStatus, Is.EqualTo("Filled"));
@@ -440,6 +444,19 @@ namespace QuantConnect.Tests.Engine.Setup
                 Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path,
                     ledgerPartial ? 1 : 2), Is.True,
                     "Do not start LEAN until every broker execution is committed");
+            }
+            else if (snapshotRace || snapshotStable)
+            {
+                atomicBefore = TideLabAtomicSnapshotProbe.Read(path);
+                var journal = TideLabCorrectionJournalProbe.Replay(
+                    path + ".correction-journal.jsonl");
+                Assert.That(atomicBefore.Revision, Is.EqualTo(snapshotRace ? 2 : 3));
+                Assert.That(journal.EventCount, Is.EqualTo(atomicBefore.JournalEvents));
+                Assert.That(journal.Cash, Is.EqualTo(atomicBefore.Cash));
+                Assert.That(journal.Holding, Is.EqualTo(atomicBefore.Holding));
+                snapshot.Cash = atomicBefore.Cash;
+                snapshot.Holding = atomicBefore.Holding;
+                snapshot.FillPrice = snapshotRace ? 90m : 89m;
             }
             else if (journalFresh)
             {
@@ -487,10 +504,11 @@ namespace QuantConnect.Tests.Engine.Setup
             var realTime = new Mock<IRealTimeHandler>();
             var brokerage = new Mock<IBrokerage>();
             var partialOrder = phase == "restore_partial" || ledgerPartial ||
-                journalFresh;
+                journalFresh || snapshotRace || snapshotStable;
             var hasOpenOrder = pending || partialOrder;
             var concurrent = phase == "restore_ledger_partial_concurrent" ||
-                phase == "restore_ledger_partial_journal_correction" || journalFresh;
+                phase == "restore_ledger_partial_journal_correction" || journalFresh ||
+                snapshotRace || snapshotStable;
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
             {
@@ -521,7 +539,16 @@ namespace QuantConnect.Tests.Engine.Setup
                     BrokerId = new List<string> { "TL001A-BROKER-ORDER-2" }
                 });
             }
-            brokerage.Setup(x => x.GetOpenOrders()).Returns(brokerOpenOrders);
+            brokerage.Setup(x => x.GetOpenOrders()).Returns(() =>
+            {
+                if (snapshotRace)
+                {
+                    TideLabCorrectionJournalProbe.Run(path, "journal_reverse");
+                    TideLabCorrectionJournalProbe.Run(path, "journal_replace");
+                    TideLabAtomicSnapshotProbe.Correct(path);
+                }
+                return brokerOpenOrders;
+            });
 
             try
             {
@@ -560,6 +587,35 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                if (snapshotRace || snapshotStable)
+                {
+                    var atomicAfter = TideLabAtomicSnapshotProbe.Read(path);
+                    var journalAfter = TideLabCorrectionJournalProbe.Replay(
+                        path + ".correction-journal.jsonl");
+                    Assert.That(atomicAfter.Revision, Is.EqualTo(3));
+                    Assert.That(journalAfter.Cash, Is.EqualTo(atomicAfter.Cash));
+                    Assert.That(journalAfter.Holding, Is.EqualTo(atomicAfter.Holding));
+                    Assert.That(restored.Select(order => order.BrokerId.Single()),
+                        Is.EquivalentTo(new[] { atomicAfter.FirstBrokerId,
+                            atomicAfter.SecondBrokerId }));
+                    Assert.That(algorithm.SeenEvents, Is.Empty);
+                    if (snapshotRace)
+                    {
+                        Assert.That(atomicBefore.Revision, Is.EqualTo(2));
+                        Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                            Is.Not.EqualTo(atomicAfter.Cash));
+                        Console.WriteLine("TL001A_LEAN_SNAPSHOT phase=restore_snapshot_race " +
+                            "decision=BLOCK_REVISION_RACE before=2 after=3 new_submissions=0");
+                    }
+                    else
+                    {
+                        Assert.That(atomicBefore, Is.EqualTo(atomicAfter));
+                        Console.WriteLine("TL001A_LEAN_SNAPSHOT phase=restore_snapshot_stable " +
+                            "decision=STABLE_SNAPSHOT revision=3 cash=9955.455 " +
+                            "holding=0.5 open_orders=2 callbacks=0 new_submissions=0");
+                    }
+                    return;
+                }
                 if (journalFresh)
                 {
                     Assert.That(restored.Select(order => order.BrokerId.Single()),

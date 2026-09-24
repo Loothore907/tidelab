@@ -21,6 +21,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabExecutionLedgerProbe.cs" \
   "$source_dir/TideLabExecutionDeliveryProbe.cs" \
   "$source_dir/TideLabCorrectionJournalProbe.cs" \
+  "$source_dir/TideLabAtomicSnapshotProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -46,7 +47,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -68,8 +69,22 @@ run_journal_probe() {
   run_phase journal restore_ledger_partial_journal_fresh success 'decision=FRESH_SETUP_MATCHES_JOURNAL cash=9955.455 holding=0.5 open_orders=2 callbacks=0 new_submissions=0'
 }
 
+run_snapshot_probe() {
+  run_phase snapshot managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+  run_phase snapshot ledger_partial_report success 'revision=2 executions=1'
+  run_phase snapshot ledger_reconcile success 'state=created_from_report executions=1'
+  run_phase snapshot journal_seed success 'orders=2 events=3 cash=9954.955 holding=0.5'
+  run_phase snapshot snapshot_seed success 'revision=2 orders=2 journal_events=3'
+  run_phase snapshot restore_snapshot_race success 'decision=BLOCK_REVISION_RACE before=2 after=3 new_submissions=0'
+  run_phase snapshot restore_snapshot_stable success 'decision=STABLE_SNAPSHOT revision=3 cash=9955.455 holding=0.5 open_orders=2 callbacks=0 new_submissions=0'
+}
+
 if [[ "${TL001A_JOURNAL_ONLY:-0}" == 1 ]]; then
   run_journal_probe
+  exit 0
+fi
+if [[ "${TL001A_SNAPSHOT_ONLY:-0}" == 1 ]]; then
+  run_snapshot_probe
   exit 0
 fi
 
@@ -138,6 +153,7 @@ run_phase concurrent ledger_partial_report success 'revision=2 executions=1'
 run_phase concurrent ledger_reconcile success 'state=created_from_report executions=1'
 run_phase concurrent restore_ledger_partial_concurrent success 'decision=BLOCK_ENGINE_MISMATCH open_orders=2 callbacks=0 new_submissions=0'
 run_journal_probe
+run_snapshot_probe
 run_phase screened_crash managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
 run_phase screened_crash ledger_partial_report success 'revision=2 executions=1'
 run_phase screened_crash ledger_reconcile success 'state=created_from_report executions=1'

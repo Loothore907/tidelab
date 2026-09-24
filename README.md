@@ -27,6 +27,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A synthetic H1 strategy and risk parity](docs/evidence/TL-001A-LEAN-H1-RISK-PARITY.md)
 - [TL-001A synthetic correction and concurrent-order boundaries](docs/evidence/TL-001A-LEAN-CORRECTION-CONCURRENCY.md)
 - [TL-001A synthetic correction journal and LEAN recovery boundary](docs/evidence/TL-001A-LEAN-CORRECTION-JOURNAL.md)
+- [TL-001A synthetic broker snapshot restart race](docs/evidence/TL-001A-LEAN-SNAPSHOT-RESTART-RACE.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
