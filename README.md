@@ -22,6 +22,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [Roadmap and evaluation gates](docs/ROADMAP.md)
 - [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
 - [TL-001A synthetic engine checkpoint](docs/evidence/TL-001A-ENGINE-BAKEOFF.md)
+- [TL-002 synthetic paper intent barrier](docs/evidence/TL-002-PAPER-INTENT-BARRIER.md)
 - [TL-001A engine decision map and reconnect probe](docs/evidence/TL-001A-ENGINE-DECISION-MAP.md)
 - [TL-001A synthetic running-engine reconciliation](docs/evidence/TL-001A-LEAN-RUNNING-RECONCILIATION.md)
 - [TL-001A synthetic H1 strategy and risk parity](docs/evidence/TL-001A-LEAN-H1-RISK-PARITY.md)
