@@ -23,6 +23,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabCorrectionJournalProbe.cs" \
   "$source_dir/TideLabAtomicSnapshotProbe.cs" \
   "$source_dir/TideLabPaperSubmissionBarrierProbe.cs" \
+  "$source_dir/TideLabPaperIntentRecoveryProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -35,7 +36,7 @@ cp "$source_dir/TideLabForwardRecoveryRunner.cs" \
   -c Release -p:RunAnalyzers=false -p:WarningLevel=0 -v quiet
 
 report_dir=$(mktemp -d)
-trap 'rm -f "$report_dir"/*.json "$report_dir"/*.json.next "$report_dir"/*.jsonl "$report_dir"/*.log; rmdir "$report_dir"' EXIT
+trap 'rm -f "$report_dir"/*.json "$report_dir"/*.json.next "$report_dir"/*.json.unknown "$report_dir"/*.jsonl "$report_dir"/*.log; rmdir "$report_dir"' EXIT
 runner="$lean_root/TideLabForwardProbe/bin/Release/net10.0/TideLabForwardRecoveryRunner.dll"
 cd "$lean_root/Launcher/bin/Release"
 
@@ -48,7 +49,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -109,6 +110,38 @@ run_paper_probe() {
   run_phase paper_torn paper_torn success 'phase=torn decision=BLOCK_PAPER_SOURCE_MISMATCH new_submissions=0'
 }
 
+seed_intent_report() {
+  local report=$1
+  run_phase "$report" managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+  run_phase "$report" ledger_partial_report success 'revision=2 executions=1'
+  run_phase "$report" ledger_reconcile success 'state=created_from_report executions=1'
+  run_phase "$report" journal_seed success 'orders=2 events=3 cash=9954.955 holding=0.5'
+  run_phase "$report" snapshot_seed success 'revision=2 orders=2 journal_events=3'
+  run_phase "$report" paper_stale success 'decision=BLOCK_STALE_REVISION snapshot=2 current=3 new_submissions=0'
+}
+
+run_intent_probe() {
+  seed_intent_report intent_before
+  run_phase intent_before intent_crash_before_dispatch forced_exit 'phase=before_dispatch intent=durable broker=absent new_submissions=0'
+  run_phase intent_before intent_recover_absent success 'decision=RECOVERED_ABSENT new_submissions=1'
+  run_phase intent_before intent_recover_repeat success 'decision=RECOVERED_EXISTING new_submissions=0'
+
+  seed_intent_report intent_after
+  run_phase intent_after intent_crash_after_commit forced_exit 'phase=after_commit intent=pending broker=submitted ack=lost new_submissions=1'
+  run_phase intent_after intent_recover_existing success 'decision=RECOVERED_EXISTING new_submissions=0'
+  run_phase intent_after intent_recover_repeat success 'decision=RECOVERED_EXISTING new_submissions=0'
+
+  seed_intent_report intent_unknown
+  run_phase intent_unknown intent_crash_before_dispatch forced_exit 'phase=before_dispatch intent=durable broker=absent new_submissions=0'
+  run_phase intent_unknown intent_mark_unknown success 'phase=mark_unknown report=unknown'
+  run_phase intent_unknown intent_recover_unknown success 'decision=BLOCK_UNKNOWN_REPORT new_submissions=0'
+
+  seed_intent_report intent_conflict
+  run_phase intent_conflict intent_crash_before_dispatch forced_exit 'phase=before_dispatch intent=durable broker=absent new_submissions=0'
+  run_phase intent_conflict intent_mark_conflict success 'phase=mark_conflict report=conflicting'
+  run_phase intent_conflict intent_recover_conflict success 'decision=BLOCK_CONFLICTING_REPORT new_submissions=0'
+}
+
 if [[ "${TL001A_JOURNAL_ONLY:-0}" == 1 ]]; then
   run_journal_probe
   exit 0
@@ -123,6 +156,10 @@ if [[ "${TL001A_HANDOFF_ONLY:-0}" == 1 ]]; then
 fi
 if [[ "${TL001A_PAPER_ONLY:-0}" == 1 ]]; then
   run_paper_probe
+  exit 0
+fi
+if [[ "${TL001A_INTENT_ONLY:-0}" == 1 ]]; then
+  run_intent_probe
   exit 0
 fi
 
@@ -194,6 +231,7 @@ run_journal_probe
 run_snapshot_probe
 run_handoff_probe
 run_paper_probe
+run_intent_probe
 run_phase screened_crash managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
 run_phase screened_crash ledger_partial_report success 'revision=2 executions=1'
 run_phase screened_crash ledger_reconcile success 'state=created_from_report executions=1'
