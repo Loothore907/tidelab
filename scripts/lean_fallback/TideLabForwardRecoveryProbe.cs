@@ -402,6 +402,8 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_ledger_partial_ack_lost",
                 "restore_ledger_partial_correction",
                 "restore_ledger_partial_concurrent",
+                "restore_ledger_partial_journal_correction",
+                "restore_ledger_partial_journal_fresh",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -420,9 +422,11 @@ namespace QuantConnect.Tests.Engine.Setup
                 phase == "restore_ledger_partial_reconcile_running" ||
                 phase == "restore_ledger_partial_ack_lost" ||
                 phase == "restore_ledger_partial_correction" ||
-                phase == "restore_ledger_partial_concurrent";
+                phase == "restore_ledger_partial_concurrent" ||
+                phase == "restore_ledger_partial_journal_correction";
             var ledgerFull = phase == "restore_ledger_full" ||
                 phase == "restore_ledger_full_late_events";
+            var journalFresh = phase == "restore_ledger_partial_journal_fresh";
             if (phase == "restore_ledger_full_lag")
             {
                 Assert.That(snapshot.BrokerStatus, Is.EqualTo("Filled"));
@@ -436,6 +440,16 @@ namespace QuantConnect.Tests.Engine.Setup
                 Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path,
                     ledgerPartial ? 1 : 2), Is.True,
                     "Do not start LEAN until every broker execution is committed");
+            }
+            else if (journalFresh)
+            {
+                var corrected = TideLabCorrectionJournalProbe.Replay(
+                    path + ".correction-journal.jsonl");
+                Assert.That(corrected, Is.EqualTo(new TideLabJournalState(
+                    9955.455m, 0.5m, 0.5m, 0m, 5, false)));
+                snapshot.Cash = corrected.Cash;
+                snapshot.Holding = corrected.Holding;
+                snapshot.FillPrice = 89m;
             }
             else if (pending)
             {
@@ -472,9 +486,11 @@ namespace QuantConnect.Tests.Engine.Setup
             var results = new Mock<IResultHandler>();
             var realTime = new Mock<IRealTimeHandler>();
             var brokerage = new Mock<IBrokerage>();
-            var partialOrder = phase == "restore_partial" || ledgerPartial;
+            var partialOrder = phase == "restore_partial" || ledgerPartial ||
+                journalFresh;
             var hasOpenOrder = pending || partialOrder;
-            var concurrent = phase == "restore_ledger_partial_concurrent";
+            var concurrent = phase == "restore_ledger_partial_concurrent" ||
+                phase == "restore_ledger_partial_journal_correction" || journalFresh;
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
             {
@@ -544,7 +560,70 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
-                if (phase == "restore_ledger_partial_correction" || concurrent)
+                if (journalFresh)
+                {
+                    Assert.That(restored.Select(order => order.BrokerId.Single()),
+                        Is.EquivalentTo(new[] { snapshot.BrokerId,
+                            "TL001A-BROKER-ORDER-2" }));
+                    Assert.That(algorithm.SeenEvents, Is.Empty);
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} " +
+                        "decision=FRESH_SETUP_MATCHES_JOURNAL cash=9955.455 " +
+                        "holding=0.5 open_orders=2 callbacks=0 new_submissions=0");
+                    return;
+                }
+                if (phase == "restore_ledger_partial_journal_correction")
+                {
+                    var corrected = TideLabCorrectionJournalProbe.Replay(
+                        path + ".correction-journal.jsonl");
+                    Assert.That(corrected, Is.EqualTo(new TideLabJournalState(
+                        9955.455m, 0.5m, 0.5m, 0m, 5, false)));
+                    var firstOrder = restored.Single(order =>
+                        order.BrokerId.Contains(snapshot.BrokerId));
+                    var correctionOrder = new LimitOrder(symbol, snapshot.Quantity,
+                        snapshot.LimitPrice, DateTime.UtcNow)
+                    {
+                        Id = firstOrder.Id,
+                        BrokerId = new List<string> { snapshot.BrokerId }
+                    };
+                    void Deliver(decimal quantity, decimal price, decimal fee)
+                    {
+                        brokerage.Raise(x => x.OrdersStatusChanged += null,
+                            brokerage.Object, new List<OrderEvent>
+                            {
+                                new OrderEvent(correctionOrder, DateTime.UtcNow,
+                                    new OrderFee(new CashAmount(fee, Currencies.USD)))
+                                {
+                                    Status = OrderStatus.PartiallyFilled,
+                                    FillQuantity = quantity,
+                                    FillPrice = price
+                                }
+                            });
+                    }
+                    Exception deliveryError = null;
+                    try { Deliver(-0.5m, 90m, -0.045m); }
+                    catch (Exception error) { deliveryError = error; }
+                    // LEAN may log the portfolio error without throwing. The
+                    // order ticket may contain a partial effect either way.
+                    // Do not retry or send a replacement into this engine.
+                    var cashAfterFailure = algorithm.Portfolio.CashBook[Currencies.USD].Amount;
+                    var holdingAfterFailure = algorithm.Portfolio[symbol].Quantity;
+                    Assert.That(deliveryError, Is.Null,
+                        "Pinned LEAN logs the portfolio error instead of propagating it");
+                    Assert.That(cashAfterFailure, Is.EqualTo(10000m));
+                    Assert.That(holdingAfterFailure, Is.EqualTo(0.5m));
+                    Assert.That(algorithm.SeenEvents.Count, Is.EqualTo(1));
+                    Assert.That(cashAfterFailure, Is.Not.EqualTo(corrected.Cash));
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} " +
+                        $"decision=BLOCK_CORRECTION_EVENT thrown={deliveryError?.GetType().Name ?? "none"} " +
+                        $"cash_after_failure={cashAfterFailure} " +
+                        $"holding_after_failure={holdingAfterFailure} " +
+                        $"callbacks={algorithm.SeenEvents.Count} replacement=not_sent " +
+                        "new_submissions=0");
+                    return;
+                }
+                if (phase == "restore_ledger_partial_correction" ||
+                    phase == "restore_ledger_partial_concurrent")
                 {
                     var original = TideLabExecutionLedgerProbe.OpenSyntheticSource(path);
                     var committed = original.Read();

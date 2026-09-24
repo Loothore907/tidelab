@@ -19,6 +19,13 @@ try
     {
         new TideLabExecutionLedgerProbe().Run();
     }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE")?.StartsWith(
+        "journal_", StringComparison.Ordinal) == true)
+    {
+        TideLabCorrectionJournalProbe.Run(
+            Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
+            Environment.GetEnvironmentVariable("TL001A_PHASE"));
+    }
     else
     {
         new TideLabForwardRecoveryProbe()
