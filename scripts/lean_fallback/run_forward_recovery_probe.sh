@@ -26,6 +26,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabPaperIntentRecoveryProbe.cs" \
   "$source_dir/TideLabCostFillProbe.cs" \
   "$source_dir/TideLabConservativePaperFillProbe.cs" \
+  "$source_dir/TideLabJoinedPaperWorkflowProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -51,7 +52,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE|JOINED)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -158,6 +159,21 @@ if [[ "${TL001A_CONSERVATIVE_ONLY:-0}" == 1 ]]; then
   run_phase conservative_forward conservative_forward_restore success 'decision=HOLD_REMAINING_OPEN cash=959.875916 holding=0.4 open_orders=1 new_submissions=0'
   run_phase conservative_forward conservative_forward_repeat success 'decision=HOLD_REMAINING_OPEN cash=959.875916 holding=0.4 open_orders=1 new_submissions=0'
   run_phase conservative_forward conservative_forward_mismatch success 'decision=BLOCK_FILL_OR_ACCOUNT_MISMATCH new_submissions=0'
+  exit 0
+fi
+
+if [[ "${TL001A_JOINED_ONLY:-0}" == 1 ]]; then
+  run_phase joined joined_intent_seed success 'client=stable status=durable new_submissions=0'
+  run_phase joined submit_seed forced_exit 'broker_id=TL001A-BROKER-ORDER-1 quantity=1 new_submissions=1'
+  run_phase joined joined_partial_crash forced_exit 'fill=0.4@89.91 fee=0.035964 remaining=0.6 missed=HOLD rejected=REJECT ledger=absent new_submissions=0'
+  run_phase joined joined_reconcile_partial success 'ledger=one_execution cash=9964.000036 holding=0.4 open_orders=1 next=BLOCK_FIRST_ORDER_OPEN new_submissions=0'
+  run_phase joined joined_reconcile_repeat success 'execution=verified_once open_orders=1 new_submissions=0'
+  run_phase joined joined_correct_hold success 'report=3 ledger=2 next=BLOCK_STALE_REVISION or_BLOCK_LEDGER_BEHIND new_submissions=0'
+  run_phase joined joined_reconcile_correction success 'execution=corrected cash=9963.996032 holding=0.4 open_orders=1 new_submissions=0'
+  run_phase joined joined_cancel_remaining success 'report=4 first_order=closed cash=9963.996032 holding=0.4 open_orders=0 new_submissions=0'
+  run_phase joined joined_next_submit success 'decision=SUBMITTED_AFTER_RECONCILIATION new_submissions=1'
+  run_phase joined joined_next_repeat success 'decision=ADOPT_EXISTING_NEXT_ORDER open_orders=1 new_submissions=0'
+  run_phase joined joined_bad_account success 'decision=BLOCK_EXECUTION_ACCOUNT_MISMATCH new_submissions=0'
   exit 0
 fi
 

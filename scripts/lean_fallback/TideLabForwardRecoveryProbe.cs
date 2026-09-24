@@ -186,6 +186,8 @@ namespace QuantConnect.Tests.Engine.Setup
             brokerage.Setup(x => x.PlaceOrder(It.IsAny<Order>()))
                 .Callback<Order>(order =>
                 {
+                    if (File.Exists(path + ".joined-intent.json"))
+                        TideLabJoinedPaperWorkflowProbe.ValidateInitialIntent(path, order);
                     order.BrokerId = new List<string> { "TL001A-BROKER-ORDER-1" };
                     var report = new BrokerReport
                     {
