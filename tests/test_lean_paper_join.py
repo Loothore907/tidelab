@@ -8,7 +8,7 @@ import sqlite3
 
 import pytest
 
-from tidelab.lean_paper_join import LeanSyntheticPaperJoin
+from tidelab.lean_paper_join import LeanSyntheticPaperJoin, RULES
 from tidelab.paper_intent import PaperIntent
 
 
@@ -111,7 +111,7 @@ def test_forward_sell_requires_closed_buy_and_reconciles_signed_execution(tmp_pa
     assert join.prepare_sell() is False
     with pytest.raises(RuntimeError, match="unresolved"):
         join.intents.prepare(PaperIntent("third-client", "synthetic:TL001ASYN",
-                                         "buy", "0.4", "90", "next-report"))
+                                         "buy", "0.4", "90", "next-report"), RULES)
     with sqlite3.connect(join.intents.path) as db:
         assert db.execute("SELECT COUNT(*) FROM lean_paper_execution_events").fetchone()[0] == 4
     bad = _sell_report(2)

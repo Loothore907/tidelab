@@ -11,7 +11,7 @@ from decimal import Decimal
 import json
 from pathlib import Path
 
-from tidelab.paper_intent import PaperIntent, PaperIntentStore
+from tidelab.paper_intent import PaperIntent, PaperIntentStore, PaperProductRules
 
 
 CLIENT_ID = "TL001A-JOINED-CLIENT-1"
@@ -22,6 +22,8 @@ SELL_CLIENT_ID = "TL002-SELL-CLIENT-1"
 SELL_BROKER_ID = "TL002-SELL-BROKER-1"
 SELL_EXECUTION_ID = "TL002-SELL-EXEC-1"
 SELL_REVISION = "first-report-4"
+RULES = PaperProductRules("synthetic:TL001ASYN", "synthetic-rules-v1",
+                          "0.1", "0.01", "0.1", "1")
 
 
 class LeanSyntheticPaperJoin:
@@ -50,11 +52,11 @@ class LeanSyntheticPaperJoin:
     def prepare(self) -> None:
         self.intents.prepare(PaperIntent(
             CLIENT_ID, "synthetic:TL001ASYN", "buy", "1", "90", REVISION
-        ))
+        ), RULES)
 
     def claim(self) -> bool:
         """Persist the unknown state before the mock LEAN brokerage writes."""
-        return self.intents.claim_once(CLIENT_ID, REVISION)
+        return self.intents.claim_once(CLIENT_ID, REVISION, RULES)
 
     def reconcile(self) -> str:
         """Import a complete local report, or rearm only on definitive local absence."""
@@ -161,8 +163,10 @@ class LeanSyntheticPaperJoin:
                         (resolution["source_revision"], resolution["final_report_revision"]) !=
                         (REVISION, 4) or
                         (intent["instrument_id"], intent["side"], intent["quantity"],
-                         intent["limit_price"], intent["source_revision"]) !=
-                        ("synthetic:TL001ASYN", "sell", "0.4", "89.79", SELL_REVISION)):
+                         intent["limit_price"], intent["source_revision"],
+                         intent["rules_identity"]) !=
+                        ("synthetic:TL001ASYN", "sell", "0.4", "89.79",
+                         SELL_REVISION, RULES.identity)):
                         raise RuntimeError("sell intent or buy resolution conflict")
                     db.commit()
                     return False
@@ -180,10 +184,13 @@ class LeanSyntheticPaperJoin:
                     LEFT JOIN paper_intent_resolutions AS r ON r.client_id=i.client_id
                     WHERE r.client_id IS NULL LIMIT 1""").fetchone():
                     raise RuntimeError("another unresolved intent exists")
+                RULES.validate(PaperIntent(SELL_CLIENT_ID, "synthetic:TL001ASYN",
+                                           "sell", "0.4", "89.79", SELL_REVISION))
                 db.execute("""INSERT INTO paper_intents
-                    (client_id, instrument_id, side, quantity, limit_price, source_revision, state)
-                    VALUES (?, 'synthetic:TL001ASYN', 'sell', '0.4', '89.79', ?, 'prepared')""",
-                    (SELL_CLIENT_ID, SELL_REVISION))
+                    (client_id, instrument_id, side, quantity, limit_price,
+                     source_revision, rules_identity, state)
+                    VALUES (?, 'synthetic:TL001ASYN', 'sell', '0.4', '89.79', ?, ?, 'prepared')""",
+                    (SELL_CLIENT_ID, SELL_REVISION, RULES.identity))
                 db.commit()
                 return True
             except BaseException:
@@ -191,7 +198,7 @@ class LeanSyntheticPaperJoin:
                 raise
 
     def claim_sell(self) -> bool:
-        return self.intents.claim_once(SELL_CLIENT_ID, SELL_REVISION)
+        return self.intents.claim_once(SELL_CLIENT_ID, SELL_REVISION, RULES)
 
     def reconcile_sell(self) -> str:
         """Adopt a submitted or filled local sell, including its signed execution."""
