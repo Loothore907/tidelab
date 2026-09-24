@@ -25,6 +25,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabPaperSubmissionBarrierProbe.cs" \
   "$source_dir/TideLabPaperIntentRecoveryProbe.cs" \
   "$source_dir/TideLabCostFillProbe.cs" \
+  "$source_dir/TideLabConservativePaperFillProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -50,7 +51,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -148,6 +149,15 @@ run_intent_probe() {
 
 if [[ "${TL001A_COST_FILL_ONLY:-0}" == 1 ]]; then
   run_phase cost_fill cost_fill success 'decision=HOLD_OPTIMISTIC_FULL_FILL'
+  exit 0
+fi
+
+if [[ "${TL001A_CONSERVATIVE_ONLY:-0}" == 1 ]]; then
+  run_phase conservative_historical conservative_historical success 'fill=0.4@100.21 fee=0.040084 remaining=0.6'
+  run_phase conservative_forward conservative_forward_seed forced_exit 'execution=committed fill=0.4@100.21 remaining=0.6 cash=959.875916 holding=0.4 new_submissions=0'
+  run_phase conservative_forward conservative_forward_restore success 'decision=HOLD_REMAINING_OPEN cash=959.875916 holding=0.4 open_orders=1 new_submissions=0'
+  run_phase conservative_forward conservative_forward_repeat success 'decision=HOLD_REMAINING_OPEN cash=959.875916 holding=0.4 open_orders=1 new_submissions=0'
+  run_phase conservative_forward conservative_forward_mismatch success 'decision=BLOCK_FILL_OR_ACCOUNT_MISMATCH new_submissions=0'
   exit 0
 fi
 
