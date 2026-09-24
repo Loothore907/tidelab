@@ -43,6 +43,12 @@ namespace QuantConnect.Tests.Engine.Setup
         string BrokerId, int LeanOrderId, decimal Quantity, decimal LimitPrice,
         string Status);
 
+    public sealed record TideLabSellReport(int Version, int Revision,
+        string ClientId, string BrokerId, int LeanOrderId, decimal Quantity,
+        decimal LimitPrice, string BrokerStatus, string ExecutionId,
+        decimal ExecutedQuantity, decimal FillPrice, decimal Fee,
+        decimal Cash, decimal Holding);
+
     public sealed record TideLabSelectionRules(int Version, string Currency,
         decimal Tick, decimal Lot, decimal FeeRate, int SlippageTicks,
         decimal MinimumNotional, int MaximumQuoteAgeSeconds);
@@ -58,6 +64,9 @@ namespace QuantConnect.Tests.Engine.Setup
         private const string FirstExecutionId = "TL001A-JOINED-EXEC-1";
         private const string NextClientId = "TL001A-JOINED-CLIENT-2";
         private const string NextBrokerId = "TL001A-JOINED-BROKER-2";
+        private const string SellClientId = "TL002-SELL-CLIENT-1";
+        private const string SellBrokerId = "TL002-SELL-BROKER-1";
+        private const string SellExecutionId = "TL002-SELL-EXEC-1";
         private static readonly TideLabSelectionRules SelectionRules =
             LoadFixture<TideLabSelectionRules>("TL001A_SELECTION_RULES");
         private static readonly TideLabSelectionQuote SelectionQuote =
@@ -97,6 +106,8 @@ namespace QuantConnect.Tests.Engine.Setup
             path + ".joined-correction-pending.json";
         private static string UnknownSubmissionPath(string path) =>
             path + ".joined-submission-unknown.json";
+        private static string SellReportPath(string path) =>
+            Path.ChangeExtension(path, ".joined-tl002-sell.json");
 
         private static T Read<T>(string path) where T : class
         {
@@ -108,6 +119,27 @@ namespace QuantConnect.Tests.Engine.Setup
 
         private static void Write<T>(string path, T value) =>
             TideLabPaperIntentRecoveryProbe.WriteAtomic(path, value);
+
+        private static TideLabSellReport SellReport(string path)
+        {
+            var sell = Read<TideLabSellReport>(SellReportPath(path));
+            if (sell.Version != 1 || sell.ClientId != SellClientId ||
+                sell.BrokerId != SellBrokerId || sell.LeanOrderId <= 0 ||
+                sell.Quantity != -0.4m || sell.LimitPrice != 89.79m)
+                throw new InvalidDataException("BLOCK_SELL_IDENTITY");
+            if (sell.Revision == 1 && sell.BrokerStatus == "Submitted" &&
+                sell.ExecutionId == null && sell.ExecutedQuantity == 0m &&
+                sell.FillPrice == 0m && sell.Fee == 0m &&
+                sell.Cash == 9963.996032m && sell.Holding == 0.4m)
+                return sell;
+            if (sell.Revision == 2 && sell.BrokerStatus == "Filled" &&
+                sell.ExecutionId == SellExecutionId &&
+                sell.ExecutedQuantity == -0.4m && sell.FillPrice == 89.79m &&
+                sell.Fee == 0.035916m && sell.Cash == 9999.876116m &&
+                sell.Holding == 0m)
+                return sell;
+            throw new InvalidDataException("BLOCK_SELL_EXECUTION_ACCOUNT");
+        }
 
         private static TideLabJoinedIntent FirstIntent(string path)
         {
@@ -391,32 +423,55 @@ namespace QuantConnect.Tests.Engine.Setup
             public override void Initialize() { }
         }
 
+        private static void Bridge(string path, string action)
+        {
+            if (Environment.GetEnvironmentVariable("TL002_BRIDGE_SCRIPT") is not string bridge)
+                throw new InvalidDataException("BLOCK_MISSING_TL002_BRIDGE");
+            var start = new System.Diagnostics.ProcessStartInfo(
+                Environment.GetEnvironmentVariable("TL002_BRIDGE_PYTHON") ?? "python3")
+            {
+                UseShellExecute = false,
+                RedirectStandardError = true
+            };
+            start.ArgumentList.Add(bridge);
+            start.ArgumentList.Add(action);
+            start.ArgumentList.Add(Environment.GetEnvironmentVariable("TL002_BRIDGE_DATABASE") ??
+                throw new InvalidDataException("BLOCK_MISSING_TL002_DATABASE"));
+            start.ArgumentList.Add(path);
+            using var process = System.Diagnostics.Process.Start(start) ??
+                throw new InvalidDataException("BLOCK_TL002_BRIDGE_PROCESS");
+            var error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+                throw new InvalidDataException("BLOCK_TL002_" + action + ": " + error);
+        }
+
         private static void CheckLeanSetup(string path,
             TideLabJoinedBrokerReport report, bool nextSubmitted = false,
-            bool submitNext = false)
+            bool submitNext = false, bool submitSell = false,
+            bool sellSubmitted = false, bool sellFilled = false)
         {
             if (LedgerDecision(path, report) != "MATCH")
                 throw new InvalidDataException("BLOCK_LEDGER_BEFORE_LEAN_SETUP");
-            if (Environment.GetEnvironmentVariable("TL002_BRIDGE_SCRIPT") is string bridge)
+            if (Environment.GetEnvironmentVariable("TL002_BRIDGE_SCRIPT") != null)
+                Bridge(path, "reconcile");
+            TideLabSellReport sell = null;
+            if (sellSubmitted || sellFilled)
             {
-                var start = new System.Diagnostics.ProcessStartInfo(
-                    Environment.GetEnvironmentVariable("TL002_BRIDGE_PYTHON") ?? "python3")
-                {
-                    UseShellExecute = false,
-                    RedirectStandardError = true
-                };
-                start.ArgumentList.Add(bridge);
-                start.ArgumentList.Add("reconcile");
-                start.ArgumentList.Add(Environment.GetEnvironmentVariable("TL002_BRIDGE_DATABASE") ??
-                    throw new InvalidDataException("BLOCK_MISSING_TL002_DATABASE"));
-                start.ArgumentList.Add(path);
-                using var reconcile = System.Diagnostics.Process.Start(start) ??
-                    throw new InvalidDataException("BLOCK_TL002_RECONCILE_PROCESS");
-                var error = reconcile.StandardError.ReadToEnd();
-                reconcile.WaitForExit();
-                if (reconcile.ExitCode != 0)
-                    throw new InvalidDataException("BLOCK_TL002_RECONCILE: " + error);
+                if (report.Revision != 4)
+                    throw new InvalidDataException("BLOCK_BUY_STILL_OPEN");
+                Bridge(path, "reconcile-sell");
+                sell = SellReport(path);
+                if (sellFilled != (sell.Revision == 2))
+                    throw new InvalidDataException("BLOCK_SELL_STATE");
             }
+            var accountCash = sell?.Cash ?? report.Cash;
+            var accountHolding = sell?.Holding ?? report.Holding;
+            if (submitSell || sellSubmitted || sellFilled)
+                SymbolPropertiesDatabase.FromDataFolder().SetEntry(
+                    Market.USA, "TL001ASYN", SecurityType.Equity,
+                    new SymbolProperties("Synthetic TL-002 fractional lot",
+                        Currencies.USD, 1m, 0.01m, 0.1m, "TL001ASYN"));
             var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
             var algorithm = new ProbeAlgorithm();
             var dataManager = new DataManagerStub(algorithm, new MockDataFeed(),
@@ -430,11 +485,11 @@ namespace QuantConnect.Tests.Engine.Setup
             brokerage.Setup(x => x.IsConnected).Returns(true);
             brokerage.Setup(x => x.AccountBaseCurrency).Returns(Currencies.USD);
             brokerage.Setup(x => x.GetCashBalance()).Returns(new List<CashAmount>
-                { new(report.Cash, Currencies.USD) });
+                { new(accountCash, Currencies.USD) });
             brokerage.Setup(x => x.GetAccountHoldings()).Returns(new List<Holding>
-                { new() { Symbol = symbol, Quantity = report.Holding,
-                    AveragePrice = report.FillPrice,
-                    MarketPrice = report.FillPrice } });
+                { new() { Symbol = symbol, Quantity = accountHolding,
+                    AveragePrice = sellFilled ? sell.FillPrice : report.FillPrice,
+                    MarketPrice = sellFilled ? sell.FillPrice : report.FillPrice } });
             var open = new List<Order>();
             if (report.BrokerStatus == "PartiallyFilled")
                 open.Add(new LimitOrder(symbol, 1m, 90m, Now)
@@ -456,6 +511,13 @@ namespace QuantConnect.Tests.Engine.Setup
                     BrokerId = new List<string> { NextBrokerId }
                 });
             }
+            if (sellSubmitted)
+                open.Add(new LimitOrder(symbol, -0.4m, 89.79m, Now)
+                {
+                    Id = sell.LeanOrderId,
+                    Status = OrderStatus.Submitted,
+                    BrokerId = new List<string> { SellBrokerId }
+                });
             brokerage.Setup(x => x.GetOpenOrders()).Returns(open);
             if (submitNext)
             {
@@ -474,6 +536,26 @@ namespace QuantConnect.Tests.Engine.Setup
                         placed.Set();
                     }).Returns(true);
             }
+            if (submitSell)
+            {
+                if (report.Revision != 4 || report.Holding != 0.4m ||
+                    File.Exists(SellReportPath(path)))
+                    throw new InvalidDataException("BLOCK_SELL_SOURCE");
+                brokerage.Setup(x => x.PlaceOrder(It.IsAny<Order>()))
+                    .Callback<Order>(order =>
+                    {
+                        if (order is not LimitOrder limit ||
+                            order.Quantity != -0.4m || limit.LimitPrice != 89.79m)
+                            throw new InvalidDataException("BLOCK_SELL_SUBMISSION");
+                        Bridge(path, "claim-sell");
+                        order.BrokerId = new List<string> { SellBrokerId };
+                        Write(SellReportPath(path), new TideLabSellReport(
+                            1, 1, SellClientId, SellBrokerId, order.Id, -0.4m,
+                            89.79m, "Submitted", null, 0m, 0m, 0m,
+                            report.Cash, report.Holding));
+                        placed.Set();
+                    }).Returns(true);
+            }
 
             try
             {
@@ -489,22 +571,29 @@ namespace QuantConnect.Tests.Engine.Setup
                     TestGlobals.DataCacheProvider,
                     TestGlobals.MapFileProvider));
                 Assert.That(ok, Is.True, string.Join(" | ", setup.Errors));
+                if (submitSell || sellSubmitted || sellFilled)
+                    Assert.That(algorithm.Securities[symbol].SymbolProperties.LotSize,
+                        Is.EqualTo(0.1m));
                 Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
-                    Is.EqualTo(report.Cash));
+                    Is.EqualTo(accountCash));
                 Assert.That(algorithm.Portfolio[symbol].Quantity,
-                    Is.EqualTo(report.Holding));
+                    Is.EqualTo(accountHolding));
                 Assert.That(transaction.GetOpenOrders().Count,
                     Is.EqualTo(open.Count));
                 Assert.That(transaction.GetOpenOrders().SelectMany(x => x.BrokerId),
                     Is.EquivalentTo(open.SelectMany(x => x.BrokerId)));
-                if (submitNext)
+                if (submitNext || submitSell)
                 {
                     algorithm.Securities[symbol].SetMarketPrice(new Tick
                         { Symbol = symbol, Value = 100m });
                     algorithm.SetFinishedWarmingUp();
                     algorithm.Transactions.SetOrderProcessor(transaction);
-                    var ticket = algorithm.LimitOrder(symbol, 1m, 80m);
+                    var ticket = submitSell ?
+                        algorithm.LimitOrder(symbol, -0.4m, 89.79m) :
+                        algorithm.LimitOrder(symbol, 1m, 80m);
                     Assert.That(ticket, Is.Not.Null);
+                    Assert.That(ticket.Status, Is.Not.EqualTo(OrderStatus.Invalid),
+                        ticket.GetMostRecentOrderResponse()?.ToString());
                     Assert.That(placed.Wait(TimeSpan.FromSeconds(10)), Is.True,
                         "LEAN did not route the next order to the paper source");
                     brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()),
@@ -640,6 +729,56 @@ namespace QuantConnect.Tests.Engine.Setup
                 Console.WriteLine("TL001A_LEAN_JOINED phase=cancel_remaining " +
                     "report=4 first_order=closed cash=9963.996032 " +
                     "holding=0.4 open_orders=0 new_submissions=0");
+                return;
+            }
+            if (phase == "joined_tl002_sell_submit")
+            {
+                Assert.That(report.Revision, Is.EqualTo(4));
+                Assert.That(LedgerDecision(path, report), Is.EqualTo("MATCH"));
+                var modeled = TideLabConservativeFillPolicy.Decide(Rules, Quote,
+                    Now, -report.Holding, 0);
+                Assert.That(modeled, Is.EqualTo(new TideLabFillDecision(
+                    "FILLED", -0.4m, 89.79m, 0.035916m, 0m)));
+                CheckLeanSetup(path, report, submitSell: true);
+                Assert.That(SellReport(path).Revision, Is.EqualTo(1));
+                Console.WriteLine("TL001A_LEAN_JOINED phase=tl002_sell_submit " +
+                    "quantity=-0.4 limit=89.79 state=submitted new_submissions=1");
+                Environment.Exit(74);
+            }
+            if (phase == "joined_tl002_sell_restore_pending")
+            {
+                Assert.That(report.Revision, Is.EqualTo(4));
+                Assert.That(SellReport(path).Revision, Is.EqualTo(1));
+                CheckLeanSetup(path, report, sellSubmitted: true);
+                Console.WriteLine("TL001A_LEAN_JOINED phase=tl002_sell_restore_pending " +
+                    "cash=9963.996032 holding=0.4 open_orders=1 new_submissions=0");
+                return;
+            }
+            if (phase == "joined_tl002_sell_fill_crash")
+            {
+                var pending = SellReport(path);
+                Assert.That(pending.Revision, Is.EqualTo(1));
+                Write(SellReportPath(path), pending with
+                {
+                    Revision = 2, BrokerStatus = "Filled",
+                    ExecutionId = SellExecutionId, ExecutedQuantity = -0.4m,
+                    FillPrice = 89.79m, Fee = 0.035916m,
+                    Cash = 9999.876116m, Holding = 0m
+                });
+                Assert.That(SellReport(path).Revision, Is.EqualTo(2));
+                Console.WriteLine("TL001A_LEAN_JOINED phase=tl002_sell_fill_crash " +
+                    "execution=local_report cash=9999.876116 holding=0 " +
+                    "journal=behind new_submissions=0");
+                Environment.Exit(74);
+            }
+            if (phase is "joined_tl002_sell_reconcile" or
+                "joined_tl002_sell_repeat")
+            {
+                Assert.That(SellReport(path).Revision, Is.EqualTo(2));
+                CheckLeanSetup(path, report, sellFilled: true);
+                Console.WriteLine("TL001A_LEAN_JOINED phase=tl002_sell_reconcile " +
+                    "cash=9999.876116 holding=0 realized=-0.123884 " +
+                    "open_orders=0 new_submissions=0");
                 return;
             }
             if (phase == "joined_selection_policy")

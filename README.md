@@ -25,6 +25,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-002 synthetic paper intent barrier](docs/evidence/TL-002-PAPER-INTENT-BARRIER.md)
 - [TL-002 synthetic local order reconciliation](docs/evidence/TL-002-SYNTHETIC-LOCAL-RECONCILIATION.md)
 - [TL-002 synthetic LEAN intent and account join](docs/evidence/TL-002-LEAN-SYNTHETIC-INTENT-JOIN.md)
+- [TL-002 synthetic forward sell and two-order ledger](docs/evidence/TL-002-LEAN-FORWARD-SELL-LEDGER.md)
 - [TL-001A engine decision map and reconnect probe](docs/evidence/TL-001A-ENGINE-DECISION-MAP.md)
 - [TL-001A synthetic running-engine reconciliation](docs/evidence/TL-001A-LEAN-RUNNING-RECONCILIATION.md)
 - [TL-001A synthetic H1 strategy and risk parity](docs/evidence/TL-001A-LEAN-H1-RISK-PARITY.md)
@@ -95,4 +96,4 @@ The WebSocket candle channel provides live five-minute updates. TideLab keeps th
 
 ## Next research gates
 
-TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open; no real research-data source is selected. TL-002 has bounded synthetic intent and LEAN local report checks; full strategy and runtime integration remain open.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open; no real research-data source is selected. TL-002 has bounded synthetic intent, LEAN local report, and one forward sell check; full strategy and runtime integration remain open.
