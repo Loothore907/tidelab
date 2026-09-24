@@ -26,6 +26,11 @@ try
             Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
             Environment.GetEnvironmentVariable("TL001A_PHASE"));
     }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE") == "snapshot_seed")
+    {
+        TideLabAtomicSnapshotProbe.Seed(
+            Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"));
+    }
     else
     {
         new TideLabForwardRecoveryProbe()
