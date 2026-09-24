@@ -31,6 +31,13 @@ try
         TideLabAtomicSnapshotProbe.Seed(
             Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"));
     }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE")?.StartsWith(
+        "paper_", StringComparison.Ordinal) == true)
+    {
+        TideLabPaperSubmissionBarrierProbe.Run(
+            Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
+            Environment.GetEnvironmentVariable("TL001A_PHASE"));
+    }
     else
     {
         new TideLabForwardRecoveryProbe()

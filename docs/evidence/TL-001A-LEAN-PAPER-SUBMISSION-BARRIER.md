@@ -1,0 +1,19 @@
+# TL-001A synthetic forward-paper submission barrier
+
+Status: bounded [issue #2](https://github.com/Loothore907/tidelab/issues/2) engine evaluation, 2026-09-23 Alaska time. Neither engine is adopted. This uses invented orders, executions, account values and correction data; it uses no account, credentials, real market data or live orders.
+
+## Requirement and probe
+
+The [previous handoff probe](TL-001A-LEAN-SUBMISSION-HANDOFF.md) let a final revision-2 snapshot check pass and then published revision 3 before submission. Pinned LEAN `IBrokerage` has no shared revision token across its account/order reads and `PlaceOrder`. A forward-paper source must therefore own both correction intake and the decision to submit, or it cannot enforce that handoff.
+
+`TideLabSerializedPaperSource` is a replaceable, test-only source. Its single-process gate covers validated journal/snapshot reads, correction append/publication, and a conditional call to a mock LEAN `IBrokerage.PlaceOrder`. Submission requires the revision read by the caller to remain current *inside* the same gate. The source checks journal event count, cash, holding and per-order filled quantities against the durable synthetic snapshot. If a correction is interrupted after reversal but before replacement/publication, a fresh process blocks on the mismatch. It never silently uses the older snapshot.
+
+The focused `TL001A_PAPER_ONLY=1` runner uses three isolated invented report sets. In the stale case, correction advances the source from revision 2 to 3 before submission; the old token returns `BLOCK_STALE_REVISION` and calls `PlaceOrder` zero times. In the concurrent case, a correction attempts to enter while the mock `PlaceOrder` callback is held. It waits; the submission at revision 2 finishes, then correction publishes revision 3. A separate process reads stable revision 3 and passes one mock submission. In the interrupted-correction case, journal reversal is committed without replacement; fresh source validation blocks with zero submissions.
+
+The focused and full pinned-LEAN runners both exited successfully. The full runner built with zero errors and existing upstream package-audit warnings, then printed `BLOCK_STALE_REVISION ... new_submissions=0`, `SERIALIZED submit_revision=2 correction_revision=3 new_submissions=1`, `SUBMITTED_PAPER snapshot=3 ... new_submissions=1`, and `BLOCK_PAPER_SOURCE_MISMATCH ... new_submissions=0`. Repository CI does not compile this C# probe.
+
+## Decision effect and limits
+
+This shows that a single-writer, replaceable paper source can close the local snapshot-to-submission interval when **every** correction and submission enters that source. It does not prove LEAN itself enforces the gate: the host must route order policy and broker calls through it. The successful mock callback is not a durable order intent, acknowledgement, or fill, and the in-memory unknown-submission hold does not survive process loss. Cross-process writers and an eventual external broker need their own enforceable serialization or versioned command contract. LEAN remains the stronger bounded candidate because its historical/forward H1 decision path and public setup seam are demonstrated; no engine adoption follows from this probe.
+
+The most consequential remaining paper-engine requirement is durable, idempotent order intent and ambiguous-submission recovery through the replaceable source, joined to execution-ID delivery and reconciled account state before any new order is allowed. Realistic cost/fill behavior, engine-independent experiment identity and distribution obligations also remain open. NautilusTrader `2.0.0rc5` still needs a public external-Python-data-client/backing path or TideLab-owned equivalent. [TL-001B issue #3](https://github.com/Loothore907/tidelab/issues/3) stays separate.

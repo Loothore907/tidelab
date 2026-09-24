@@ -22,6 +22,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabExecutionDeliveryProbe.cs" \
   "$source_dir/TideLabCorrectionJournalProbe.cs" \
   "$source_dir/TideLabAtomicSnapshotProbe.cs" \
+  "$source_dir/TideLabPaperSubmissionBarrierProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -47,7 +48,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -89,6 +90,25 @@ run_handoff_probe() {
   run_phase handoff restore_snapshot_stable success 'decision=STABLE_SNAPSHOT revision=3 cash=9955.455 holding=0.5 open_orders=2 callbacks=0 new_submissions=0'
 }
 
+run_paper_probe() {
+  for scenario in stale concurrent; do
+    run_phase "paper_$scenario" managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+    run_phase "paper_$scenario" ledger_partial_report success 'revision=2 executions=1'
+    run_phase "paper_$scenario" ledger_reconcile success 'state=created_from_report executions=1'
+    run_phase "paper_$scenario" journal_seed success 'orders=2 events=3 cash=9954.955 holding=0.5'
+    run_phase "paper_$scenario" snapshot_seed success 'revision=2 orders=2 journal_events=3'
+    run_phase "paper_$scenario" "paper_$scenario" success "phase=$scenario decision=$( [[ "$scenario" == stale ]] && echo BLOCK_STALE_REVISION || echo SERIALIZED )"
+  done
+  run_phase paper_stale paper_stable success 'phase=stable decision=SUBMITTED_PAPER snapshot=3 current=3 new_submissions=1'
+  run_phase paper_torn managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+  run_phase paper_torn ledger_partial_report success 'revision=2 executions=1'
+  run_phase paper_torn ledger_reconcile success 'state=created_from_report executions=1'
+  run_phase paper_torn journal_seed success 'orders=2 events=3 cash=9954.955 holding=0.5'
+  run_phase paper_torn snapshot_seed success 'revision=2 orders=2 journal_events=3'
+  run_phase paper_torn journal_reverse success 'decision=HOLD_CORRECTION_PENDING events=4'
+  run_phase paper_torn paper_torn success 'phase=torn decision=BLOCK_PAPER_SOURCE_MISMATCH new_submissions=0'
+}
+
 if [[ "${TL001A_JOURNAL_ONLY:-0}" == 1 ]]; then
   run_journal_probe
   exit 0
@@ -99,6 +119,10 @@ if [[ "${TL001A_SNAPSHOT_ONLY:-0}" == 1 ]]; then
 fi
 if [[ "${TL001A_HANDOFF_ONLY:-0}" == 1 ]]; then
   run_handoff_probe
+  exit 0
+fi
+if [[ "${TL001A_PAPER_ONLY:-0}" == 1 ]]; then
+  run_paper_probe
   exit 0
 fi
 
@@ -169,6 +193,7 @@ run_phase concurrent restore_ledger_partial_concurrent success 'decision=BLOCK_E
 run_journal_probe
 run_snapshot_probe
 run_handoff_probe
+run_paper_probe
 run_phase screened_crash managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
 run_phase screened_crash ledger_partial_report success 'revision=2 executions=1'
 run_phase screened_crash ledger_reconcile success 'state=created_from_report executions=1'
