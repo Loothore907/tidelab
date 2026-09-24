@@ -4,6 +4,8 @@ Milestones advance on evidence, not a promised return or fixed calendar. TL iden
 
 Current state: TL-001 is integrated, and [TL-001A selected pinned LEAN](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) for the first synthetic historical/local-paper integration. TL-001B has [selected OKX archives for local historical research](evidence/TL-001B-OKX-HISTORICAL-20260924.md) but remains open for timely forward data and optional public artifacts. TL-002 has a [durable synthetic paper-intent barrier](evidence/TL-002-PAPER-INTENT-BARRIER.md), [same-database order recovery check](evidence/TL-002-SYNTHETIC-LOCAL-RECONCILIATION.md), [one-order LEAN local report/account join](evidence/TL-002-LEAN-SYNTHETIC-INTENT-JOIN.md), and [one forward sell with a two-order ledger](evidence/TL-002-LEAN-FORWARD-SELL-LEDGER.md). General runtime reconciliation, strategy integration, and packaging remain open under issue #48.
 
+The [H1 v1 preregistration](experiments/H1-V1-PREREGISTRATION.md) fixes the first real-data hypothesis and its evaluation plan before any result is opened. The selected historical source can support a local historical run after strategy/accounting checks; an on-time forward source remains a separate paper-operation gate.
+
 Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Coinbase's Market Data Terms reviewed 2026-09-21 also create material automated-analysis and publication-rights questions for market data and derived artifacts. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis. Establish a sufficiently long, rights-cleared historical and forward source before TL-003; never treat endpoint access or the current depth as adequate public-research coverage.
 
 Open-source direction: TideLab-authored work is Apache-2.0. Use pinned LEAN's public interfaces for the first bounded engine integration and keep TideLab policy, data, paper authority, and evidence replaceable. The engine choice does not finish the local paper controls or a distribution review. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.
@@ -55,7 +57,7 @@ Publication standard approved 2026-09-21 and priority clarified 2026-09-22: publ
 
 ## TL-002 implementation acceptance
 
-- Use the [TL-001A selected LEAN pin](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md); complete TL-001B before real-data strategy work. Record data-source rights/provenance and every approved exception.
+- Use the [TL-001A selected LEAN pin](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md). The selected OKX archive clears the bounded personal local historical-data use; verify its current terms and provenance again before a real-data historical run. Complete the separate TL-001B timely-source gate before on-time forward-paper evaluation. Record every approved exception.
 - Define strategy requirements, target positions/trade intents, independent risk decisions, order/fill states, cashflows, settlement extensions, and execution-mode boundaries.
 - Run identical strategy semantics against deterministic replay and forward-paper clocks; environment-specific code may supply data and fills but may not change the strategy rule.
 - Reconcile cash, inventory, fees, realized/unrealized P&L, and all modeled order states. Test duplicate, partial, missed, rejected, interrupted, and ambiguous outcomes.
