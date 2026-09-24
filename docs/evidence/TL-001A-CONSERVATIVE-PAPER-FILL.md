@@ -1,6 +1,6 @@
 # TL-001A conservative fill and paper restart checkpoint
 
-Status: synthetic engine-selection evidence for [issue #2](https://github.com/Loothore907/tidelab/issues/2), 2026-09-24 Alaska time. Neither LEAN nor NautilusTrader is adopted. No market data, account, credential, order, or paid service was used.
+Status: synthetic engine-selection evidence for [issue #2](https://github.com/Loothore907/tidelab/issues/2), 2026-09-24 Alaska time. Neither LEAN nor NautilusTrader is adopted. No real market data, account, credential, live order, or paid service was used.
 
 ## Working selection boundary
 
