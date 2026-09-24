@@ -9,6 +9,7 @@ from typing import Any
 from tidelab.coinbase import CoinbasePublicClient
 from tidelab.config import AppConfig, load_config
 from tidelab.domain import isoformat_utc, parse_utc, utc_now
+from tidelab.okx_archive import import_okx_archive
 from tidelab.service import refresh_product, sync_closed_bars
 from tidelab.storage import TideStore
 from tidelab.stream import capture_public_stream_sync
@@ -49,6 +50,12 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("init", help="initialize the local SQLite schema")
     subparsers.add_parser("metadata", help="refresh public product metadata")
 
+    okx_parser = subparsers.add_parser("import-okx", help="import a local OKX daily or monthly archive")
+    okx_parser.add_argument("--file", required=True, help="downloaded OKX candlestick ZIP")
+    okx_parser.add_argument("--symbol", required=True, help="spot symbol, for example BTC-USDT")
+    okx_parser.add_argument("--period", required=True, help="archive period, YYYY-MM or YYYY-MM-DD")
+    okx_parser.add_argument("--database", required=True, help="local SQLite path")
+
     sync_parser = subparsers.add_parser("sync", help="synchronize closed hourly bars")
     _add_bounds(sync_parser)
 
@@ -65,6 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "import-okx":
+        store = TideStore(args.database)
+        result = import_okx_archive(args.file, symbol=args.symbol, period=args.period, store=store)
+        _json_print(result.as_dict())
+        return 0
     config, store, client = _runtime(args.config)
     if args.command == "init":
         _json_print({"database": str(config.storage.path), "status": "initialized"})

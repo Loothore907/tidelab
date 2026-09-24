@@ -1,5 +1,7 @@
 # TL-001B data options and decision boundary
 
+**Later 2026-09-24 result:** [OKX BTC-USDT spot archives](TL-001B-OKX-HISTORICAL-20260924.md) are selected and locally validated for personal historical research and delayed prospective observation. This earlier screen is retained as the decision trail. Issue #3 remains open because the archive delay cannot drive an on-time hourly paper decision.
+
 **2026-09-24 correction and decision:** [Bitstamp's public hourly endpoint](TL-001B-BITSTAMP-RIGHTS-CORRECTION-20260924.md) passed a technical history/bridge probe but did not establish retention and automated-analysis rights. The private sample was removed; issue #3 remains open. Kraken is no longer a schedule dependency. The owner authorized one [Gemini inquiry](https://github.com/Loothore907/tidelab/issues/3#issuecomment-5817165257) about fees, depth, and private research rights; it was sent without account access or purchase. A later bounded mailbox search found only the sent Gemini message in the searched correspondence.
 
 Read-only source screen, 2026-09-24, for [issue #3](https://github.com/Loothore907/tidelab/issues/3). No provider was contacted in this screen, no data or account was accessed, and no subscription was purchased. Published availability, research rights, depth for an exact instrument, and public presentation rights are separate questions. Prices and terms are point-in-time and must be checked again before a purchase or acquisition.

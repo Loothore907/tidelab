@@ -12,7 +12,9 @@ The economic objective is to discover whether any strategy, combined with a feas
 
 Initial work remains public-data and simulation only. No exchange credentials, deposits, paid infrastructure, live trading, or external account operation are authorized.
 
-Open API access alone does not establish research or publication rights. Coinbase remains a bounded technical fixture while TideLab selects a deep source that supports local scripted research and retention. Public real-data artifacts are optional and checked separately.
+Open API access alone does not establish research or publication rights. Coinbase remains a bounded technical fixture; the selected OKX archive supports local scripted historical research and retention under its personal-use terms. Public real-data artifacts are optional and checked separately.
+
+[OKX BTC-USDT spot archives](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md) are now selected for **local historical research**: 28,344 contiguous hourly bars were validated through a delayed daily archive. They are local ignored data, not a timely paper feed or permission to publish real-data results. TL-001B remains open for a timely forward source.
 
 ## Project documents
 
@@ -43,6 +45,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A initial engine decision](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [TL-001B free and paid data options](docs/evidence/TL-001B-DATA-OPTIONS-20260924.md)
+- [TL-001B selected OKX historical source and delayed-feed limit](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
@@ -95,6 +98,19 @@ These commands document the completed TL-001 fixture. Pending TL-001B, do not us
 
 The WebSocket candle channel provides live five-minute updates. TideLab keeps those as observations; strategy-ready hourly bars are admitted only after the public REST interval is closed.
 
+### Local OKX historical import
+
+Download an older BTC-USDT spot candlestick ZIP from the [official OKX historical-data portal](https://www.okx.com/en-us/historical-data), then import the local file. This command reads the ZIP and writes only to a local SQLite database; it does not call an exchange API or require an account. The archive day runs from 16:00 UTC on the prior calendar date through 15:59 UTC on the named date. Monthly and daily ZIPs use `YYYY-MM` and `YYYY-MM-DD` respectively.
+
+```powershell
+.\.venv\Scripts\python.exe -m tidelab import-okx `
+  --file data\okx\BTC-USDT-candlesticks-2024-01.zip `
+  --symbol BTC-USDT --period 2024-01 `
+  --database data\okx\research.sqlite3
+```
+
+The importer requires complete minute coverage, builds UTC hourly bars, skips identical duplicate rows, and stops if an archive changes a stored bar. Downloaded ZIPs and the database remain ignored local files. OKX releases the archive after a delay, so it cannot supply on-time forward paper decisions. See the [source and rights decision](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md) before using or sharing derived material.
+
 ## Next research gates
 
-TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open; no real research-data source is selected. TL-002 has bounded synthetic intent, LEAN local report, and one forward sell check; full strategy and runtime integration remain open.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open for an on-time forward source; OKX monthly/daily archives are selected for local historical research only. TL-002 has bounded synthetic intent, LEAN local report, and one forward sell check; full strategy and runtime integration remain open.

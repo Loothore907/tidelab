@@ -1,5 +1,7 @@
 # TL-001B research-data and publication preflight
 
+**Later 2026-09-24 update:** [OKX BTC-USDT spot archives](TL-001B-OKX-HISTORICAL-20260924.md) are selected for local historical research and delayed observation under their express personal-use terms. This earlier source screen is retained as evidence of the prior decision state. A timely hourly forward source remains open under issue #3.
+
 Status: research preflight updated 2026-09-24; [issue #3](https://github.com/Loothore907/tidelab/issues/3) remains open. No real-data source is approved, selected, downloaded, or published by this document. This is a product/licensing risk inventory, not legal advice.
 
 The bounded [free, self-capture, and paid option map](TL-001B-DATA-OPTIONS-20260924.md) records the current decision trigger and avoids repeating a broad source search while the evidence is unchanged.
