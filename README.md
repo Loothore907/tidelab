@@ -42,7 +42,6 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A initial engine decision](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [TL-001B free and paid data options](docs/evidence/TL-001B-DATA-OPTIONS-20260924.md)
-- [TL-001B initial Bitstamp research-data decision](docs/decisions/TL-001B-INITIAL-RESEARCH-DATA.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
@@ -52,7 +51,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 
 TL-001 is implemented and integrated: canonical instrument/capability/event contracts, a restart-safe SQLite store, public Coinbase product and closed-hourly-bar synchronization, public WebSocket observation capture, and gap/duplicate/freshness reporting. See [the validation report](docs/evidence/TL-001-VALIDATION.md).
 
-A 30-day probe found that the unauthenticated public Coinbase candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create research-use and publication-rights concerns. [Bitstamp BTC/USD hourly data](docs/decisions/TL-001B-INITIAL-RESEARCH-DATA.md) is now the first private noncommercial research source; public real-data presentation is a separate decision.
+A 30-day probe found that the unauthenticated public candle endpoint returned only the latest 349 closed hourly bars from this environment and did not satisfy older requested windows. TideLab reports the missing periods instead of filling or hiding them. Current Coinbase market-data terms also create research-use and publication-rights concerns. A source with adequate historical depth and supportable local research rights is required before serious evaluation; public real-data presentation is a separate decision.
 
 This folder is registered as the local Codex project TideLab. The public [GitHub repository](https://github.com/Loothore907/tidelab) contains TL-001 via [PR #5](https://github.com/Loothore907/tidelab/pull/5); the Apache/open-source decision is recorded in [PR #6](https://github.com/Loothore907/tidelab/pull/6). No private account integration or deployment exists. Venue eligibility, fees, private API access, and live operation remain unverified.
 
@@ -71,7 +70,7 @@ Copy-Item config.example.toml config.toml
 
 ## Commands
 
-These commands document the completed TL-001 Coinbase fixture. Do not use them to acquire new Coinbase data for strategy development or automated analysis. Use synthetic fixtures for engine checks or the private Bitstamp sample within its stated scope.
+These commands document the completed TL-001 fixture. Pending TL-001B, do not use them to acquire new Coinbase data for strategy development or automated analysis. Use synthetic or otherwise rights-cleared fixtures for the engine bakeoff.
 
 ```powershell
 # Initialize local storage and refresh point-in-time product rules.
@@ -97,4 +96,4 @@ The WebSocket candle channel provides live five-minute updates. TideLab keeps th
 
 ## Next research gates
 
-TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [selected Bitstamp public BTC/USD hourly data](docs/decisions/TL-001B-INITIAL-RESEARCH-DATA.md) for private noncommercial research and obtained a locally ignored historical sample. Commercial use and public real-data artifacts are outside that decision. TL-002 has bounded synthetic intent, LEAN local report, and one forward sell check; full strategy and runtime integration remain open.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open; no real research-data source is selected. TL-002 has bounded synthetic intent, LEAN local report, and one forward sell check; full strategy and runtime integration remain open.
