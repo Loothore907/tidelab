@@ -13,7 +13,8 @@ from tidelab.lean_paper_join import LeanSyntheticPaperJoin  # noqa: E402
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("prepare", "claim", "reconcile"))
+    parser.add_argument("action", choices=("prepare", "claim", "reconcile",
+                                           "prepare-sell", "claim-sell", "reconcile-sell"))
     parser.add_argument("database", type=Path)
     parser.add_argument("report", type=Path)
     args = parser.parse_args()
@@ -26,8 +27,16 @@ def main() -> int:
         if not join.claim():
             raise RuntimeError("durable intent already claimed")
         print("claimed")
-    else:
+    elif args.action == "reconcile":
         print(join.reconcile())
+    elif args.action == "prepare-sell":
+        print("sell_prepared" if join.prepare_sell() else "sell_existing")
+    elif args.action == "claim-sell":
+        if not join.claim_sell():
+            raise RuntimeError("durable sell intent already claimed")
+        print("sell_claimed")
+    else:
+        print(join.reconcile_sell())
     return 0
 
 

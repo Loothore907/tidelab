@@ -42,7 +42,8 @@ class PaperIntentStore:
 
     A successful claim is persisted as ``submission_unknown`` before the caller
     can invoke its synthetic paper source. No timeout or process restart makes
-    that claim reusable. Authoritative reconciliation is a later TL-002 slice.
+    that claim reusable. A source-specific authority must record a verified
+    resolution before this database accepts another client ID.
     """
 
     def __init__(self, path: str | Path):
@@ -70,6 +71,13 @@ class PaperIntentStore:
                     state TEXT NOT NULL CHECK (state IN ('prepared', 'submission_unknown'))
                 )"""
             )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS paper_intent_resolutions (
+                    client_id TEXT PRIMARY KEY REFERENCES paper_intents(client_id),
+                    source_revision TEXT NOT NULL,
+                    final_report_revision INTEGER NOT NULL CHECK (final_report_revision > 0)
+                )"""
+            )
 
     def prepare(self, intent: PaperIntent) -> bool:
         """Persist one intent; return False for an identical replay.
@@ -89,7 +97,9 @@ class PaperIntentStore:
                         raise ValueError("client ID already has different intent terms")
                     connection.commit()
                     return False
-                if connection.execute("SELECT 1 FROM paper_intents LIMIT 1").fetchone():
+                if connection.execute("""SELECT 1 FROM paper_intents AS i
+                    LEFT JOIN paper_intent_resolutions AS r ON r.client_id=i.client_id
+                    WHERE r.client_id IS NULL LIMIT 1""").fetchone():
                     raise RuntimeError("paper authority has an unresolved intent")
                 connection.execute(
                     """INSERT INTO paper_intents
@@ -123,6 +133,8 @@ class PaperIntentStore:
     def state(self, client_id: str) -> str | None:
         with closing(self._connect()) as connection:
             row = connection.execute(
-                "SELECT state FROM paper_intents WHERE client_id=?", (client_id,)
+                """SELECT i.state, r.client_id AS resolved_id FROM paper_intents AS i
+                LEFT JOIN paper_intent_resolutions AS r ON r.client_id=i.client_id
+                WHERE i.client_id=?""", (client_id,)
             ).fetchone()
-            return None if row is None else str(row["state"])
+            return None if row is None else ("resolved" if row["resolved_id"] else str(row["state"]))

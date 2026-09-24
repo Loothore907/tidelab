@@ -197,6 +197,16 @@ if [[ "${TL002_JOIN_ONLY:-0}" == 1 ]]; then
   run_phase tl002 joined_cancel_remaining success 'report=4 first_order=closed cash=9963.996032'
   python3 "$bridge" reconcile "$database" "$report"
   python3 "$bridge" reconcile "$database" "$report"
+  run_phase tl002 joined_selection_policy success 'sell=FILLED realized=-0.123884 stale=HOLD missed=HOLD invalid=REJECT new_submissions=0'
+  python3 "$bridge" prepare-sell "$database" "$report"
+  run_phase tl002 joined_tl002_sell_submit forced_exit 'quantity=-0.4 limit=89.79 state=submitted new_submissions=1'
+  python3 "$bridge" reconcile-sell "$database" "$report"
+  run_phase tl002 joined_tl002_sell_restore_pending success 'cash=9963.996032 holding=0.4 open_orders=1 new_submissions=0'
+  run_phase tl002 joined_tl002_sell_fill_crash forced_exit 'execution=local_report cash=9999.876116 holding=0 journal=behind new_submissions=0'
+  python3 "$bridge" reconcile-sell "$database" "$report"
+  run_phase tl002 joined_tl002_sell_reconcile success 'cash=9999.876116 holding=0 realized=-0.123884 open_orders=0 new_submissions=0'
+  run_phase tl002 joined_tl002_sell_repeat success 'cash=9999.876116 holding=0 realized=-0.123884 open_orders=0 new_submissions=0'
+  python3 "$bridge" reconcile-sell "$database" "$report"
   exit 0
 fi
 
