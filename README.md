@@ -6,7 +6,7 @@ A personal, multi-venue systematic market research and paper-trading project. Cr
 
 Build a venue- and product-agnostic research core around canonical market data, versioned strategies, deterministic replay, explicit execution models, complete experiment records, and reconciled accounting. Coinbase Advanced Trade BTC-USD is the first reference fixture because it provides a tractable public-data starting point; it is not TideLab's permanent market boundary.
 
-TideLab is licensed under Apache-2.0. It will adopt proven open-source engine components before building commodity trading infrastructure. NautilusTrader is the first engine candidate for a bounded compatibility bakeoff; it is not yet an adopted dependency. TideLab will remain an independent project and will not default to an upstream fork.
+TideLab is licensed under Apache-2.0. [TL-001A selected pinned LEAN](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) as the initial synthetic historical and local paper integration target. The engine is not yet an installed TideLab runtime or a production paper system. TideLab remains independent and will not default to an upstream fork.
 
 The economic objective is to discover whether any strategy, combined with a feasible execution environment, has positive expectancy after realistic costs and can eventually support useful income within a defined loss budget. Backtests select candidates; immutable forward tests evaluate them on newly arriving data. No profitable strategy or regular income capability has been demonstrated.
 
@@ -35,6 +35,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A synthetic conservative fill and joined paper workflow](docs/evidence/TL-001A-LEAN-JOINED-PAPER-WORKFLOW.md)
 - [TL-001A portable experiment identity and hybrid foundation review](docs/evidence/TL-001A-HYBRID-FOUNDATION-DECISION.md)
 - [TL-001A joined synthetic selection gate](docs/evidence/TL-001A-LEAN-SELECTION-GATE.md)
+- [TL-001A initial engine decision](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
@@ -90,4 +91,4 @@ The WebSocket candle channel provides live five-minute updates. TideLab keeps th
 
 ## Next research gates
 
-TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) and TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) are separate decisions that precede TL-002. Neither an engine nor a public research-data source has been adopted. TL-002 strategy integration has not started.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open; no real research-data source is selected. TL-002 strategy integration has not started.
