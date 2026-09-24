@@ -405,6 +405,7 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_ledger_partial_journal_correction",
                 "restore_ledger_partial_journal_fresh",
                 "restore_snapshot_race", "restore_snapshot_stable",
+                "restore_snapshot_handoff",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -430,6 +431,7 @@ namespace QuantConnect.Tests.Engine.Setup
             var journalFresh = phase == "restore_ledger_partial_journal_fresh";
             var snapshotRace = phase == "restore_snapshot_race";
             var snapshotStable = phase == "restore_snapshot_stable";
+            var snapshotHandoff = phase == "restore_snapshot_handoff";
             TideLabAtomicBrokerSnapshot atomicBefore = null;
             if (phase == "restore_ledger_full_lag")
             {
@@ -445,18 +447,18 @@ namespace QuantConnect.Tests.Engine.Setup
                     ledgerPartial ? 1 : 2), Is.True,
                     "Do not start LEAN until every broker execution is committed");
             }
-            else if (snapshotRace || snapshotStable)
+            else if (snapshotRace || snapshotStable || snapshotHandoff)
             {
                 atomicBefore = TideLabAtomicSnapshotProbe.Read(path);
                 var journal = TideLabCorrectionJournalProbe.Replay(
                     path + ".correction-journal.jsonl");
-                Assert.That(atomicBefore.Revision, Is.EqualTo(snapshotRace ? 2 : 3));
+                Assert.That(atomicBefore.Revision, Is.EqualTo(snapshotStable ? 3 : 2));
                 Assert.That(journal.EventCount, Is.EqualTo(atomicBefore.JournalEvents));
                 Assert.That(journal.Cash, Is.EqualTo(atomicBefore.Cash));
                 Assert.That(journal.Holding, Is.EqualTo(atomicBefore.Holding));
                 snapshot.Cash = atomicBefore.Cash;
                 snapshot.Holding = atomicBefore.Holding;
-                snapshot.FillPrice = snapshotRace ? 90m : 89m;
+                snapshot.FillPrice = snapshotStable ? 89m : 90m;
             }
             else if (journalFresh)
             {
@@ -504,11 +506,11 @@ namespace QuantConnect.Tests.Engine.Setup
             var realTime = new Mock<IRealTimeHandler>();
             var brokerage = new Mock<IBrokerage>();
             var partialOrder = phase == "restore_partial" || ledgerPartial ||
-                journalFresh || snapshotRace || snapshotStable;
+                journalFresh || snapshotRace || snapshotStable || snapshotHandoff;
             var hasOpenOrder = pending || partialOrder;
             var concurrent = phase == "restore_ledger_partial_concurrent" ||
                 phase == "restore_ledger_partial_journal_correction" || journalFresh ||
-                snapshotRace || snapshotStable;
+                snapshotRace || snapshotStable || snapshotHandoff;
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
             {
@@ -587,20 +589,36 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
-                if (snapshotRace || snapshotStable)
+                if (snapshotRace || snapshotStable || snapshotHandoff)
                 {
                     var atomicAfter = TideLabAtomicSnapshotProbe.Read(path);
                     var journalAfter = TideLabCorrectionJournalProbe.Replay(
                         path + ".correction-journal.jsonl");
-                    Assert.That(atomicAfter.Revision, Is.EqualTo(3));
                     Assert.That(journalAfter.Cash, Is.EqualTo(atomicAfter.Cash));
                     Assert.That(journalAfter.Holding, Is.EqualTo(atomicAfter.Holding));
                     Assert.That(restored.Select(order => order.BrokerId.Single()),
                         Is.EquivalentTo(new[] { atomicAfter.FirstBrokerId,
                             atomicAfter.SecondBrokerId }));
                     Assert.That(algorithm.SeenEvents, Is.Empty);
-                    if (snapshotRace)
+                    if (snapshotHandoff)
                     {
+                        Assert.That(atomicBefore, Is.EqualTo(atomicAfter));
+                        Assert.That(atomicAfter.Revision, Is.EqualTo(2));
+                        // A stable final read does not freeze a remote broker.
+                        // Publish its correction before any possible submission.
+                        TideLabCorrectionJournalProbe.Run(path, "journal_reverse");
+                        TideLabCorrectionJournalProbe.Run(path, "journal_replace");
+                        TideLabAtomicSnapshotProbe.Correct(path);
+                        Assert.That(TideLabAtomicSnapshotProbe.Read(path).Revision,
+                            Is.EqualTo(3));
+                        brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                        Console.WriteLine("TL001A_LEAN_SNAPSHOT phase=restore_snapshot_handoff " +
+                            "decision=BLOCK_UNVERSIONED_HANDOFF final_check=2 " +
+                            "broker_now=3 new_submissions=0");
+                    }
+                    else if (snapshotRace)
+                    {
+                        Assert.That(atomicAfter.Revision, Is.EqualTo(3));
                         Assert.That(atomicBefore.Revision, Is.EqualTo(2));
                         Assert.That(algorithm.Portfolio.CashBook[Currencies.USD].Amount,
                             Is.Not.EqualTo(atomicAfter.Cash));
@@ -609,6 +627,7 @@ namespace QuantConnect.Tests.Engine.Setup
                     }
                     else
                     {
+                        Assert.That(atomicAfter.Revision, Is.EqualTo(3));
                         Assert.That(atomicBefore, Is.EqualTo(atomicAfter));
                         Console.WriteLine("TL001A_LEAN_SNAPSHOT phase=restore_snapshot_stable " +
                             "decision=STABLE_SNAPSHOT revision=3 cash=9955.455 " +
