@@ -23,6 +23,22 @@ namespace QuantConnect.Tests.Engine.Setup
         string Commit(TideLabBrokerExecution execution);
     }
 
+    public sealed class TideLabDelegateBrokerExecutionSource : ITideLabBrokerExecutionSource
+    {
+        private readonly Func<TideLabBrokerSnapshot> _read;
+        private readonly Func<TideLabBrokerExecution, string> _commit;
+
+        public TideLabDelegateBrokerExecutionSource(Func<TideLabBrokerSnapshot> read,
+            Func<TideLabBrokerExecution, string> commit)
+        {
+            _read = read;
+            _commit = commit;
+        }
+
+        public TideLabBrokerSnapshot Read() => _read();
+        public string Commit(TideLabBrokerExecution execution) => _commit(execution);
+    }
+
     public interface ITideLabEngineExecutionPort
     {
         TideLabEngineSnapshot Read();

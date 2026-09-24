@@ -400,6 +400,8 @@ namespace QuantConnect.Tests.Engine.Setup
                 "restore_ledger_partial_reconnect_gap",
                 "restore_ledger_partial_reconcile_running",
                 "restore_ledger_partial_ack_lost",
+                "restore_ledger_partial_correction",
+                "restore_ledger_partial_concurrent",
                 "restore_ledger_full_lag",
                 "restore_partial_conflict", "restore_torn_record"));
             var snapshot = JsonSerializer.Deserialize<BrokerReport>(File.ReadAllText(path));
@@ -416,7 +418,9 @@ namespace QuantConnect.Tests.Engine.Setup
                 phase == "restore_ledger_partial_screened_crash" ||
                 phase == "restore_ledger_partial_reconnect_gap" ||
                 phase == "restore_ledger_partial_reconcile_running" ||
-                phase == "restore_ledger_partial_ack_lost";
+                phase == "restore_ledger_partial_ack_lost" ||
+                phase == "restore_ledger_partial_correction" ||
+                phase == "restore_ledger_partial_concurrent";
             var ledgerFull = phase == "restore_ledger_full" ||
                 phase == "restore_ledger_full_late_events";
             if (phase == "restore_ledger_full_lag")
@@ -470,6 +474,7 @@ namespace QuantConnect.Tests.Engine.Setup
             var brokerage = new Mock<IBrokerage>();
             var partialOrder = phase == "restore_partial" || ledgerPartial;
             var hasOpenOrder = pending || partialOrder;
+            var concurrent = phase == "restore_ledger_partial_concurrent";
             var pendingOrder = new LimitOrder(symbol, snapshot.Quantity, snapshot.LimitPrice,
                 new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
             {
@@ -488,8 +493,19 @@ namespace QuantConnect.Tests.Engine.Setup
                     AveragePrice = pending ? 0m : snapshot.FillPrice,
                     MarketPrice = pending ? 0m : snapshot.FillPrice }
             });
-            brokerage.Setup(x => x.GetOpenOrders()).Returns(
-                hasOpenOrder ? new List<Order> { pendingOrder } : new List<Order>());
+            var brokerOpenOrders = hasOpenOrder ? new List<Order> { pendingOrder } :
+                new List<Order>();
+            if (concurrent)
+            {
+                brokerOpenOrders.Add(new LimitOrder(symbol, 1m, 89m,
+                    new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                {
+                    Id = snapshot.LeanOrderId + 1,
+                    Status = OrderStatus.Submitted,
+                    BrokerId = new List<string> { "TL001A-BROKER-ORDER-2" }
+                });
+            }
+            brokerage.Setup(x => x.GetOpenOrders()).Returns(brokerOpenOrders);
 
             try
             {
@@ -505,12 +521,15 @@ namespace QuantConnect.Tests.Engine.Setup
                 Assert.That(ok, Is.True, string.Join(" | ", setup.Errors));
 
                 var restored = transaction.GetOpenOrders();
-                Assert.That(restored.Count, Is.EqualTo(hasOpenOrder ? 1 : 0));
+                Assert.That(restored.Count, Is.EqualTo(concurrent ? 2 :
+                    hasOpenOrder ? 1 : 0));
                 if (hasOpenOrder)
                 {
-                    Assert.That(restored[0].Status, Is.EqualTo(partialOrder ?
+                    var restoredFirst = restored.Single(order =>
+                        order.BrokerId.Contains(snapshot.BrokerId));
+                    Assert.That(restoredFirst.Status, Is.EqualTo(partialOrder ?
                         OrderStatus.PartiallyFilled : OrderStatus.Submitted));
-                    Assert.That(restored[0].BrokerId, Does.Contain(snapshot.BrokerId));
+                    Assert.That(restoredFirst.BrokerId, Does.Contain(snapshot.BrokerId));
                 }
                 else
                 {
@@ -525,6 +544,43 @@ namespace QuantConnect.Tests.Engine.Setup
                 brokerage.Verify(x => x.GetCashBalance(), Times.Once);
                 brokerage.Verify(x => x.GetAccountHoldings(), Times.Once);
                 brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                if (phase == "restore_ledger_partial_correction" || concurrent)
+                {
+                    var original = TideLabExecutionLedgerProbe.OpenSyntheticSource(path);
+                    var committed = original.Read();
+                    var broker = phase == "restore_ledger_partial_correction" ?
+                        new TideLabDelegateBrokerExecutionSource(
+                            () => committed with
+                            {
+                                Revision = committed.Revision + 1,
+                                Cash = 9954.455m,
+                                Executions = new List<TideLabBrokerExecution>
+                                {
+                                    committed.Executions[0] with { Price = 91m }
+                                }
+                            },
+                            _ => throw new AssertionException(
+                                "Corrected execution must not be committed")) : original;
+                    var callbacks = algorithm.SeenEvents.Count;
+                    var engine = new TideLabDelegateEnginePort(() =>
+                    {
+                        var open = transaction.GetOpenOrders();
+                        return new TideLabEngineSnapshot(
+                            algorithm.Portfolio.CashBook[Currencies.USD].Amount,
+                            algorithm.Portfolio[symbol].Quantity, open.Count,
+                            open.Count == 1 ? open[0].BrokerId.SingleOrDefault() : null);
+                    }, (_, _) => Assert.Fail("Conflicting state must not deliver"));
+                    Assert.That(TideLabExecutionDeliveryProbe.Reconcile(broker, engine,
+                        "TL001A-EXECUTION-1"), Is.EqualTo("BLOCK_ENGINE_MISMATCH"));
+                    Assert.That(algorithm.SeenEvents.Count, Is.EqualTo(callbacks));
+                    Assert.That(TideLabExecutionLedgerProbe.IsReadyForFreshSetup(path, 1),
+                        Is.True);
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"TL001A_LEAN_FORWARD phase={phase} " +
+                        $"decision=BLOCK_ENGINE_MISMATCH open_orders={restored.Count} " +
+                        "callbacks=0 new_submissions=0");
+                    return;
+                }
                 if (phase == "restore_ledger_partial_reconcile_running" ||
                     phase == "restore_ledger_partial_ack_lost")
                 {
