@@ -397,6 +397,26 @@ namespace QuantConnect.Tests.Engine.Setup
         {
             if (LedgerDecision(path, report) != "MATCH")
                 throw new InvalidDataException("BLOCK_LEDGER_BEFORE_LEAN_SETUP");
+            if (Environment.GetEnvironmentVariable("TL002_BRIDGE_SCRIPT") is string bridge)
+            {
+                var start = new System.Diagnostics.ProcessStartInfo(
+                    Environment.GetEnvironmentVariable("TL002_BRIDGE_PYTHON") ?? "python3")
+                {
+                    UseShellExecute = false,
+                    RedirectStandardError = true
+                };
+                start.ArgumentList.Add(bridge);
+                start.ArgumentList.Add("reconcile");
+                start.ArgumentList.Add(Environment.GetEnvironmentVariable("TL002_BRIDGE_DATABASE") ??
+                    throw new InvalidDataException("BLOCK_MISSING_TL002_DATABASE"));
+                start.ArgumentList.Add(path);
+                using var reconcile = System.Diagnostics.Process.Start(start) ??
+                    throw new InvalidDataException("BLOCK_TL002_RECONCILE_PROCESS");
+                var error = reconcile.StandardError.ReadToEnd();
+                reconcile.WaitForExit();
+                if (reconcile.ExitCode != 0)
+                    throw new InvalidDataException("BLOCK_TL002_RECONCILE: " + error);
+            }
             var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
             var algorithm = new ProbeAlgorithm();
             var dataManager = new DataManagerStub(algorithm, new MockDataFeed(),
