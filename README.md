@@ -112,6 +112,18 @@ Download an older BTC-USDT spot candlestick ZIP from the [official OKX historica
 
 The importer requires complete minute coverage, builds UTC hourly bars, skips identical duplicate rows, and stops if an archive changes a stored bar. Downloaded ZIPs and the database remain ignored local files. OKX releases the archive after a delay, so it cannot supply on-time forward paper decisions. See the [source and rights decision](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md) before using or sharing derived material.
 
+To prepare a bounded local signal-input file for LEAN's existing `TideLabH1Bar` custom reader, export exact-source closed hourly bars. The command requires every hour in the selected UTC interval and writes a new directory of daily two-column CSVs under ignored `data/`. Its close-only format can check signal delivery; it cannot model fills, spread, fees, or the complete H1 v1 rule.
+
+```powershell
+.\.venv\Scripts\python.exe -m tidelab export-lean-h1 `
+  --database data\okx\research.sqlite3 --venue okx `
+  --instrument okx:BTC-USDT --source okx.historical_archive.candlesticks.1m `
+  --start 2024-01-01T00:00:00Z --end 2024-02-01T00:00:00Z `
+  --output data\lean_h1\jan2024
+```
+
+Keep these real-data-derived CSVs local. This prepares the reader's file format; it does not run LEAN. The [H1 v1 specification](docs/experiments/H1-V1-PREREGISTRATION.md) lists the remaining strategy, accounting, and trial gates before a real-data performance run.
+
 ## Next research gates
 
 TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open for an on-time forward source; OKX monthly/daily archives are selected for local historical research only. TL-002 has bounded synthetic intent, LEAN local report, and one forward sell check; full strategy and runtime integration remain open.
