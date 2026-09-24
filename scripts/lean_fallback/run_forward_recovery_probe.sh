@@ -79,12 +79,26 @@ run_snapshot_probe() {
   run_phase snapshot restore_snapshot_stable success 'decision=STABLE_SNAPSHOT revision=3 cash=9955.455 holding=0.5 open_orders=2 callbacks=0 new_submissions=0'
 }
 
+run_handoff_probe() {
+  run_phase handoff managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
+  run_phase handoff ledger_partial_report success 'revision=2 executions=1'
+  run_phase handoff ledger_reconcile success 'state=created_from_report executions=1'
+  run_phase handoff journal_seed success 'orders=2 events=3 cash=9954.955 holding=0.5'
+  run_phase handoff snapshot_seed success 'revision=2 orders=2 journal_events=3'
+  run_phase handoff restore_snapshot_handoff success 'decision=BLOCK_UNVERSIONED_HANDOFF final_check=2 broker_now=3 new_submissions=0'
+  run_phase handoff restore_snapshot_stable success 'decision=STABLE_SNAPSHOT revision=3 cash=9955.455 holding=0.5 open_orders=2 callbacks=0 new_submissions=0'
+}
+
 if [[ "${TL001A_JOURNAL_ONLY:-0}" == 1 ]]; then
   run_journal_probe
   exit 0
 fi
 if [[ "${TL001A_SNAPSHOT_ONLY:-0}" == 1 ]]; then
   run_snapshot_probe
+  exit 0
+fi
+if [[ "${TL001A_HANDOFF_ONLY:-0}" == 1 ]]; then
+  run_handoff_probe
   exit 0
 fi
 
@@ -154,6 +168,7 @@ run_phase concurrent ledger_reconcile success 'state=created_from_report executi
 run_phase concurrent restore_ledger_partial_concurrent success 'decision=BLOCK_ENGINE_MISMATCH open_orders=2 callbacks=0 new_submissions=0'
 run_journal_probe
 run_snapshot_probe
+run_handoff_probe
 run_phase screened_crash managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'
 run_phase screened_crash ledger_partial_report success 'revision=2 executions=1'
 run_phase screened_crash ledger_reconcile success 'state=created_from_report executions=1'
