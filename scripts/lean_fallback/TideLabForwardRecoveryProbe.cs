@@ -188,6 +188,28 @@ namespace QuantConnect.Tests.Engine.Setup
                 {
                     if (File.Exists(path + ".joined-intent.json"))
                         TideLabJoinedPaperWorkflowProbe.ValidateInitialIntent(path, order);
+                    // The local TL-002 probe claims SQLite before this mock
+                    // brokerage writes an order. Failure holds the submission.
+                    if (Environment.GetEnvironmentVariable("TL002_BRIDGE_SCRIPT") is string bridge)
+                    {
+                        var start = new System.Diagnostics.ProcessStartInfo(
+                            Environment.GetEnvironmentVariable("TL002_BRIDGE_PYTHON") ?? "python3")
+                        {
+                            UseShellExecute = false,
+                            RedirectStandardError = true
+                        };
+                        start.ArgumentList.Add(bridge);
+                        start.ArgumentList.Add("claim");
+                        start.ArgumentList.Add(Environment.GetEnvironmentVariable("TL002_BRIDGE_DATABASE") ??
+                            throw new InvalidDataException("BLOCK_MISSING_TL002_DATABASE"));
+                        start.ArgumentList.Add(path);
+                        using var claim = System.Diagnostics.Process.Start(start) ??
+                            throw new InvalidDataException("BLOCK_TL002_CLAIM_PROCESS");
+                        var error = claim.StandardError.ReadToEnd();
+                        claim.WaitForExit();
+                        if (claim.ExitCode != 0)
+                            throw new InvalidDataException("BLOCK_TL002_CLAIM: " + error);
+                    }
                     order.BrokerId = new List<string> { "TL001A-BROKER-ORDER-1" };
                     var report = new BrokerReport
                     {

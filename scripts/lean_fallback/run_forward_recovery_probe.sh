@@ -39,7 +39,7 @@ cp "$source_dir/TideLabForwardRecoveryRunner.cs" \
   -c Release -p:RunAnalyzers=false -p:WarningLevel=0 -v quiet
 
 report_dir=$(mktemp -d)
-trap 'rm -f "$report_dir"/*.json "$report_dir"/*.json.next "$report_dir"/*.json.unknown "$report_dir"/*.jsonl "$report_dir"/*.log; rmdir "$report_dir"' EXIT
+trap 'rm -f "$report_dir"/*.json "$report_dir"/*.json.next "$report_dir"/*.json.unknown "$report_dir"/*.jsonl "$report_dir"/*.log "$report_dir"/*.sqlite3 "$report_dir"/*.sqlite3-wal "$report_dir"/*.sqlite3-shm; rmdir "$report_dir"' EXIT
 runner="$lean_root/TideLabForwardProbe/bin/Release/net10.0/TideLabForwardRecoveryRunner.dll"
 cd "$lean_root/Launcher/bin/Release"
 
@@ -174,6 +174,29 @@ if [[ "${TL001A_JOINED_ONLY:-0}" == 1 ]]; then
   run_phase joined joined_next_submit success 'decision=SUBMITTED_AFTER_RECONCILIATION new_submissions=1'
   run_phase joined joined_next_repeat success 'decision=ADOPT_EXISTING_NEXT_ORDER open_orders=1 new_submissions=0'
   run_phase joined joined_bad_account success 'decision=BLOCK_EXECUTION_ACCOUNT_MISMATCH new_submissions=0'
+  exit 0
+fi
+
+if [[ "${TL002_JOIN_ONLY:-0}" == 1 ]]; then
+  bridge="$source_dir/../tl002_lean_join.py"
+  database="$report_dir/tl002.sqlite3"
+  report="$report_dir/tl002.json"
+  export TL002_BRIDGE_PYTHON=python3 TL002_BRIDGE_SCRIPT="$bridge" \
+    TL002_BRIDGE_DATABASE="$database"
+  run_phase tl002 joined_intent_seed success 'client=stable status=durable new_submissions=0'
+  python3 "$bridge" prepare "$database" "$report"
+  run_phase tl002 submit_seed forced_exit 'broker_id=TL001A-BROKER-ORDER-1 quantity=1 new_submissions=1'
+  python3 "$bridge" reconcile "$database" "$report"
+  run_phase tl002 joined_partial_crash forced_exit 'fill=0.4@89.91 fee=0.035964 remaining=0.6'
+  python3 "$bridge" reconcile "$database" "$report"
+  run_phase tl002 joined_reconcile_partial success 'ledger=one_execution cash=9964.000036 holding=0.4'
+  python3 "$bridge" reconcile "$database" "$report"
+  run_phase tl002 joined_correct_hold success 'report=3 ledger=2 next=BLOCK_STALE_REVISION'
+  python3 "$bridge" reconcile "$database" "$report"
+  run_phase tl002 joined_reconcile_correction success 'execution=corrected cash=9963.996032 holding=0.4'
+  run_phase tl002 joined_cancel_remaining success 'report=4 first_order=closed cash=9963.996032'
+  python3 "$bridge" reconcile "$database" "$report"
+  python3 "$bridge" reconcile "$database" "$report"
   exit 0
 fi
 
