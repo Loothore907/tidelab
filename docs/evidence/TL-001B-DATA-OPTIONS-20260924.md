@@ -1,5 +1,7 @@
 # TL-001B data options and decision boundary
 
+**2026-09-24 correction:** [Bitstamp's public hourly endpoint](TL-001B-BITSTAMP-RIGHTS-CORRECTION-20260924.md) passed a technical history/bridge probe but did not establish retention and automated-analysis rights. The private sample was removed; issue #3 remains open. Kraken is no longer a schedule dependency.
+
 Read-only source screen, 2026-09-24, for [issue #3](https://github.com/Loothore907/tidelab/issues/3). No provider was contacted in this screen, no data or account was accessed, and no subscription was purchased. Published availability, research rights, depth for an exact instrument, and public presentation rights are separate questions. Prices and terms are point-in-time and must be checked again before a purchase or acquisition.
 
 ## What is blocked now
