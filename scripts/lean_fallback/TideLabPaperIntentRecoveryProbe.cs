@@ -99,6 +99,19 @@ namespace QuantConnect.Tests.Engine.Setup
         private static void Accept(string path, TideLabPaperIntent intent) =>
             WriteAtomic(IntentPath(path), intent with { Status = "Accepted" });
 
+        public static (TideLabPaperIntent Intent, TideLabPaperOrderReport Report)
+            ReadAcceptedOrder(string path)
+        {
+            var intent = ReadIntent(path);
+            if (intent.Status != "Accepted" ||
+                new TideLabFilePaperOrderAuthority(path).Lookup(intent) !=
+                    TideLabPaperLookup.Found)
+                throw new InvalidDataException("BLOCK_PAPER_ORDER_NOT_RECONCILED");
+            var report = JsonSerializer.Deserialize<TideLabPaperOrderReport>(
+                File.ReadAllText(path + ".paper-order.json"));
+            return (intent, report);
+        }
+
         private static string Recover(string path,
             ITideLabForwardPaperSource source, ITideLabPaperOrderAuthority authority,
             out int newSubmissions)

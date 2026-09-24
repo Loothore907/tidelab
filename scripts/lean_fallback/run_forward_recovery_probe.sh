@@ -125,11 +125,14 @@ run_intent_probe() {
   run_phase intent_before intent_crash_before_dispatch forced_exit 'phase=before_dispatch intent=durable broker=absent new_submissions=0'
   run_phase intent_before intent_recover_absent success 'decision=RECOVERED_ABSENT new_submissions=1'
   run_phase intent_before intent_recover_repeat success 'decision=RECOVERED_EXISTING new_submissions=0'
+  run_phase intent_before restore_paper_intent_join success 'decision=JOINED_RESTART_MATCH revision=3 cash=9955.455 holding=0.5 open_orders=3 callbacks=0 new_submissions=0'
+  run_phase intent_before restore_paper_intent_join_mismatch success 'decision=BLOCK_ORDER_IDENTITY open_orders=3 new_submissions=0'
 
   seed_intent_report intent_after
   run_phase intent_after intent_crash_after_commit forced_exit 'phase=after_commit intent=pending broker=submitted ack=lost new_submissions=1'
   run_phase intent_after intent_recover_existing success 'decision=RECOVERED_EXISTING new_submissions=0'
   run_phase intent_after intent_recover_repeat success 'decision=RECOVERED_EXISTING new_submissions=0'
+  run_phase intent_after restore_paper_intent_join success 'decision=JOINED_RESTART_MATCH revision=3 cash=9955.455 holding=0.5 open_orders=3 callbacks=0 new_submissions=0'
 
   seed_intent_report intent_unknown
   run_phase intent_unknown intent_crash_before_dispatch forced_exit 'phase=before_dispatch intent=durable broker=absent new_submissions=0'
