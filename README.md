@@ -26,6 +26,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-002 synthetic local order reconciliation](docs/evidence/TL-002-SYNTHETIC-LOCAL-RECONCILIATION.md)
 - [TL-002 synthetic LEAN intent and account join](docs/evidence/TL-002-LEAN-SYNTHETIC-INTENT-JOIN.md)
 - [TL-002 synthetic forward sell and two-order ledger](docs/evidence/TL-002-LEAN-FORWARD-SELL-LEDGER.md)
+- [TL-002 synthetic paper product-rule gate](docs/evidence/TL-002-PAPER-PRODUCT-RULES.md)
 - [TL-001A engine decision map and reconnect probe](docs/evidence/TL-001A-ENGINE-DECISION-MAP.md)
 - [TL-001A synthetic running-engine reconciliation](docs/evidence/TL-001A-LEAN-RUNNING-RECONCILIATION.md)
 - [TL-001A synthetic H1 strategy and risk parity](docs/evidence/TL-001A-LEAN-H1-RISK-PARITY.md)
