@@ -1,5 +1,7 @@
 # TL-001B data options and decision boundary
 
+**Decision update, 2026-09-24:** [Bitstamp public BTC/USD hourly OHLCV](../decisions/TL-001B-INITIAL-RESEARCH-DATA.md) was selected for bounded local noncommercial research. A private 40,896-hour historical sample and separate 528-hour recent bridge passed interval/shape checks. The table below is the earlier read-only option screen, retained for comparison; its "no source selected" finding was superseded by the linked decision. Commercial use, public real-data artifacts, and stronger execution data remain separate gates.
+
 Read-only source screen, 2026-09-24, for [issue #3](https://github.com/Loothore907/tidelab/issues/3). No provider was contacted in this screen, no data or account was accessed, and no subscription was purchased. Published availability, research rights, depth for an exact instrument, and public presentation rights are separate questions. Prices and terms are point-in-time and must be checked again before a purchase or acquisition.
 
 ## What is blocked now
