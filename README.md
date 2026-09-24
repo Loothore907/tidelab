@@ -32,6 +32,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A synthetic forward-paper submission barrier](docs/evidence/TL-001A-LEAN-PAPER-SUBMISSION-BARRIER.md)
 - [TL-001A synthetic paper intent and ambiguous-submission recovery](docs/evidence/TL-001A-LEAN-PAPER-INTENT-RECOVERY.md)
 - [TL-001A synthetic paper intent and LEAN restart join](docs/evidence/TL-001A-LEAN-PAPER-RESTART-JOIN.md)
+- [TL-001A synthetic conservative fill and joined paper workflow](docs/evidence/TL-001A-LEAN-JOINED-PAPER-WORKFLOW.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)

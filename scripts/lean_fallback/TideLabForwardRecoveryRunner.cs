@@ -18,6 +18,13 @@ try
             Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
             Environment.GetEnvironmentVariable("TL001A_PHASE"));
     }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE")?.StartsWith(
+        "joined_", StringComparison.Ordinal) == true)
+    {
+        TideLabJoinedPaperWorkflowProbe.Run(
+            Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
+            Environment.GetEnvironmentVariable("TL001A_PHASE"));
+    }
     else if (Environment.GetEnvironmentVariable("TL001A_PHASE") is
         "managed_feed" or "managed_feed_submit_seed" or
         "managed_manager_submit_seed" or "managed_h1_baseline" or
