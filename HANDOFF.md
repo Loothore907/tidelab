@@ -20,6 +20,8 @@ Later on 2026-09-24, [OKX BTC-USDT spot archives](docs/evidence/TL-001B-OKX-HIST
 
 The [H1 v1 preregistration](docs/experiments/H1-V1-PREREGISTRATION.md) fixes one 168-hour trend rule, 25% allocation, hypothetical costs, chronological partitions, one trial, and candidate criteria before any H1 real-data result. It is a specification only: the exact rule and accounting path are not implemented, and TL-001B remains open. A later bounded 2026-09-24 read of the existing Gemini sent thread and a subject/domain mailbox search found no substantive reply; this does not rule out a future message.
 
+The local `export-lean-h1` command now validates an exact, continuous closed-hourly source and writes daily UTC close CSVs for LEAN's existing custom signal reader. A bounded local January 2024 export yielded 744 hours in 31 ignored files; no price or performance output was published. This is only an input-format bridge: no H1 v1 LEAN run, OHLC execution model, or historical/forward parity follows from it.
+
 Capture lightweight, sanitized evidence throughout development and assemble any polished process/results video later from versioned decisions, experiments, failures, and forward reports. Recording/editing software is deliberately unselected and no purchase or publication is authorized.
 
 Execution modes are explicit: simulated, advisory/manual, and automated. Historical and forward evaluation share strategy and risk semantics; venue-specific data, order, transaction, fee, expiry, and settlement behavior remains native behind adapters. No live orders, leverage, paid services, account access, or exchange credentials are authorized. MCP is optional reporting later. No edge is established.

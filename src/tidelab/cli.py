@@ -9,6 +9,7 @@ from typing import Any
 from tidelab.coinbase import CoinbasePublicClient
 from tidelab.config import AppConfig, load_config
 from tidelab.domain import isoformat_utc, parse_utc, utc_now
+from tidelab.lean_hourly_export import export_lean_hourly_closes
 from tidelab.okx_archive import import_okx_archive
 from tidelab.service import refresh_product, sync_closed_bars
 from tidelab.storage import TideStore
@@ -56,6 +57,14 @@ def build_parser() -> argparse.ArgumentParser:
     okx_parser.add_argument("--period", required=True, help="archive period, YYYY-MM or YYYY-MM-DD")
     okx_parser.add_argument("--database", required=True, help="local SQLite path")
 
+    lean_parser = subparsers.add_parser("export-lean-h1", help="export complete local hourly closes for LEAN's signal reader")
+    lean_parser.add_argument("--database", required=True, help="existing local SQLite path")
+    lean_parser.add_argument("--venue", required=True, help="exact venue identifier")
+    lean_parser.add_argument("--instrument", required=True, help="exact canonical instrument identifier")
+    lean_parser.add_argument("--source", required=True, help="exact recorded bar source")
+    lean_parser.add_argument("--output", required=True, help="new ignored local directory for daily CSV files")
+    _add_bounds(lean_parser)
+
     sync_parser = subparsers.add_parser("sync", help="synchronize closed hourly bars")
     _add_bounds(sync_parser)
 
@@ -75,6 +84,13 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "import-okx":
         store = TideStore(args.database)
         result = import_okx_archive(args.file, symbol=args.symbol, period=args.period, store=store)
+        _json_print(result.as_dict())
+        return 0
+    if args.command == "export-lean-h1":
+        result = export_lean_hourly_closes(
+            TideStore(args.database), venue=args.venue, instrument_id=args.instrument,
+            source=args.source, start=args.start, end=args.end, output_dir=args.output,
+        )
         _json_print(result.as_dict())
         return 0
     config, store, client = _runtime(args.config)
