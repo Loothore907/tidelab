@@ -83,6 +83,18 @@ def test_legacy_unversioned_intent_cannot_be_claimed(tmp_path: Path) -> None:
         store.prepare(PaperIntent("old", "synthetic:BTC-USD", "buy", "0.4", "89.91", "report-7"), RULES)
 
 
+def test_changed_stored_terms_hold_at_claim(tmp_path: Path) -> None:
+    path = tmp_path / "paper.sqlite3"
+    store = PaperIntentStore(path)
+    store.initialize()
+    store.prepare(_intent(), RULES)
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE paper_intents SET quantity='0.35' WHERE client_id='synthetic-1'")
+    with pytest.raises(ValueError, match="base increment"):
+        store.claim_once("synthetic-1", "report-7", RULES)
+    assert store.state("synthetic-1") == "prepared"
+
+
 @pytest.mark.parametrize("quantity,limit_price", [("0", "89"), ("NaN", "89"), ("1", "Infinity")])
 def test_invalid_order_terms_hold(quantity: str, limit_price: str) -> None:
     with pytest.raises(ValueError, match="positive decimal"):

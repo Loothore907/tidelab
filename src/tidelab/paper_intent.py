@@ -166,6 +166,16 @@ class PaperIntentStore:
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                row = connection.execute(
+                    "SELECT * FROM paper_intents WHERE client_id=?", (client_id,)
+                ).fetchone()
+                if (row is None or row["source_revision"] != source_revision or
+                    row["rules_identity"] != rules.identity or row["state"] != "prepared"):
+                    connection.commit()
+                    return False
+                rules.validate(PaperIntent(row["client_id"], row["instrument_id"],
+                                           row["side"], row["quantity"],
+                                           row["limit_price"], row["source_revision"]))
                 updated = connection.execute(
                     """UPDATE paper_intents SET state='submission_unknown'
                     WHERE client_id=? AND source_revision=? AND state='prepared'
