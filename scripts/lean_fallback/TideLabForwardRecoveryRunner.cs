@@ -7,7 +7,11 @@ using QuantConnect.Tests.Engine.DataFeeds;
 try
 {
     TestGlobals.Initialize();
-    if (Environment.GetEnvironmentVariable("TL001A_PHASE") is
+    if (Environment.GetEnvironmentVariable("TL001A_PHASE") == "cost_fill")
+    {
+        TideLabCostFillProbe.Run();
+    }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE") is
         "managed_feed" or "managed_feed_submit_seed" or
         "managed_manager_submit_seed" or "managed_h1_baseline" or
         "managed_h1_drawdown")

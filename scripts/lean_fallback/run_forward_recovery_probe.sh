@@ -24,6 +24,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabAtomicSnapshotProbe.cs" \
   "$source_dir/TideLabPaperSubmissionBarrierProbe.cs" \
   "$source_dir/TideLabPaperIntentRecoveryProbe.cs" \
+  "$source_dir/TideLabCostFillProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -49,7 +50,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -144,6 +145,11 @@ run_intent_probe() {
   run_phase intent_conflict intent_mark_conflict success 'phase=mark_conflict report=conflicting'
   run_phase intent_conflict intent_recover_conflict success 'decision=BLOCK_CONFLICTING_REPORT new_submissions=0'
 }
+
+if [[ "${TL001A_COST_FILL_ONLY:-0}" == 1 ]]; then
+  run_phase cost_fill cost_fill success 'decision=HOLD_OPTIMISTIC_FULL_FILL'
+  exit 0
+fi
 
 if [[ "${TL001A_JOURNAL_ONLY:-0}" == 1 ]]; then
   run_journal_probe
