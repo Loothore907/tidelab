@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using Moq;
 using NUnit.Framework;
 using QuantConnect;
@@ -42,6 +43,14 @@ namespace QuantConnect.Tests.Engine.Setup
         string BrokerId, int LeanOrderId, decimal Quantity, decimal LimitPrice,
         string Status);
 
+    public sealed record TideLabSelectionRules(int Version, string Currency,
+        decimal Tick, decimal Lot, decimal FeeRate, int SlippageTicks,
+        decimal MinimumNotional, int MaximumQuoteAgeSeconds);
+
+    public sealed record TideLabSelectionQuote(DateTime DecisionTimeUtc,
+        DateTime QuoteTimeUtc, decimal Bid, decimal Ask,
+        decimal BidSize, decimal AskSize);
+
     public static class TideLabJoinedPaperWorkflowProbe
     {
         private const string FirstClientId = "TL001A-JOINED-CLIENT-1";
@@ -49,12 +58,32 @@ namespace QuantConnect.Tests.Engine.Setup
         private const string FirstExecutionId = "TL001A-JOINED-EXEC-1";
         private const string NextClientId = "TL001A-JOINED-CLIENT-2";
         private const string NextBrokerId = "TL001A-JOINED-BROKER-2";
-        private static readonly DateTime Now = new(2026, 1, 5, 18, 0, 0,
-            DateTimeKind.Utc);
-        private static readonly TideLabFillRules Rules = new(1, Currencies.USD,
-            0.01m, 0.1m, 0.001m, 1, 1m, TimeSpan.FromMinutes(2));
-        private static readonly TideLabQuote Quote = new(Now.AddMinutes(-1),
-            89.80m, 89.90m, 0.4m, 0.4m);
+        private static readonly TideLabSelectionRules SelectionRules =
+            LoadFixture<TideLabSelectionRules>("TL001A_SELECTION_RULES");
+        private static readonly TideLabSelectionQuote SelectionQuote =
+            LoadFixture<TideLabSelectionQuote>("TL001A_SELECTION_QUOTE");
+        private static readonly DateTime Now = SelectionQuote?.DecisionTimeUtc ??
+            new DateTime(2026, 1, 5, 18, 0, 0, DateTimeKind.Utc);
+        private static readonly TideLabFillRules Rules = SelectionRules == null ?
+            new(1, Currencies.USD, 0.01m, 0.1m, 0.001m, 1, 1m,
+                TimeSpan.FromMinutes(2)) :
+            new(SelectionRules.Version, SelectionRules.Currency,
+                SelectionRules.Tick, SelectionRules.Lot, SelectionRules.FeeRate,
+                SelectionRules.SlippageTicks, SelectionRules.MinimumNotional,
+                TimeSpan.FromSeconds(SelectionRules.MaximumQuoteAgeSeconds));
+        private static readonly TideLabQuote Quote = SelectionQuote == null ?
+            new(Now.AddMinutes(-1), 89.80m, 89.90m, 0.4m, 0.4m) :
+            new(SelectionQuote.QuoteTimeUtc, SelectionQuote.Bid,
+                SelectionQuote.Ask, SelectionQuote.BidSize,
+                SelectionQuote.AskSize);
+
+        private static T LoadFixture<T>(string key) where T : class
+        {
+            var path = Environment.GetEnvironmentVariable(key);
+            if (string.IsNullOrWhiteSpace(path)) return null;
+            return JsonSerializer.Deserialize<T>(File.ReadAllText(path)) ??
+                throw new InvalidDataException("BLOCK_EMPTY_SELECTION_FIXTURE");
+        }
 
         private static string InitialIntentPath(string path) =>
             path + ".joined-intent.json";
@@ -64,6 +93,10 @@ namespace QuantConnect.Tests.Engine.Setup
             path + ".joined-next-intent.json";
         private static string NextReportPath(string path) =>
             path + ".joined-next-report.json";
+        private static string PendingCorrectionPath(string path) =>
+            path + ".joined-correction-pending.json";
+        private static string UnknownSubmissionPath(string path) =>
+            path + ".joined-submission-unknown.json";
 
         private static T Read<T>(string path) where T : class
         {
@@ -142,6 +175,12 @@ namespace QuantConnect.Tests.Engine.Setup
 
         private static string NextReady(string path, int expectedRevision)
         {
+            if (File.Exists(PendingCorrectionPath(path)) ||
+                File.Exists(PendingCorrectionPath(path) + ".next"))
+                return "BLOCK_CORRECTION_PENDING";
+            if (File.Exists(UnknownSubmissionPath(path)) ||
+                File.Exists(UnknownSubmissionPath(path) + ".next"))
+                return "BLOCK_SUBMISSION_UNKNOWN";
             var report = Report(path);
             if (report.Revision != expectedRevision)
                 return "BLOCK_STALE_REVISION";
@@ -158,6 +197,193 @@ namespace QuantConnect.Tests.Engine.Setup
                 NextBrokerId, 1m, 80m))
                 return "BLOCK_NEXT_INTENT";
             return "READY";
+        }
+
+        // The same file-backed report/ledger/intent are checked while the
+        // local paper submission and correction writers share one gate.
+        // This is a single-process test source, not an external-broker lock.
+        private sealed class JoinedSelectionPaperSource
+        {
+            private readonly object _gate = new();
+            private readonly string _path;
+            public JoinedSelectionPaperSource(string path) => _path = path;
+
+            public string SubmitIfCurrent(int revision, Func<bool> submit)
+            {
+                lock (_gate)
+                {
+                    var decision = NextReady(_path, revision);
+                    if (decision != "READY") return decision;
+                    try
+                    {
+                        if (submit()) return "SUBMITTED";
+                    }
+                    catch { /* The broker may have committed before it failed. */ }
+                    Write(UnknownSubmissionPath(_path), new
+                    {
+                        Version = 1,
+                        BaseRevision = revision,
+                        Status = "Unknown"
+                    });
+                    return "BLOCK_SUBMISSION_UNKNOWN";
+                }
+            }
+
+            public void BeginCorrection()
+            {
+                lock (_gate)
+                {
+                    var report = Report(_path);
+                    if (LedgerDecision(_path, report) != "MATCH" ||
+                        File.Exists(PendingCorrectionPath(_path)))
+                        throw new InvalidDataException("BLOCK_CORRECTION_SOURCE");
+                    Write(PendingCorrectionPath(_path), new
+                    {
+                        Version = 1,
+                        BaseRevision = report.Revision,
+                        Status = "Pending"
+                    });
+                }
+            }
+        }
+
+        private static void CheckSelectionPolicy(string path,
+            TideLabJoinedBrokerReport report)
+        {
+            Assert.That(report.Revision, Is.EqualTo(4));
+            Assert.That(LedgerDecision(path, report), Is.EqualTo("MATCH"));
+            CheckLeanSetup(path, report);
+            var buy = TideLabConservativeFillPolicy.Decide(Rules, Quote, Now, 1m, 0);
+            var historicalBuy = TideLabConservativePaperFillProbe.HistoricalFill(
+                Rules, Quote, Now, 1m);
+            Assert.That(buy, Is.EqualTo(new TideLabFillDecision(
+                "PARTIAL", 0.4m, 89.91m, 0.035964m, 0.6m)));
+            Assert.That(historicalBuy.FillQuantity, Is.EqualTo(buy.Quantity));
+            Assert.That(historicalBuy.FillPrice, Is.EqualTo(buy.Price));
+            Assert.That(historicalBuy.OrderFee.Value.Amount, Is.EqualTo(buy.Fee));
+            // The corrected forward execution differs by one tick; its
+            // revision and account are checked rather than hidden as parity.
+            Assert.That(report.FillPrice, Is.EqualTo(buy.Price + Rules.Tick));
+            Assert.That(report.Cash, Is.EqualTo(10000m -
+                report.ExecutedQuantity * report.FillPrice - report.Fee));
+
+            var sell = TideLabConservativeFillPolicy.Decide(Rules, Quote,
+                Now, -report.Holding, 0);
+            var historicalSell = TideLabConservativePaperFillProbe.HistoricalFill(
+                Rules, Quote, Now, -report.Holding);
+            Assert.That(sell, Is.EqualTo(new TideLabFillDecision(
+                "FILLED", -0.4m, 89.79m, 0.035916m, 0m)));
+            Assert.That(historicalSell.Status, Is.EqualTo(OrderStatus.Filled));
+            Assert.That(historicalSell.FillQuantity, Is.EqualTo(sell.Quantity));
+            Assert.That(historicalSell.FillPrice, Is.EqualTo(sell.Price));
+            Assert.That(historicalSell.OrderFee.Value.Amount, Is.EqualTo(sell.Fee));
+            var cashAfterSell = report.Cash - sell.Quantity * sell.Price - sell.Fee;
+            var holdingAfterSell = report.Holding + sell.Quantity;
+            var realized = -sell.Quantity * sell.Price - sell.Fee -
+                report.ExecutedQuantity * report.FillPrice - report.Fee;
+            Assert.That(cashAfterSell, Is.EqualTo(9999.876116m));
+            Assert.That(holdingAfterSell, Is.Zero);
+            Assert.That(realized, Is.EqualTo(-0.123884m));
+            Assert.That(cashAfterSell, Is.EqualTo(10000m + realized));
+
+            foreach (var changed in new[]
+            {
+                Quote with { TimeUtc = Now.AddMinutes(-3) },
+                Quote with { AskSize = 0.05m }
+            })
+            {
+                var decision = TideLabConservativeFillPolicy.Decide(Rules,
+                    changed, Now, 1m, 0);
+                var historical = TideLabConservativePaperFillProbe.HistoricalFill(
+                    Rules, changed, Now, 1m);
+                Assert.That(decision.State, Does.StartWith("HOLD"));
+                Assert.That(historical.FillQuantity, Is.Zero);
+                Assert.That(historical.Status, Is.EqualTo(OrderStatus.None));
+            }
+            Assert.That(TideLabConservativeFillPolicy.Decide(Rules,
+                Quote, Now, 1.05m, 0).State, Is.EqualTo("REJECT_RULE_OR_ORDER"));
+            Assert.That(() => TideLabConservativePaperFillProbe.HistoricalFill(
+                Rules, Quote, Now, 1.05m), Throws.TypeOf<InvalidDataException>());
+            Assert.That(Report(path), Is.EqualTo(report));
+            Assert.That(File.Exists(NextReportPath(path)), Is.False);
+        }
+
+        private static void CheckSelectionCorrectionRace(string path,
+            TideLabJoinedBrokerReport report, bool correctionFirst)
+        {
+            Assert.That(report.Revision, Is.EqualTo(4));
+            Write(NextIntentPath(path), new TideLabJoinedIntent(1,
+                NextClientId, NextBrokerId, 1m, 80m));
+            var source = new JoinedSelectionPaperSource(path);
+            var broker = new Mock<IBrokerage>();
+            var order = new LimitOrder(Symbol.Create("TL001ASYN",
+                SecurityType.Equity, Market.USA), 1m, 80m, Now);
+            broker.Setup(x => x.PlaceOrder(It.IsAny<Order>()))
+                .Callback<Order>(placed =>
+                {
+                    Assert.That(placed, Is.SameAs(order));
+                    Assert.That(NextReady(path, report.Revision), Is.EqualTo("READY"));
+                    Write(NextReportPath(path), new TideLabJoinedNextReport(
+                        1, NextClientId, NextBrokerId, 1, 1m, 80m,
+                        "Submitted"));
+                }).Returns(true);
+            if (correctionFirst)
+            {
+                using var correctionPublished = new ManualResetEventSlim();
+                var correction = Task.Run(() =>
+                {
+                    source.BeginCorrection();
+                    correctionPublished.Set();
+                });
+                var submission = Task.Run(() =>
+                {
+                    Assert.That(correctionPublished.Wait(TimeSpan.FromSeconds(10)),
+                        Is.True);
+                    return source.SubmitIfCurrent(report.Revision,
+                        () => broker.Object.PlaceOrder(order));
+                });
+                Task.WaitAll(correction, submission);
+                Assert.That(submission.Result, Is.EqualTo("BLOCK_CORRECTION_PENDING"));
+                broker.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                Assert.That(File.Exists(NextReportPath(path)), Is.False);
+                CheckLeanSetup(path, report);
+                Console.WriteLine("TL001A_LEAN_JOINED phase=selection_correction_first " +
+                    "decision=BLOCK_CORRECTION_PENDING new_submissions=0");
+                return;
+            }
+            using var insideSubmit = new ManualResetEventSlim();
+            using var releaseSubmit = new ManualResetEventSlim();
+            using var correctionStarted = new ManualResetEventSlim();
+            var submitted = Task.Run(() => source.SubmitIfCurrent(report.Revision,
+                () =>
+                {
+                    insideSubmit.Set();
+                    if (!releaseSubmit.Wait(TimeSpan.FromSeconds(10)))
+                        throw new TimeoutException("selection submission release");
+                    return broker.Object.PlaceOrder(order);
+                }));
+            Assert.That(insideSubmit.Wait(TimeSpan.FromSeconds(10)), Is.True);
+            var correcting = Task.Run(() =>
+            {
+                correctionStarted.Set();
+                source.BeginCorrection();
+            });
+            try
+            {
+                Assert.That(correctionStarted.Wait(TimeSpan.FromSeconds(10)), Is.True);
+                Assert.That(correcting.Wait(TimeSpan.FromMilliseconds(100)), Is.False);
+                Assert.That(File.Exists(PendingCorrectionPath(path)), Is.False);
+            }
+            finally { releaseSubmit.Set(); }
+            Assert.That(submitted.Result, Is.EqualTo("SUBMITTED"));
+            Assert.That(correcting.Wait(TimeSpan.FromSeconds(10)), Is.True);
+            broker.Verify(x => x.PlaceOrder(order), Times.Once);
+            Assert.That(File.Exists(NextReportPath(path)), Is.True);
+            Assert.That(NextReady(path, report.Revision),
+                Is.EqualTo("BLOCK_CORRECTION_PENDING"));
+            Console.WriteLine("TL001A_LEAN_JOINED phase=selection_submission_first " +
+                "decision=SERIALIZED_AFTER_SUBMISSION new_submissions=1 " +
+                "later_decision=BLOCK_CORRECTION_PENDING");
         }
 
         private sealed class ProbeAlgorithm : QCAlgorithm
@@ -277,6 +503,11 @@ namespace QuantConnect.Tests.Engine.Setup
         public static void Run(string path, string phase)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentNullException(nameof(path));
+            if ((SelectionRules == null) != (SelectionQuote == null) ||
+                (SelectionQuote != null &&
+                    (Now.Kind != DateTimeKind.Utc ||
+                     Quote.TimeUtc.Kind != DateTimeKind.Utc)))
+                throw new InvalidDataException("BLOCK_SELECTION_FIXTURE_PAIR");
             if (phase == "joined_intent_seed")
             {
                 Assert.That(File.Exists(InitialIntentPath(path)), Is.False);
@@ -389,6 +620,47 @@ namespace QuantConnect.Tests.Engine.Setup
                 Console.WriteLine("TL001A_LEAN_JOINED phase=cancel_remaining " +
                     "report=4 first_order=closed cash=9963.996032 " +
                     "holding=0.4 open_orders=0 new_submissions=0");
+                return;
+            }
+            if (phase == "joined_selection_policy")
+            {
+                CheckSelectionPolicy(path, report);
+                Console.WriteLine("TL001A_LEAN_JOINED phase=selection_policy " +
+                    "historical_buy=PARTIAL forward_buy=CORRECTED " +
+                    "sell=FILLED realized=-0.123884 stale=HOLD missed=HOLD " +
+                    "invalid=REJECT new_submissions=0");
+                return;
+            }
+            if (phase == "joined_selection_unknown")
+            {
+                Assert.That(report.Revision, Is.EqualTo(4));
+                Write(NextIntentPath(path), new TideLabJoinedIntent(1,
+                    NextClientId, NextBrokerId, 1m, 80m));
+                var source = new JoinedSelectionPaperSource(path);
+                var broker = new Mock<IBrokerage>();
+                var order = new LimitOrder(Symbol.Create("TL001ASYN",
+                    SecurityType.Equity, Market.USA), 1m, 80m, Now);
+                broker.Setup(x => x.PlaceOrder(order)).Returns(false);
+                Assert.That(source.SubmitIfCurrent(4,
+                    () => broker.Object.PlaceOrder(order)),
+                    Is.EqualTo("BLOCK_SUBMISSION_UNKNOWN"));
+                Assert.That(source.SubmitIfCurrent(4,
+                    () => broker.Object.PlaceOrder(order)),
+                    Is.EqualTo("BLOCK_SUBMISSION_UNKNOWN"));
+                broker.Verify(x => x.PlaceOrder(order), Times.Once);
+                Assert.That(File.Exists(UnknownSubmissionPath(path)), Is.True);
+                Assert.That(File.Exists(NextReportPath(path)), Is.False);
+                CheckLeanSetup(path, report);
+                Console.WriteLine("TL001A_LEAN_JOINED phase=selection_unknown " +
+                    "decision=BLOCK_SUBMISSION_UNKNOWN initial_calls=1 " +
+                    "retry_submissions=0");
+                return;
+            }
+            if (phase is "joined_selection_correction_first" or
+                "joined_selection_submission_first")
+            {
+                CheckSelectionCorrectionRace(path, report,
+                    phase == "joined_selection_correction_first");
                 return;
             }
             if (phase == "joined_next_submit")

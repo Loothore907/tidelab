@@ -177,6 +177,29 @@ if [[ "${TL001A_JOINED_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
+if [[ "${TL001A_SELECTION_ONLY:-0}" == 1 ]]; then
+  export TL001A_SELECTION_RULES="$source_dir/fixtures/selection_rules_v1.json"
+  export TL001A_SELECTION_QUOTE="$source_dir/fixtures/selection_quote_v1.json"
+  seed_selection() {
+    local name=$1
+    run_phase "$name" joined_intent_seed success 'client=stable status=durable new_submissions=0'
+    run_phase "$name" submit_seed forced_exit 'broker_id=TL001A-BROKER-ORDER-1 quantity=1 new_submissions=1'
+    run_phase "$name" joined_partial_crash forced_exit 'fill=0.4@89.91 fee=0.035964 remaining=0.6'
+    run_phase "$name" joined_reconcile_partial success 'ledger=one_execution cash=9964.000036 holding=0.4'
+    run_phase "$name" joined_correct_hold success 'report=3 ledger=2 next=BLOCK_STALE_REVISION'
+    run_phase "$name" joined_reconcile_correction success 'execution=corrected cash=9963.996032 holding=0.4'
+    run_phase "$name" joined_cancel_remaining success 'report=4 first_order=closed cash=9963.996032'
+  }
+  seed_selection selection_correction_first
+  run_phase selection_correction_first joined_selection_policy success 'sell=FILLED realized=-0.123884 stale=HOLD missed=HOLD invalid=REJECT'
+  run_phase selection_correction_first joined_selection_correction_first success 'decision=BLOCK_CORRECTION_PENDING new_submissions=0'
+  seed_selection selection_submission_first
+  run_phase selection_submission_first joined_selection_submission_first success 'decision=SERIALIZED_AFTER_SUBMISSION new_submissions=1 later_decision=BLOCK_CORRECTION_PENDING'
+  seed_selection selection_unknown
+  run_phase selection_unknown joined_selection_unknown success 'decision=BLOCK_SUBMISSION_UNKNOWN initial_calls=1 retry_submissions=0'
+  exit 0
+fi
+
 if [[ "${TL001A_JOURNAL_ONLY:-0}" == 1 ]]; then
   run_journal_probe
   exit 0
