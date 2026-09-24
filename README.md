@@ -38,6 +38,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001A joined synthetic selection gate](docs/evidence/TL-001A-LEAN-SELECTION-GATE.md)
 - [TL-001A initial engine decision](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md)
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
+- [TL-001B free and paid data options](docs/evidence/TL-001B-DATA-OPTIONS-20260924.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
