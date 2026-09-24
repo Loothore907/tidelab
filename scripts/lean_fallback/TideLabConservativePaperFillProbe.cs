@@ -153,15 +153,13 @@ namespace QuantConnect.Tests.Engine.Setup
             return report;
         }
 
-        private static void CheckPolicyAndHistoricalSeam()
+        public static OrderEvent HistoricalFill(TideLabFillRules rules,
+            TideLabQuote quote, DateTime nowUtc, decimal quantity)
         {
-            var expected = ExpectedDecision();
-            Assert.That(expected, Is.EqualTo(new TideLabFillDecision(
-                "PARTIAL", 0.4m, 100.21m, 0.040084m, 0.6m)));
             var symbol = Symbol.Create("TL001ASYN", SecurityType.Equity, Market.USA);
-            var order = new MarketOrder(symbol, 1m, Now);
-            var localTime = Now.ConvertFromUtc(TimeZones.NewYork);
-            var keeper = new TimeKeeper(Now, new[] { TimeZones.NewYork });
+            var order = new MarketOrder(symbol, quantity, nowUtc);
+            var localTime = nowUtc.ConvertFromUtc(TimeZones.NewYork);
+            var keeper = new TimeKeeper(nowUtc, new[] { TimeZones.NewYork });
             var tradeConfig = new SubscriptionDataConfig(typeof(TradeBar), symbol,
                 Resolution.Minute, TimeZones.NewYork, TimeZones.NewYork, true,
                 true, false);
@@ -177,11 +175,19 @@ namespace QuantConnect.Tests.Engine.Setup
                 RegisteredSecurityDataTypesProvider.Null, Exchange.ARCA);
             equity.SetLocalTimeKeeper(keeper.GetLocalTimeKeeper(TimeZones.NewYork));
             equity.SetMarketPrice(new QuoteBar(localTime.AddMinutes(-1), symbol,
-                new Bar(100m, 100m, 100m, 100m), 0.4m,
-                new Bar(100.20m, 100.20m, 100.20m, 100.20m), 0.4m));
-            var leanFill = new TideLabConservativeLeanFillModel(Rules, Quote)
+                new Bar(quote.Bid, quote.Bid, quote.Bid, quote.Bid), quote.BidSize,
+                new Bar(quote.Ask, quote.Ask, quote.Ask, quote.Ask), quote.AskSize));
+            return new TideLabConservativeLeanFillModel(rules, quote)
                 .Fill(new FillModelParameters(equity, order, provider,
                     Time.OneHour, null)).Single();
+        }
+
+        private static void CheckPolicyAndHistoricalSeam()
+        {
+            var expected = ExpectedDecision();
+            Assert.That(expected, Is.EqualTo(new TideLabFillDecision(
+                "PARTIAL", 0.4m, 100.21m, 0.040084m, 0.6m)));
+            var leanFill = HistoricalFill(Rules, Quote, Now, 1m);
             Assert.That(leanFill.Status, Is.EqualTo(OrderStatus.PartiallyFilled));
             Assert.That(leanFill.FillQuantity, Is.EqualTo(expected.Quantity));
             Assert.That(leanFill.FillPrice, Is.EqualTo(expected.Price));
