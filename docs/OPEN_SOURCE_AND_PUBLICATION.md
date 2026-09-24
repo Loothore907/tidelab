@@ -14,9 +14,11 @@ Third-party dependencies retain their own licenses. A TideLab release must ident
 
 ## Adopt-before-build engine policy
 
-TideLab will not continue directly into a custom backtest, broker, portfolio, and ledger engine without first evaluating an established open-source engine. NautilusTrader is the first candidate because its event-driven simulation, accounting, recovery, and Coinbase Advanced Trade support appear close to TideLab's requirements. This is an evaluation choice, not yet a dependency adoption decision or an endorsement.
+TideLab evaluated established open-source engines before building commodity backtest, broker, portfolio, or ledger infrastructure. The [TL-001A decision](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) selects pinned LEAN for the first synthetic historical/local-paper integration. This is a bounded integration target, not an installed runtime, distribution approval, or endorsement.
 
-The default integration shape is an exact-version dependency behind TideLab-owned strategy manifests, experiment records, promotion gates, reporting, and capability checks. Do not copy NautilusTrader source into TideLab, rename TideLab after NautilusTrader, use its logo, or create a permanent fork by default. Prefer public APIs and upstream general fixes. If the candidate fails a critical acceptance criterion, evaluate LEAN before authorizing a custom engine.
+The default shape is an exact-source LEAN dependency behind TideLab-owned strategy manifests, experiment records, promotion gates, reporting, data rights, paper authority, and capability checks. Use public APIs and upstream general fixes. Do not copy, rename, or permanently fork an engine by default. No custom general engine infrastructure is authorized by the selection.
+
+Before distributing a LEAN-backed release, pin the exact source and build, include its Apache-2.0 license and applicable notices, identify any modified engine files, inspect transitive dependency licenses and build audit warnings, and keep TideLab independently branded. No LEAN binary is currently shipped.
 
 Before distributing a NautilusTrader-backed release:
 
@@ -80,12 +82,13 @@ Before the first public release or video publication, verify:
 6. Claims separate historical simulation, forward paper, advisory reconciliation, and actual live fills.
 7. All known failed trials and material limitations are available with the selected result.
 
-## Sources reviewed for this decision
+## Sources reviewed for this policy and later selection
 
 - [NautilusTrader LGPL-3.0 license](https://github.com/nautechsystems/nautilus_trader/blob/develop/LICENSE)
 - [NautilusTrader open-source licensing and contributions policy](https://nautilustrader.io/legal/open-source-licensing/)
 - [NautilusTrader trademark and brand usage policy](https://nautilustrader.io/legal/trademark-policy/)
 - [GNU license FAQ on LGPL linking and distribution](https://www.gnu.org/licenses/gpl-faq.en.html)
+- [Pinned LEAN Apache-2.0 license](https://github.com/QuantConnect/Lean/blob/88bce0fc6fe282378ee73c54cef1090d0d7a73ee/LICENSE)
 - [Coinbase Market Data Terms of Use](https://www.coinbase.com/legal/market_data)
 
 These links are point-in-time evidence. Re-check the exact dependency license, trademark policy, provider terms, and proposed artifacts before distribution.

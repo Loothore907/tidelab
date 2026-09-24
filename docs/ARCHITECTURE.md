@@ -47,11 +47,11 @@ Analysis, strategy generation, and optional AI assistance never bypass determini
 
 TideLab owns hypotheses, strategy manifests, experiment/trial accounting, promotion gates, capability requirements, reporting, and public evidence. It does not assume that value comes from rebuilding event dispatch, backtesting, portfolio accounting, simulated execution, reconciliation, or standard venue adapters.
 
-NautilusTrader is the first engine candidate. Evaluate one exact release against the TL-001 fixture and TL-001A acceptance criteria. Integrate through public, replaceable interfaces and keep the TideLab control layer separable. Do not vendor its source, create a branded derivative, or accept a permanent fork as the default integration cost. A critical failure triggers a bounded LEAN evaluation before custom engine authorization.
+The [TL-001A bakeoff selected pinned LEAN](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) for the first synthetic historical/local-paper integration. Use its public interfaces behind replaceable TideLab contracts. Keep TideLab's strategy/risk policy, cost assumptions, paper authority, and evidence separable; do not vendor, patch, or fork engine internals as the default integration cost. NautilusTrader was evaluated first and retains a tested backed external-data recovery gap at the pinned release.
 
 ## ADR-006: Apache-2.0 project with explicit dependency boundaries
 
-TideLab-authored source and documentation use Apache-2.0. This does not relicense dependencies. A future NautilusTrader-backed distribution must preserve its LGPL terms, notices, corresponding-source and replacement/relinking rights where applicable, and the project's required independent-project trademark disclaimer. Upstream contributions are a separate choice subject to NautilusTrader's contributor agreement.
+TideLab-authored source and documentation use Apache-2.0. This does not relicense dependencies. Pinned LEAN is Apache-2.0; a future bundled release must preserve its license and applicable notices, identify changed engine files if any, and inventory transitive packages. A future NautilusTrader-backed distribution would additionally require the applicable LGPL source/replacement route and its independent-project trademark disclaimer. Upstream contributions are a separate choice subject to that project's rules.
 
 Source-only development against a separately installed, pinned dependency is preferred. Container or executable distribution adds a release checklist for third-party source, licenses, notices, and replacement instructions. See `OPEN_SOURCE_AND_PUBLICATION.md`.
 
@@ -64,7 +64,7 @@ Capture durable, sanitized evidence during development: decisions, source/config
 ## Access phases
 
 1. Completed bounded public Coinbase Advanced fixture work for product rules, recent bars, and live-data characterization. Keep resulting artifacts local. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis except any separately approved minimal terms/technical clarification.
-2. Engine bakeoff using permitted fixtures: pinned NautilusTrader first, LEAN only if required. No private account access or order submission.
+2. Completed synthetic engine bakeoff: pinned NautilusTrader first, then LEAN after the backed external-data recovery gap. Selected pinned LEAN for initial integration; no private account access or external order submission.
 3. Rights-cleared historical simulation with complete experiment records and venue-specific cost assumptions.
 4. Forward-paper operation with newly arriving data and no private account access.
 5. A second structurally different public/read-only or simulated adapter to prove the core contracts without adding live authority.
@@ -109,13 +109,13 @@ Coinbase fixture, checked 2026-09-10:
 
 An unauthenticated GET to https://api.coinbase.com/api/v3/brokerage/market/products/BTC-USD succeeded from this machine. It reported status online, trading_disabled false, base_min_size 0.00000001, quote_min_size 1, base_increment 0.00000001, and quote_increment 0.01. This is a point-in-time public response, not proof of account eligibility or a permanent trading minimum. Refresh rules and validate complete order constraints at runtime.
 
-Open-source engine and publication sources reviewed 2026-09-21; no dependency was installed or adopted:
+Open-source engine and publication sources were first reviewed 2026-09-21. The later [TL-001A decision](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) selects a pinned integration target; no engine runtime is installed in TideLab:
 
 - [NautilusTrader license](https://github.com/nautechsystems/nautilus_trader/blob/develop/LICENSE), [open-source policy](https://nautilustrader.io/legal/open-source-licensing/), [trademark policy](https://nautilustrader.io/legal/trademark-policy/), [backtesting concepts](https://nautilustrader.io/docs/latest/concepts/backtesting/), and [Coinbase integration](https://nautilustrader.io/docs/latest/integrations/coinbase/)
 - [GNU license FAQ](https://www.gnu.org/licenses/gpl-faq.en.html) for LGPL distribution/linking context
-- [QuantConnect LEAN](https://github.com/QuantConnect/Lean) as the fallback evaluation candidate
+- [QuantConnect LEAN](https://github.com/QuantConnect/Lean) as the selected bounded initial integration target
 
-These sources support a bounded technical and licensing bakeoff. They do not establish final stack fitness, legal advice, dependency adoption, or permission to publish third-party data and derived artifacts.
+These sources support the bounded technical and licensing bakeoff. They do not establish production stack fitness, legal advice, an installed runtime, or permission to publish third-party data and derived artifacts.
 
 Future-adapter feasibility reviewed 2026-09-16; no account access or integration was performed:
 

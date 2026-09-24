@@ -2,11 +2,11 @@
 
 Milestones advance on evidence, not a promised return or fixed calendar. TL identifiers are local backlog labels, not existing GitHub issues.
 
-Current state: TL-001 integrated through [PR #5](https://github.com/Loothore907/tidelab/pull/5), with exact-head CI passed at `16cf5d4`. The Apache/open-source decision is recorded in [PR #6](https://github.com/Loothore907/tidelab/pull/6). TL-001A and TL-001B remain open gates; TL-002 has not started.
+Current state: TL-001 is integrated, and [TL-001A selected pinned LEAN](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) for the first synthetic historical/local-paper integration. TL-001B remains an open data-rights gate; TL-002 has not started.
 
 Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Coinbase's Market Data Terms reviewed 2026-09-21 also create material automated-analysis and publication-rights questions for market data and derived artifacts. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis. Establish a sufficiently long, rights-cleared historical and forward source before TL-003; never treat endpoint access or the current depth as adequate public-research coverage.
 
-Open-source direction: TideLab-authored work is Apache-2.0. Adopt established engine infrastructure before building it. NautilusTrader is the first bounded candidate, not yet an adopted dependency; LEAN is the fallback evaluation before any custom engine authorization. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.
+Open-source direction: TideLab-authored work is Apache-2.0. Use pinned LEAN's public interfaces for the first bounded engine integration and keep TideLab policy, data, paper authority, and evidence replaceable. The engine choice does not finish the local paper controls or a distribution review. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.
 
 Publication standard approved 2026-09-21 and priority clarified 2026-09-22: publish TideLab code and synthetic fixtures; prioritize a deep, usable dataset for local research and forward-paper testing. Public raw datasets and real-data-derived charts/results/video are optional and require separate artifact-specific rights. Prefer a reproducible acquisition recipe where allowed. Initial data-source spend is $0; Coinbase and BTC-USD may be replaced if rights or technical coverage fail. See [TL-001B preflight](evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md). No real-data source has yet passed the local research gate.
 
@@ -14,7 +14,7 @@ Publication standard approved 2026-09-21 and priority clarified 2026-09-22: publ
 |---|---|---|
 | TL-000 | Project foundation | Plan and venue-agnostic research decisions saved; establish repository owner/visibility and integration authority before remote setup |
 | TL-001 | Canonical public-data foundation | Versioned instrument/event contracts plus a Coinbase BTC-USD reference adapter; restart-safe metadata, historical bars and live feed capture; gap/duplicate/freshness report; no credentials, strategies, or orders |
-| TL-001A | Engine adoption bakeoff | Map TideLab contracts onto one pinned NautilusTrader release; reproduce the TL-001 fixture and test deterministic replay, costs/fills, accounting, recovery, dependency boundaries, and evidence export without an upstream fork; evaluate LEAN only if a critical requirement fails |
+| TL-001A | Engine adoption bakeoff | Completed bounded comparison of pinned NautilusTrader and LEAN using synthetic replay, historical/forward decisions, costs/fills, recovery, dependency boundaries, and evidence export; selected pinned LEAN for initial integration without an upstream fork |
 | TL-001B | Research-data gate | Select historical and forward sources with adequate depth and supportable research, retention, and automated-analysis use; separately record rights for any optional public dataset, chart, report, or video; keep Coinbase a local technical fixture unless its proposed use is cleared |
 | TL-002 | Strategy, execution, and ledger integration | Implement TideLab-owned manifest, target-position/trade-intent, risk, and execution-mode boundaries on the adopted engine; prove cash/inventory accounting, costs, partial/missed fills, reconciliation, and failure behavior; build custom engine components only for documented critical gaps |
 | TL-003 | Reproducible research harness | Immutable experiment registry, deterministic replay/backtester, trial accounting, chronological partitions, benchmarks, cost stress, and registered baseline strategy family including frozen H1 |
@@ -55,7 +55,7 @@ Publication standard approved 2026-09-21 and priority clarified 2026-09-22: publ
 
 ## TL-002 implementation acceptance
 
-- Complete TL-001A and TL-001B first. Record the adopted engine version, data-source rights/provenance, and every approved exception.
+- Use the [TL-001A selected LEAN pin](decisions/TL-001A-INITIAL-ENGINE-SELECTION.md); complete TL-001B before real-data strategy work. Record data-source rights/provenance and every approved exception.
 - Define strategy requirements, target positions/trade intents, independent risk decisions, order/fill states, cashflows, settlement extensions, and execution-mode boundaries.
 - Run identical strategy semantics against deterministic replay and forward-paper clocks; environment-specific code may supply data and fills but may not change the strategy rule.
 - Reconcile cash, inventory, fees, realized/unrealized P&L, and all modeled order states. Test duplicate, partial, missed, rejected, interrupted, and ambiguous outcomes.
