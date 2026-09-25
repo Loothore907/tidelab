@@ -74,7 +74,9 @@ var identityPath = PrivatePath(root, args[2]);
 var outputPath = PrivatePath(root, args[3]);
 Require(!File.Exists(outputPath), "Private H1 result already exists");
 Require(Git(root, "branch", "--show-current") == "main" &&
-    Git(root, "status", "--porcelain") == "", "Private H1 run needs clean integrated main");
+    // WSL reading a Windows checkout otherwise reports every CRLF file as edited.
+    Git(root, "-c", "core.autocrlf=true", "status", "--porcelain") == "",
+    "Private H1 run needs clean integrated main");
 
 var inputBytes = File.ReadAllBytes(inputPath);
 var sourceBytes = File.ReadAllBytes(sourcePath);
