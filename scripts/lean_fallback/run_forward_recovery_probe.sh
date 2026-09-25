@@ -12,6 +12,7 @@ mkdir -p "$lean_root/TideLabForwardProbe"
 cp "$source_dir/TideLabSyntheticSignal.cs" \
   "$source_dir/TideLabSyntheticProbeAlgorithm.cs" \
   "$source_dir/TideLabH1Skeleton.cs" \
+  "$source_dir/TideLabH1V1Policy.cs" \
   "$source_dir/TideLabH1ProbeAlgorithm.cs" \
   "$lean_root/Algorithm.CSharp/"
 mkdir -p "$lean_root/Data/tidelab_h1"
@@ -52,7 +53,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE|JOINED)|H1_PARITY)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE|JOINED)|H1_PARITY)|H1V1_PARITY' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -60,6 +61,12 @@ run_phase() {
     grep -q "$required" "$report_dir/$report-$phase.log"
   fi
 }
+
+if [[ ${TL_H1_V1_ONLY:-0} == 1 ]]; then
+  run_phase h1_v1 managed_h1_v1_baseline success 'H1V1_PARITY clock=forward drawdown=False warmup=168 feed_bars=3'
+  run_phase h1_v1 managed_h1_v1_drawdown success 'H1V1_PARITY clock=forward drawdown=True warmup=168 feed_bars=3'
+  exit 0
+fi
 
 run_journal_probe() {
   run_phase journal managed_manager_submit_seed forced_exit 'new_submissions=1 manager=run'

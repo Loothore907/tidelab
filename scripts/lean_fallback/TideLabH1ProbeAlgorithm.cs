@@ -12,16 +12,20 @@ namespace QuantConnect.Algorithm.CSharp
     {
         private Symbol _symbol;
         private readonly TideLabH1Skeleton _h1 = new TideLabH1Skeleton();
+        private readonly TideLabH1V1Policy _v1 = new TideLabH1V1Policy();
         private readonly List<string> _decisions = new List<string>();
         private readonly List<string> _utcTimes = new List<string>();
         private int _count;
+        private bool _v1IsLong;
 
         public override void Initialize()
         {
             SetStartDate(2026, 1, 1);
-            SetEndDate(2026, 1, 1);
+            SetEndDate(2026, 1,
+                Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1" ? 8 : 1);
             SetTimeZone(TimeZones.Utc);
-            SetCash(1000);
+            SetCash(Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1" ?
+                10000 : 1000);
             _symbol = AddData<TideLabH1Bar>("TIDELABH1", Resolution.Hour).Symbol;
         }
 
@@ -30,6 +34,22 @@ namespace QuantConnect.Algorithm.CSharp
             if (!slice.ContainsKey(_symbol)) return;
             _count++;
             _utcTimes.Add(UtcTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture));
+            if (Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1")
+            {
+                var v1Equity = Environment.GetEnvironmentVariable("TL_H1_V1_DRAWDOWN") == "1" &&
+                    _count >= 170 ? 8000m : 10000m;
+                var v1Decision = _v1.OnClosedHour(UtcTime, slice[_symbol].Value,
+                    _v1IsLong, v1Equity, _v1IsLong ? 0.25m : 0m);
+                if (v1Decision.Intent != TideLabH1V1Intent.Hold)
+                    _decisions.Add($"{v1Decision.ClosedHours}:{v1Decision.Intent}:{v1Decision.Risk}");
+                _v1IsLong = v1Decision.Intent switch
+                {
+                    TideLabH1V1Intent.EnterLong => true,
+                    TideLabH1V1Intent.ExitToCash => false,
+                    _ => _v1IsLong
+                };
+                return;
+            }
             var scenario = Environment.GetEnvironmentVariable("TL001A_H1_SCENARIO");
             var equity = scenario == "drawdown" ? 940m : 1000m;
             var decision = _h1.OnClosedHour(slice[_symbol].Value, equity, 1000m);
@@ -39,6 +59,21 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override void OnEndOfAlgorithm()
         {
+            if (Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1")
+            {
+                var drawdown = Environment.GetEnvironmentVariable("TL_H1_V1_DRAWDOWN") == "1";
+                var actual = string.Join("|", _decisions);
+                var v1Expected = drawdown ?
+                    "169:EnterLong:Clear|170:ExitToCash:DrawdownHalt" :
+                    "169:EnterLong:Clear|170:ExitToCash:Clear|171:EnterLong:Clear";
+                Log($"H1V1_OBSERVED bars={_count} decisions={actual} first={_utcTimes.FirstOrDefault()} last={_utcTimes.LastOrDefault()}");
+                if (_count != 171 || actual != v1Expected ||
+                    _utcTimes[0] != "2026-01-01T06:00:00" ||
+                    _utcTimes[^1] != "2026-01-08T08:00:00")
+                    throw new Exception("H1 v1 historical decisions or UTC boundaries differ");
+                Log($"H1V1_PARITY clock=historical drawdown={drawdown} bars={_count} decisions={actual} orders=0");
+                return;
+            }
             var scenario = Environment.GetEnvironmentVariable("TL001A_H1_SCENARIO");
             var result = string.Join("|", _decisions);
             Log($"TL001A_H1_PARITY clock=historical scenario={scenario} bars={_count} decisions={result} utc_times={string.Join(",", _utcTimes)}");
@@ -64,7 +99,9 @@ namespace QuantConnect.Algorithm.CSharp
         public override SubscriptionDataSource GetSource(
             SubscriptionDataConfig config, DateTime date, bool isLiveMode) =>
             new SubscriptionDataSource(Path.Combine(Globals.DataFolder,
-                "tidelab_h1", date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) +
+                Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1" ?
+                    "tidelab_h1_v1" : "tidelab_h1",
+                date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) +
                 ".csv"), SubscriptionTransportMedium.LocalFile, FileFormat.Csv);
 
         public override BaseData Reader(SubscriptionDataConfig config, string line,

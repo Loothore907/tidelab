@@ -73,15 +73,44 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             public bool SubmitOrder;
             public int Signals;
             public string H1Scenario;
+            public string H1V1Scenario;
             public readonly List<string> H1Decisions = new List<string>();
             private readonly TideLabSyntheticSignal _signal = new TideLabSyntheticSignal();
             private readonly TideLabH1Skeleton _h1 = new TideLabH1Skeleton();
+            private readonly TideLabH1V1Policy _h1v1 = new TideLabH1V1Policy();
+            private bool _h1v1IsLong;
+            public void SeedH1V1Warmup(DateTime finalWarmupCloseUtc)
+            {
+                for (var i = 167; i >= 0; i--)
+                {
+                    var decision = _h1v1.OnClosedHour(finalWarmupCloseUtc.AddHours(-i),
+                        100m, false, 10000m, 0m);
+                    if (decision.Intent != TideLabH1V1Intent.Hold)
+                        throw new InvalidOperationException("Warmup emitted a decision");
+                }
+            }
             public override void Initialize() { }
             public override void OnData(Slice slice)
             {
                 if (!slice.Bars.TryGetValue(ProbeSymbol, out var bar)) return;
                 Closes.Add(bar.Close);
                 TimesUtc.Add(UtcTime);
+                if (H1V1Scenario != null)
+                {
+                    var equity = H1V1Scenario == "drawdown" && Closes.Count >= 2 ?
+                        8000m : 10000m;
+                    var decision = _h1v1.OnClosedHour(UtcTime, bar.Close,
+                        _h1v1IsLong, equity, _h1v1IsLong ? 0.25m : 0m);
+                    if (decision.Intent != TideLabH1V1Intent.Hold)
+                        H1Decisions.Add($"{decision.ClosedHours}:{decision.Intent}:{decision.Risk}");
+                    _h1v1IsLong = decision.Intent switch
+                    {
+                        TideLabH1V1Intent.EnterLong => true,
+                        TideLabH1V1Intent.ExitToCash => false,
+                        _ => _h1v1IsLong
+                    };
+                    return;
+                }
                 if (H1Scenario != null)
                 {
                     var equity = H1Scenario == "drawdown" ? 940m : 1000m;
@@ -108,25 +137,32 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             var phase = Environment.GetEnvironmentVariable("TL001A_PHASE");
             var h1Scenario = phase == "managed_h1_drawdown" ? "drawdown" :
                 phase == "managed_h1_baseline" ? "baseline" : null;
-            var targetCount = h1Scenario == null ? 3 : 4;
+            var h1v1Scenario = phase == "managed_h1_v1_drawdown" ? "drawdown" :
+                phase == "managed_h1_v1_baseline" ? "baseline" : null;
+            var targetCount = h1v1Scenario != null ? 3 : h1Scenario == null ? 3 : 4;
             var managedDispatch = phase == "managed_manager_submit_seed" ||
-                h1Scenario != null;
+                h1Scenario != null || h1v1Scenario != null;
             var submit = phase == "managed_feed_submit_seed" || managedDispatch;
-            algorithm.SubmitOrder = submit && h1Scenario == null;
+            algorithm.SubmitOrder = submit && h1Scenario == null && h1v1Scenario == null;
             algorithm.H1Scenario = h1Scenario;
+            algorithm.H1V1Scenario = h1v1Scenario;
             if (submit) algorithm.SetCash(h1Scenario == null ? 10000m : 1000m);
             algorithm.SetStartDate(2026, 1, 5);
             algorithm.SetDateTime(start);
+            if (h1v1Scenario != null) algorithm.SeedH1V1Warmup(start);
             algorithm.SetBenchmark(_ => 1m);
             var symbol = Symbols.SPY;
             algorithm.ProbeSymbol = symbol;
+            IEnumerable<decimal> syntheticCloses = h1v1Scenario != null ?
+                new[] { 102m, 98m, 110m } :
+                h1Scenario == null ?
+                new[] { 100m, 102m, 104m } :
+                new[] { 100m, 102m, 104m, 98m };
             using var queue = new TestDataQueueHandler
             {
                 DataPerSymbol = new Dictionary<Symbol, List<BaseData>>
                 {
-                    [symbol] = (h1Scenario == null ?
-                        new[] { 100m, 102m, 104m } :
-                        new[] { 100m, 102m, 104m, 98m })
+                    [symbol] = syntheticCloses
                         .Select((close, index) => (BaseData)new TradeBar(
                             start.AddHours(index).ConvertFromUtc(TimeZones.NewYork),
                             symbol, close, close, close, close,
@@ -202,7 +238,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             var slicesWithData = 0;
             try
             {
-                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(
+                    h1v1Scenario == null ? 20 : 90));
                 if (managedDispatch)
                 {
                     algorithm.SetStatus(AlgorithmStatus.Running);
@@ -237,11 +274,20 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 }
                 Assert.That(slicesWithData, Is.EqualTo(targetCount),
                     $"Observed closes: {string.Join(",", algorithm.Closes)}");
-                Assert.That(algorithm.Closes, Is.EqualTo(h1Scenario == null ?
-                    new[] { 100m, 102m, 104m } :
-                    new[] { 100m, 102m, 104m, 98m }));
+                Assert.That(algorithm.Closes, Is.EqualTo(syntheticCloses));
                 Assert.That(algorithm.TimesUtc, Is.EqualTo(Enumerable.Range(1,
                     targetCount).Select(i => start.AddHours(i))));
+                if (h1v1Scenario != null)
+                {
+                    var actual = string.Join("|", algorithm.H1Decisions);
+                    var expected = h1v1Scenario == "drawdown" ?
+                        "169:EnterLong:Clear|170:ExitToCash:DrawdownHalt" :
+                        "169:EnterLong:Clear|170:ExitToCash:Clear|171:EnterLong:Clear";
+                    Assert.That(actual, Is.EqualTo(expected));
+                    brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                    Console.WriteLine($"H1V1_PARITY clock=forward drawdown={h1v1Scenario == "drawdown"} warmup=168 feed_bars={targetCount} decisions={actual} orders=0");
+                    return;
+                }
                 if (h1Scenario != null)
                 {
                     var actual = string.Join("|", algorithm.H1Decisions);
