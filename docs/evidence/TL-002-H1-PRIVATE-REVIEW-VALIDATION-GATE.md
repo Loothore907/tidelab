@@ -13,3 +13,5 @@ python scripts/h1_v1_review_private_trial.py --bundle data/h1_private/validation
 ```
 
 Validation is one fixed-rule, one-parameter trial. It must be reviewed against the frozen preregistration before any decision to open untouched evaluation. Any implementation correction after validation needs a new disclosed identity. Issue [#3](https://github.com/Loothore907/tidelab/issues/3) independently owns the timely forward data and rights gate. Neither historical partition authorizes paper orders or public real-data-derived artifacts.
+
+One validation attempt was recorded and independently audited on 2026-09-25 from integrated commit `b3b4440c26db9f61ae8ee96ef84adc25772fde71`. Its result and preregistered gate review remain in the ignored local bundle `data/h1_private/validation-b3b4440-20260925/`; the attempt ID is `h1-v1-okx-validation-b3b4440-20260925`. Review `gate-review.json` before considering the untouched partition. No performance value or gate outcome is published here.
