@@ -106,10 +106,39 @@ if [[ ${TL_H1_REPORT_ONLY:-0} == 1 ]]; then
     >"$report_dir/h1-handoff.log"
   sed -n 's/^H1V1_PAPER_HANDOFF_JSON=//p' "$report_dir/h1-handoff.log" >"$next_proposal"
   test -s "$next_proposal"
+  export TL_H1_REPORT_REFERENCE="$revision"
+  snapshot_before="$report_dir/h1-snapshot-before.json"
+  snapshot_after="$report_dir/h1-snapshot-after.json"
+  TL_H1_SNAPSHOT_PATH="$snapshot_before" run_phase h1 h1_report_snapshot success \
+    'source=synthetic-local-broker new_submissions=0'
+  TL_H1_SNAPSHOT_PATH="$snapshot_after" run_phase h1 h1_report_snapshot success \
+    'source=synthetic-local-broker new_submissions=0'
+  if python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+      "$report_dir/h1.json" "$next_proposal" >"$report_dir/h1-missing-snapshot.log" 2>&1; then
+    echo 'H1 handoff unexpectedly accepted missing snapshot evidence' >&2
+    exit 1
+  fi
+  grep -q 'requires next_proposal and two broker snapshots' "$report_dir/h1-missing-snapshot.log"
+  python3 - "$snapshot_after" "$report_dir/h1-snapshot-changed.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+snapshot = json.loads(Path(sys.argv[1]).read_text())
+snapshot["ConsistencyToken"] += "-changed"
+Path(sys.argv[2]).write_text(json.dumps(snapshot))
+PY
+  if python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+      "$report_dir/h1.json" "$next_proposal" "$snapshot_before" \
+      "$report_dir/h1-snapshot-changed.json" >"$report_dir/h1-changed-snapshot.log" 2>&1; then
+    echo 'H1 handoff unexpectedly accepted changing snapshot evidence' >&2
+    exit 1
+  fi
+  grep -q 'broker snapshot changed; hold' "$report_dir/h1-changed-snapshot.log"
+  test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json")" = submission_unknown
   python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
-    "$report_dir/h1.json" "$next_proposal"
+    "$report_dir/h1.json" "$next_proposal" "$snapshot_before" "$snapshot_after"
   python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
-    "$report_dir/h1.json" "$next_proposal"
+    "$report_dir/h1.json" "$next_proposal" "$snapshot_before" "$snapshot_after"
   test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json")" = resolved
   export TL_H1_PROPOSAL_PATH="$next_proposal"
   run_phase h1_next h1_report_seed success 'quantity=-10 revision=1 new_submissions=1'

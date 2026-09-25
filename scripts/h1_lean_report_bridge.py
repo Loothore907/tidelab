@@ -34,6 +34,8 @@ def main() -> int:
     parser.add_argument("proposal", type=Path)
     parser.add_argument("report", type=Path)
     parser.add_argument("next_proposal", type=Path, nargs="?")
+    parser.add_argument("snapshot_before", type=Path, nargs="?")
+    parser.add_argument("snapshot_after", type=Path, nargs="?")
     args = parser.parse_args()
     payload = args.proposal.read_text(encoding="utf-8")
     proposal = json.loads(payload)
@@ -61,10 +63,13 @@ def main() -> int:
                             parse_float=Decimal)
         print("h1-report-v1:" + _digest(report))
     elif args.action == "handoff":
-        if args.next_proposal is None:
-            parser.error("handoff requires next_proposal")
+        if (args.next_proposal is None or args.snapshot_before is None or
+                args.snapshot_after is None):
+            parser.error("handoff requires next_proposal and two broker snapshots")
         print(join.handoff(payload, complete_report(args.report),
-                           args.next_proposal.read_text(encoding="utf-8"), rules))
+                           args.next_proposal.read_text(encoding="utf-8"), rules,
+                           snapshot_before_json=complete_report(args.snapshot_before),
+                           snapshot_after_json=complete_report(args.snapshot_after)))
     else:
         print(bridge.intents.state(proposal["ClientId"]))
     return 0

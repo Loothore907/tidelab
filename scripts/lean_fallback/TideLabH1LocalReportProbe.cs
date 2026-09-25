@@ -236,6 +236,37 @@ namespace QuantConnect.Tests.Engine.Setup
             var report = JsonSerializer.Deserialize<Report>(reportBytes) ??
                 throw new InvalidDataException("H1 report is empty");
             CheckIdentity(proposal, report);
+            if (phase == "h1_report_snapshot")
+            {
+                if (report.BrokerStatus is not ("Filled" or "Canceled"))
+                    throw new InvalidDataException("H1 snapshot needs terminal order");
+                var reference = Environment.GetEnvironmentVariable("TL_H1_REPORT_REFERENCE") ??
+                    throw new InvalidDataException("Missing H1 report reference");
+                var snapshotPath = Environment.GetEnvironmentVariable("TL_H1_SNAPSHOT_PATH") ??
+                    throw new InvalidDataException("Missing H1 snapshot path");
+                var token = $"H1-MOCK-{report.BrokerId}-{report.Revision}";
+                using (var file = new FileStream(snapshotPath, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+                {
+                    JsonSerializer.Serialize(file, new
+                    {
+                        Version = 1, Source = "synthetic-local-broker",
+                        ObservedAtUtc = proposal.ObservedOpenUtc.AddHours(1),
+                        ConsistencyToken = token, AccountRevision = token,
+                        OrdersRevision = token, ExecutionsRevision = token,
+                        ClientId = report.ClientId, BrokerId = report.BrokerId,
+                        OrderStatus = report.BrokerStatus,
+                        ReportRevision = report.Revision, ReportReference = reference,
+                        Cash = report.Cash, Holding = report.Holding,
+                        OpenBrokerIds = Array.Empty<string>(),
+                        OrderFinality = "terminal_at_cursor"
+                    });
+                    file.Flush(true);
+                }
+                Console.WriteLine("H1V1_LEAN_REPORT phase=snapshot " +
+                    "source=synthetic-local-broker new_submissions=0");
+                return;
+            }
             if (phase == "h1_report_cost_missed")
             {
                 if (report.Revision != 1 || report.BrokerStatus != "Submitted")
