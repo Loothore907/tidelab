@@ -10,6 +10,7 @@ import sqlite3
 
 import pytest
 
+from scripts.h1_lean_report_bridge import complete_report
 from tidelab.h1_local_report_join import H1LocalReportJoin, _digest
 from tidelab.h1_paper_bridge import H1SyntheticPaperBridge
 from tidelab.paper_intent import PaperProductRules
@@ -18,6 +19,16 @@ from tidelab.paper_intent import PaperProductRules
 OPEN = datetime(2026, 1, 8, 2, tzinfo=timezone.utc)
 RULES = PaperProductRules("synthetic:BTC-USDT", "synthetic-h1-rules-1",
                           "0.00000001", "0.01", "0.00000001", "1")
+
+
+def test_torn_report_candidate_holds_reconciliation(tmp_path: Path) -> None:
+    report = tmp_path / "h1.json"
+    report.write_text('{"Revision":2}', encoding="utf-8")
+    assert complete_report(report) == '{"Revision":2}'
+    candidate = tmp_path / "h1.json.next"
+    candidate.write_text('{"Revision":3}', encoding="utf-8")
+    with pytest.raises(RuntimeError, match="torn H1 report candidate"):
+        complete_report(report)
 
 
 def _proposal(open_at: datetime = OPEN, side: str = "buy") -> dict:

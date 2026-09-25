@@ -83,6 +83,15 @@ if [[ ${TL_H1_REPORT_ONLY:-0} == 1 ]]; then
   run_phase h1 h1_report_restore success 'revision=1 cash=10000 holding=0 new_submissions=0'
   run_phase h1 h1_report_partial success 'quantity=10.0 cash=9009.9 holding=10.0 new_submissions=0'
   python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json"
+  cp "$report_dir/h1.json" "$report_dir/h1.json.next"
+  if python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+      "$report_dir/h1.json" >"$report_dir/h1-torn-block.log" 2>&1; then
+    echo 'Torn H1 report candidate unexpectedly reconciled' >&2
+    exit 1
+  fi
+  grep -q 'torn H1 report candidate; hold' "$report_dir/h1-torn-block.log"
+  run_phase h1 h1_report_restore blocked 'gate=torn_candidate_holds new_submissions=0'
+  rm "$report_dir/h1.json.next"
   run_phase h1 h1_report_restore success 'revision=2 cash=9009.9 holding=10.0 new_submissions=0'
   run_phase h1 h1_report_restore success 'revision=2 cash=9009.9 holding=10.0 new_submissions=0'
   run_phase h1 h1_report_cancel success 'revision=3 holding=10.0 new_submissions=0'
@@ -131,6 +140,22 @@ if [[ ${TL_H1_REPORT_ONLY:-0} == 1 ]]; then
   grep -q 'BLOCK_H1_reconcile' "$report_dir/h1-restore-block.log"
   test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_correct.json")" = submission_unknown
   echo 'H1V1_LEAN_REPORT gate=corrected_execution_holds_before_setup'
+
+  export TL_H1_BRIDGE_DATABASE="$report_dir/h1-race.sqlite3"
+  python3 "$bridge" prepare "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_race.json"
+  run_phase h1_race h1_report_seed success 'quantity=25 revision=1 new_submissions=1'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_race.json"
+  run_phase h1_race h1_report_partial success 'quantity=10.0 cash=9009.9 holding=10.0 new_submissions=0'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_race.json"
+  run_phase h1_race h1_report_restore_race blocked 'decision=BLOCK_REVISION_RACE new_submissions=0'
+  if python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+      "$report_dir/h1_race.json" >"$report_dir/h1-race-correction-block.log" 2>&1; then
+    echo 'Mid-restore H1 correction unexpectedly reconciled' >&2
+    exit 1
+  fi
+  grep -q 'H1 execution removed or corrected; hold' "$report_dir/h1-race-correction-block.log"
+  test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_race.json")" = submission_unknown
+  echo 'H1V1_LEAN_REPORT gate=mid_restore_correction_holds_without_submission'
   exit 0
 fi
 

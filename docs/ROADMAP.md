@@ -6,6 +6,8 @@ Current state: TL-001 is integrated, and [TL-001A selected pinned LEAN](decision
 
 The [H1 v1 preregistration](experiments/H1-V1-PREREGISTRATION.md) fixes the first real-data hypothesis and its evaluation plan before any result is opened. The selected historical source can support a local historical run after strategy/accounting checks; an on-time forward source remains a separate paper-operation gate.
 
+The [synthetic H1 restore-stability check](evidence/TL-002-H1-RESTORE-STABILITY.md) blocks torn local report candidates and changes during LEAN setup with zero new submissions. An external broker's finality and account/order consistency remain open under #48.
+
 Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Coinbase's Market Data Terms reviewed 2026-09-21 also create material automated-analysis and publication-rights questions for market data and derived artifacts. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis. Establish a sufficiently long, rights-cleared historical and forward source before TL-003; never treat endpoint access or the current depth as adequate public-research coverage.
 
 Open-source direction: TideLab-authored work is Apache-2.0. Use pinned LEAN's public interfaces for the first bounded engine integration and keep TideLab policy, data, paper authority, and evidence replaceable. The engine choice does not finish the local paper controls or a distribution review. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.

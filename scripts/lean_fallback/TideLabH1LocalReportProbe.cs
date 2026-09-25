@@ -96,7 +96,7 @@ namespace QuantConnect.Tests.Engine.Setup
         }
 
         private static void Setup(string path, TideLabH1V1PaperProposal proposal,
-            Report report, bool submit)
+            Report report, bool submit, Action? duringOpenOrders = null)
         {
             var symbol = Symbol.Create("TLH1SYN", SecurityType.Equity, Market.USA);
             var algorithm = new ProbeAlgorithm();
@@ -128,7 +128,16 @@ namespace QuantConnect.Tests.Engine.Setup
                         OrderStatus.Submitted : OrderStatus.PartiallyFilled,
                     BrokerId = new List<string> { report.BrokerId }
                 });
-            brokerage.Setup(x => x.GetOpenOrders()).Returns(open);
+            var openedOrders = false;
+            brokerage.Setup(x => x.GetOpenOrders()).Returns(() =>
+            {
+                if (!openedOrders && duringOpenOrders != null)
+                {
+                    openedOrders = true;
+                    duringOpenOrders();
+                }
+                return open;
+            });
             if (submit)
                 brokerage.Setup(x => x.PlaceOrder(It.IsAny<Order>()))
                     .Callback<Order>(order =>
@@ -217,7 +226,15 @@ namespace QuantConnect.Tests.Engine.Setup
                     "revision=1 new_submissions=1");
                 return;
             }
-            var report = Read<Report>(path);
+            if (File.Exists(path + ".next"))
+            {
+                Console.WriteLine("H1V1_LEAN_REPORT gate=torn_candidate_holds " +
+                    "new_submissions=0");
+                throw new InvalidDataException("BLOCK_H1_TORN_REPORT");
+            }
+            var reportBytes = File.ReadAllBytes(path);
+            var report = JsonSerializer.Deserialize<Report>(reportBytes) ??
+                throw new InvalidDataException("H1 report is empty");
             CheckIdentity(proposal, report);
             if (phase == "h1_report_cost_missed")
             {
@@ -348,10 +365,41 @@ namespace QuantConnect.Tests.Engine.Setup
                     "journal=must_hold new_submissions=0");
                 return;
             }
-            if (phase == "h1_report_restore")
+            if (phase is "h1_report_restore" or "h1_report_restore_race")
             {
                 Bridge("reconcile"); // Failed journal check stops before LEAN setup.
-                Setup(path, proposal, report, submit: false);
+                if (File.Exists(path + ".next") ||
+                    !reportBytes.SequenceEqual(File.ReadAllBytes(path)))
+                    throw new InvalidDataException("BLOCK_H1_REVISION_RACE");
+                Action? race = null;
+                if (phase == "h1_report_restore_race")
+                {
+                    if (report.Revision != 2 ||
+                        report.BrokerStatus != "PartiallyFilled")
+                        throw new InvalidDataException("H1 restore race needs partial report");
+                    race = () =>
+                    {
+                        var original = report.Executions.Single();
+                        var corrected = original with { Price = original.Price - 1m };
+                        Write(path, report with
+                        {
+                            Revision = 3,
+                            Executions = new List<Execution> { corrected },
+                            Cash = proposal.Cash - corrected.Quantity *
+                                corrected.Price - corrected.Fee
+                        }, replace: true);
+                    };
+                }
+                Setup(path, proposal, report, submit: false, race);
+                if (File.Exists(path + ".next") ||
+                    !reportBytes.SequenceEqual(File.ReadAllBytes(path)))
+                {
+                    Console.WriteLine("H1V1_LEAN_REPORT phase=restore_race " +
+                        "decision=BLOCK_REVISION_RACE new_submissions=0");
+                    throw new InvalidDataException("BLOCK_H1_REVISION_RACE");
+                }
+                if (race != null)
+                    throw new InvalidDataException("H1 restore race was not observed");
                 Console.WriteLine($"H1V1_LEAN_REPORT phase=restore revision={report.Revision} " +
                     $"cash={report.Cash} holding={report.Holding} " +
                     "new_submissions=0");
