@@ -33,6 +33,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-002 synthetic H1 local report join](docs/evidence/TL-002-H1-LOCAL-REPORT-JOIN.md)
 - [TL-002 pinned LEAN H1 report and account handoff](docs/evidence/TL-002-H1-LEAN-REPORT-HANDOFF.md)
 - [TL-002 synthetic H1 restore stability and correction race](docs/evidence/TL-002-H1-RESTORE-STABILITY.md)
+- [TL-002 synthetic broker snapshot evidence gate](docs/evidence/TL-002-SYNTHETIC-SNAPSHOT-EVIDENCE.md)
 - [TL-002 synthetic H1 conservative execution and trial accounting](docs/evidence/TL-002-H1-CONSERVATIVE-EXECUTION-TRIAL-ACCOUNTING.md)
 - [TL-002 private H1 development runner](docs/evidence/TL-002-H1-PRIVATE-DEVELOPMENT-RUNNER.md)
 - [TL-002 private H1 development review and validation gate](docs/evidence/TL-002-H1-PRIVATE-REVIEW-VALIDATION-GATE.md)

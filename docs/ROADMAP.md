@@ -8,6 +8,8 @@ The [H1 v1 preregistration](experiments/H1-V1-PREREGISTRATION.md) fixes the firs
 
 The [synthetic H1 restore-stability check](evidence/TL-002-H1-RESTORE-STABILITY.md) blocks torn local report candidates and changes during LEAN setup with zero new submissions. An external broker's finality and account/order consistency remain open under #48.
 
+The [synthetic snapshot evidence gate](evidence/TL-002-SYNTHETIC-SNAPSHOT-EVIDENCE.md) now holds the report-to-next-intent handoff unless two reads agree on a complete account/order/execution cursor and the reconciled terminal report. The mock's token does not establish that a real broker supplies this guarantee.
+
 Data-depth and rights finding: a 2026-09-16 public 30-day probe admitted only the latest 349 of 720 requested hourly bars after rejecting responses outside each requested window. Coinbase's Market Data Terms reviewed 2026-09-21 also create material automated-analysis and publication-rights questions for market data and derived artifacts. Pending TL-001B, pause new Coinbase acquisition for strategy development or automated analysis. Establish a sufficiently long, rights-cleared historical and forward source before TL-003; never treat endpoint access or the current depth as adequate public-research coverage.
 
 Open-source direction: TideLab-authored work is Apache-2.0. Use pinned LEAN's public interfaces for the first bounded engine integration and keep TideLab policy, data, paper authority, and evidence replaceable. The engine choice does not finish the local paper controls or a distribution review. Capture lightweight publication-safe evidence during development and produce any polished video later from versioned results.

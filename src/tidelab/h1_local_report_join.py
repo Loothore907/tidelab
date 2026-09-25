@@ -28,6 +28,49 @@ def _digest(value: dict) -> str:
         separators=(",", ":"), default=str).encode()).hexdigest()
 
 
+_SNAPSHOT_FIELDS = {"Version", "Source", "ObservedAtUtc", "ConsistencyToken",
+                    "AccountRevision", "OrdersRevision", "ExecutionsRevision",
+                    "ClientId", "BrokerId", "OrderStatus", "ReportRevision",
+                    "ReportReference", "Cash", "Holding", "OpenBrokerIds",
+                    "OrderFinality"}
+
+
+def _stable_snapshot_pair(before_json: str | None, after_json: str | None,
+                          report: dict, next_open: datetime) -> str:
+    """Check a synthetic whole-account/order cursor; external proof is separate."""
+    if before_json is None or after_json is None:
+        raise RuntimeError("H1 handoff requires two broker snapshot reads")
+    before = json.loads(before_json, parse_float=Decimal)
+    after = json.loads(after_json, parse_float=Decimal)
+    if before != after:
+        raise RuntimeError("broker snapshot changed; hold")
+    if not isinstance(before, dict) or set(before) != _SNAPSHOT_FIELDS:
+        raise ValueError("broker snapshot fields are incomplete")
+    token = before["ConsistencyToken"]
+    try:
+        observed = datetime.fromisoformat(before["ObservedAtUtc"].replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as exc:
+        raise ValueError("broker snapshot observation time is invalid") from exc
+    if (type(before["Version"]) is not int or before["Version"] != 1 or
+            before["Source"] != "synthetic-local-broker" or
+            not isinstance(token, str) or not token.strip() or
+            any(before[field] != token for field in
+                ("AccountRevision", "OrdersRevision", "ExecutionsRevision")) or
+            observed.utcoffset() != timedelta(0) or observed != next_open or
+            before["ClientId"] != report["ClientId"] or
+            before["BrokerId"] != report["BrokerId"] or
+            before["OrderStatus"] != report["BrokerStatus"] or
+            type(before["ReportRevision"]) is not int or
+            before["ReportRevision"] != report["Revision"] or
+            before["ReportReference"] != "h1-report-v1:" + _digest(report) or
+            _amount(before["Cash"]) != _amount(report["Cash"]) or
+            _amount(before["Holding"]) != _amount(report["Holding"]) or
+            before["OpenBrokerIds"] != [] or
+            before["OrderFinality"] != "terminal_at_cursor"):
+        raise ValueError("broker snapshot lacks consistent terminal account/order evidence")
+    return _digest(before)
+
+
 class H1LocalReportJoin:
     """Join a variable H1 proposal to complete, revisioned local LEAN test reports.
 
@@ -53,6 +96,9 @@ class H1LocalReportJoin:
                 execution_id TEXT NOT NULL, quantity TEXT NOT NULL,
                 price TEXT NOT NULL, fee TEXT NOT NULL,
                 PRIMARY KEY(client_id, execution_id))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS h1_handoff_snapshots (
+                client_id TEXT PRIMARY KEY REFERENCES paper_intents(client_id),
+                evidence_hash TEXT NOT NULL)""")
 
     def reconcile(self, proposal_json: str, report_json: str) -> str:
         proposal = json.loads(proposal_json, parse_float=Decimal)
@@ -170,7 +216,9 @@ class H1LocalReportJoin:
         return f"hold revision={revision} status={status} executions={len(entries)}"
 
     def handoff(self, proposal_json: str, report_json: str,
-                next_proposal_json: str, rules: PaperProductRules) -> str:
+                next_proposal_json: str, rules: PaperProductRules, *,
+                snapshot_before_json: str | None = None,
+                snapshot_after_json: str | None = None) -> str:
         """Atomically retire a verified terminal fixture and prepare its next H1 intent.
 
         This is a single-writer synthetic report protocol. It does not establish
@@ -203,6 +251,8 @@ class H1LocalReportJoin:
         bridge = H1SyntheticPaperBridge(self.intents.path)
         intent, opening, digest = bridge.validate(next_proposal_json,
             observed_at=next_open, source_revision=source_revision, rules=rules)
+        evidence_hash = _stable_snapshot_pair(snapshot_before_json,
+            snapshot_after_json, report, next_open)
         prior_id = proposal["ClientId"]
         with closing(self.intents._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -223,7 +273,10 @@ class H1LocalReportJoin:
                 if resolved is not None:
                     saved = db.execute("SELECT * FROM h1_paper_proposals WHERE client_id=?",
                                        (intent.client_id,)).fetchone()
+                    evidence = db.execute("SELECT evidence_hash FROM h1_handoff_snapshots WHERE client_id=?",
+                                          (prior_id,)).fetchone()
                     if (existing is None or saved is None or
+                            evidence is None or evidence["evidence_hash"] != evidence_hash or
                             resolved["final_report_revision"] != old["revision"] or
                             resolved["source_revision"] != previous["source_revision"] or
                             saved["proposal_hash"] != digest or
@@ -238,6 +291,8 @@ class H1LocalReportJoin:
                     raise RuntimeError("another H1 intent prevents handoff")
                 db.execute("INSERT INTO paper_intent_resolutions VALUES (?, ?, ?)",
                            (prior_id, previous["source_revision"], old["revision"]))
+                db.execute("INSERT INTO h1_handoff_snapshots VALUES (?, ?)",
+                           (prior_id, evidence_hash))
                 db.execute("""INSERT INTO paper_intents
                     (client_id, instrument_id, side, quantity, limit_price,
                      source_revision, rules_identity, state)

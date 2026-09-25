@@ -11,7 +11,7 @@ import sqlite3
 import pytest
 
 from scripts.h1_lean_report_bridge import complete_report
-from tidelab.h1_local_report_join import H1LocalReportJoin, _digest
+from tidelab.h1_local_report_join import H1LocalReportJoin, _digest, _stable_snapshot_pair
 from tidelab.h1_paper_bridge import H1SyntheticPaperBridge
 from tidelab.paper_intent import PaperProductRules
 
@@ -74,6 +74,41 @@ def _report(proposal: dict, revision: int, status: str,
 
 def _fill(quantity: str = "10", price: str = "99", fee: str = "0.1") -> dict:
     return dict(ExecutionId="EX-1", Quantity=quantity, Price=price, Fee=fee)
+
+
+def _snapshot(report: dict, next_open: datetime) -> dict:
+    token = "H1-MOCK-LOCAL-H1-7-3"
+    return dict(Version=1, Source="synthetic-local-broker",
+                ObservedAtUtc=next_open.isoformat(), ConsistencyToken=token,
+                AccountRevision=token, OrdersRevision=token,
+                ExecutionsRevision=token, ClientId=report["ClientId"],
+                BrokerId=report["BrokerId"], OrderStatus=report["BrokerStatus"],
+                ReportRevision=report["Revision"],
+                ReportReference="h1-report-v1:" + _digest(report),
+                Cash=report["Cash"], Holding=report["Holding"],
+                OpenBrokerIds=[], OrderFinality="terminal_at_cursor")
+
+
+def test_snapshot_contract_rejects_mixed_or_incomplete_reads() -> None:
+    report = _report(_proposal(), 3, "Canceled", [_fill()], "9009.9", "10")
+    next_open = OPEN + timedelta(hours=1)
+    snapshot = _snapshot(report, next_open)
+    assert _stable_snapshot_pair(json.dumps(snapshot), json.dumps(snapshot),
+                                 report, next_open) == _digest(snapshot)
+    with pytest.raises(RuntimeError, match="requires two"):
+        _stable_snapshot_pair(None, json.dumps(snapshot), report, next_open)
+    with pytest.raises(RuntimeError, match="changed"):
+        _stable_snapshot_pair(json.dumps(snapshot),
+            json.dumps(snapshot | {"ConsistencyToken": "new"}), report, next_open)
+    changes = ({"OrdersRevision": "different"}, {"Cash": "9009.8"},
+               {"OpenBrokerIds": ["OTHER"]}, {"OrderStatus": "Filled"},
+               {"ReportReference": "wrong"},
+               {"ObservedAtUtc": (next_open + timedelta(hours=1)).isoformat()},
+               {"OrderFinality": "unknown"})
+    for change in changes:
+        invalid = json.dumps(snapshot | change)
+        with pytest.raises(ValueError, match="consistent terminal"):
+            _stable_snapshot_pair(invalid, invalid, report, next_open)
 
 
 def test_partial_cancel_restart_and_next_intent_gate(tmp_path: Path) -> None:
@@ -177,6 +212,8 @@ def test_terminal_report_handoff_prepares_next_exit_atomically(tmp_path: Path) -
         "Quantity": "10", "LimitPrice": "98", "Cash": "9009.9",
         "Units": "10", "Equity": "9989.9"}
     next_payload = json.dumps(following)
+    snapshot = _snapshot(terminal, next_open)
+    snapshot_json = json.dumps(snapshot)
     with pytest.raises(RuntimeError, match="terminal"):
         join.handoff(payload, json.dumps(_report(proposal, 2, "PartiallyFilled",
                                               [_fill()], "9009.9", "10")),
@@ -185,10 +222,31 @@ def test_terminal_report_handoff_prepares_next_exit_atomically(tmp_path: Path) -
         join.handoff(payload, json.dumps(terminal),
                      json.dumps(following | {"Cash": "9009.8"}), RULES)
     assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
+    with pytest.raises(RuntimeError, match="two broker snapshot reads"):
+        join.handoff(payload, json.dumps(terminal), next_payload, RULES)
+    with pytest.raises(RuntimeError, match="snapshot changed"):
+        join.handoff(payload, json.dumps(terminal), next_payload, RULES,
+            snapshot_before_json=snapshot_json,
+            snapshot_after_json=json.dumps(snapshot | {"ConsistencyToken": "new"}))
+    assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
+    with sqlite3.connect(bridge.intents.path) as db:
+        assert db.execute("SELECT COUNT(*) FROM paper_intents").fetchone()[0] == 1
+        assert db.execute("SELECT COUNT(*) FROM paper_intent_resolutions").fetchone()[0] == 0
     assert "quantity=10" in join.handoff(payload, json.dumps(terminal),
-                                         next_payload, RULES)
+        next_payload, RULES, snapshot_before_json=snapshot_json,
+        snapshot_after_json=snapshot_json)
     assert "replay" in join.handoff(payload, json.dumps(terminal),
-                                   next_payload, RULES)
+        next_payload, RULES, snapshot_before_json=snapshot_json,
+        snapshot_after_json=snapshot_json)
+    changed_token = "different-cursor"
+    changed = snapshot | {"ConsistencyToken": changed_token,
+                          "AccountRevision": changed_token,
+                          "OrdersRevision": changed_token,
+                          "ExecutionsRevision": changed_token}
+    with pytest.raises(RuntimeError, match="handoff replay changed"):
+        join.handoff(payload, json.dumps(terminal), next_payload, RULES,
+            snapshot_before_json=json.dumps(changed),
+            snapshot_after_json=json.dumps(changed))
     assert bridge.intents.state(proposal["ClientId"]) == "resolved"
     assert bridge.intents.state(following["ClientId"]) == "prepared"
     assert bridge.claim_once(following["ClientId"], observed_at=next_open,
@@ -200,3 +258,4 @@ def test_terminal_report_handoff_prepares_next_exit_atomically(tmp_path: Path) -
     with sqlite3.connect(bridge.intents.path) as db:
         assert db.execute("SELECT COUNT(*) FROM paper_intent_resolutions").fetchone()[0] == 1
         assert db.execute("SELECT COUNT(*) FROM paper_intents").fetchone()[0] == 2
+        assert db.execute("SELECT COUNT(*) FROM h1_handoff_snapshots").fetchone()[0] == 1
