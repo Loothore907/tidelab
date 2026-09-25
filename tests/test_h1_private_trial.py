@@ -67,6 +67,18 @@ def test_private_development_binds_source_archive_and_input(
     assert identity["data"]["sha256"] == sha256(manifest).hexdigest() == result["data_sha256"]
     assert json.loads(manifest)["input_sha256"] == sha256(input_bytes).hexdigest()
     assert identity["code"]["revision"] == "a" * 40
+    monkeypatch.setattr(trial, "VALIDATION_START", trial.SCORE_START)
+    monkeypatch.setattr(trial, "VALIDATION_END", trial.SCORE_END)
+    validation = root / "data/private-validation"
+    trial.prepare_validation(root, database, archives, validation,
+                             "a" * 40, datetime.now(timezone.utc).date())
+    validation_input = json.loads((validation / "input.json").read_bytes())
+    validation_id = json.loads((validation / "identity.json").read_bytes())
+    assert validation_input["phase"] == "validation"
+    assert validation_id["trial"]["trial_id"] == "h1-v1-okx-btc-usdt-validation"
+    with pytest.raises(ValueError, match="only development and validation"):
+        trial.prepare_partition(root, database, archives, root / "data/untouched",
+                                "a" * 40, datetime.now(timezone.utc).date(), "untouched")
 
 
 def test_private_development_rejects_gap_and_changed_archive(

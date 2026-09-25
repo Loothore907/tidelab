@@ -1,0 +1,15 @@
+# TL-002: private development review and validation gate
+
+Date: 2026-09-25. Owner: [issue #48](https://github.com/Loothore907/tidelab/issues/48). The local H1 v1 development attempt at integrated revision `5ac73ab81f0173cc7a15be24a0c67e3b7e66a326` completed and remains under ignored `data/`. No market values or performance results are recorded in this document. The earlier failed launch remains a separate append-only registry attempt.
+
+An independent Python review reads the private input, identity, result, attempt log and SQLite trial registry. It checks result and source hashes, completed-attempt binding, 168-hour closed-bar signals, risk decisions, next-open fills, eight-decimal inventory, costed execution, cash and fees, hourly marks, final settlement, and independently calculated strategy/cash/25%-hold/full-hold metrics in both base and stress cases. The recorded development bundle passed this review on 2026-09-25. This establishes reproducible arithmetic under the declared historical fill assumptions; it does not establish executable liquidity, forward timing, or profitability. Run `scripts/h1_v1_review_private_trial.py` with its ignored bundle, registry and attempt ID to repeat the audit without printing performance data.
+
+The preparer and .NET runner now accept the preregistered validation window `2025-01-01T00:00:00Z` to `2026-01-01T00:00:00Z`, using the preceding 168 complete hours for indicators and one terminal open. They retain the full-store and all-61-archive hash checks, same-day OKX terms review, clean integrated-main revision, frozen configuration and cost hashes, base/stress double replay, private output and pre-recorded attempt. The runner explicitly rejects the untouched partition. Preparation is under ignored `data/`:
+
+```text
+python scripts/h1_v1_prepare_private_validation.py --database data/okx/research.sqlite3 --archive-dir data/okx --output-dir data/h1_private/validation-<unique-id> --terms-reviewed-utc-date YYYY-MM-DD
+python scripts/record_local_trial.py --registry data/h1_v1_trials.sqlite3 --identity data/h1_private/validation-<unique-id>/identity.json --phase validation --attempt-id <unique-attempt-id> --log data/h1_private/validation-<unique-id>/attempt.log -- dotnet run --project scripts/lean_fallback/h1_v1_private_trial/H1V1PrivateTrial.csproj -c Release -- data/h1_private/validation-<unique-id>/input.json data/h1_private/validation-<unique-id>/source-manifest.json data/h1_private/validation-<unique-id>/identity.json data/h1_private/validation-<unique-id>/result.json
+python scripts/h1_v1_review_private_trial.py --bundle data/h1_private/validation-<unique-id> --registry data/h1_v1_trials.sqlite3 --attempt-id <unique-attempt-id>
+```
+
+Validation is one fixed-rule, one-parameter trial. It must be reviewed against the frozen preregistration before any decision to open untouched evaluation. Any implementation correction after validation needs a new disclosed identity. Issue [#3](https://github.com/Loothore907/tidelab/issues/3) independently owns the timely forward data and rights gate. Neither historical partition authorizes paper orders or public real-data-derived artifacts.

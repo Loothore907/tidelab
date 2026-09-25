@@ -34,6 +34,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-002 pinned LEAN H1 report and account handoff](docs/evidence/TL-002-H1-LEAN-REPORT-HANDOFF.md)
 - [TL-002 synthetic H1 conservative execution and trial accounting](docs/evidence/TL-002-H1-CONSERVATIVE-EXECUTION-TRIAL-ACCOUNTING.md)
 - [TL-002 private H1 development runner](docs/evidence/TL-002-H1-PRIVATE-DEVELOPMENT-RUNNER.md)
+- [TL-002 private H1 development review and validation gate](docs/evidence/TL-002-H1-PRIVATE-REVIEW-VALIDATION-GATE.md)
 - [TL-001A engine decision map and reconnect probe](docs/evidence/TL-001A-ENGINE-DECISION-MAP.md)
 - [TL-001A synthetic running-engine reconciliation](docs/evidence/TL-001A-LEAN-RUNNING-RECONCILIATION.md)
 - [TL-001A synthetic H1 strategy and risk parity](docs/evidence/TL-001A-LEAN-H1-RISK-PARITY.md)
@@ -131,4 +132,4 @@ Keep these real-data-derived CSVs local. This prepares the reader's file format;
 
 ## Next research gates
 
-TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open for an on-time forward source; OKX monthly/daily archives are selected for local historical research only. TL-002 has a bounded synthetic H1 policy proposal, LEAN local report, partial/cancel restart, atomic report-to-next-exit handoff, costed synthetic liquidity checks, trial metrics, and a private registered development runner. External broker finality and validation/untouched evaluation remain open.
+TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open for an on-time forward source; OKX monthly/daily archives are selected for local historical research only. TL-002 has a bounded synthetic H1 policy proposal, LEAN local report, partial/cancel restart, atomic report-to-next-exit handoff, costed synthetic liquidity checks, trial metrics, and a private registered development runner. The local development attempt passed an independent private accounting and decision review; the one registered validation partition is prepared as a guarded runner. External broker finality and untouched evaluation remain open.

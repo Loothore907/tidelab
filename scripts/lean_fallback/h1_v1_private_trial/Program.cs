@@ -1,4 +1,4 @@
-// Private H1 development replay. Input and results remain under ignored data/.
+// Private H1 development/validation replay. Input and results remain under ignored data/.
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
@@ -115,22 +115,28 @@ Require(id.GetProperty("data").GetProperty("source_id").GetString() ==
     manifest.GetProperty("terms_reviewed_utc_date").GetString() ==
     DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
     "Selected OKX source or current personal-use terms review differs");
-Require(manifest.GetProperty("phase").GetString() == "development" &&
-    fixture.GetProperty("phase").GetString() == "development" &&
+var phase = fixture.GetProperty("phase").GetString();
+Require((phase == "development" || phase == "validation") &&
+    manifest.GetProperty("phase").GetString() == phase &&
     id.GetProperty("trial").GetProperty("trial_id").GetString() ==
-    "h1-v1-okx-btc-usdt-development", "Only the registered development phase is available");
+    $"h1-v1-okx-btc-usdt-{phase}", "Only registered development or validation is available");
 var scoreStart = Utc(fixture.GetProperty("score_start_utc").GetString());
 var scoreEnd = Utc(fixture.GetProperty("score_end_utc").GetString());
-Require(scoreStart == new DateTime(2023, 7, 7, 16, 0, 0, DateTimeKind.Utc) &&
-    scoreEnd == new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-    "H1 development partition differs from preregistration");
+var expectedStart = phase == "development" ?
+    new DateTime(2023, 7, 7, 16, 0, 0, DateTimeKind.Utc) :
+    new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+var expectedEnd = phase == "development" ?
+    new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc) :
+    new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+Require(scoreStart == expectedStart && scoreEnd == expectedEnd,
+    "H1 scored partition differs from preregistration");
 var bars = fixture.GetProperty("bars").EnumerateArray().Select(item =>
     new TideLabH1V1Bar(Utc(item.GetProperty("start_utc").GetString()),
         Number(item.GetProperty("open").GetString()),
         Number(item.GetProperty("close").GetString()),
         item.GetProperty("closed").GetBoolean())).ToArray();
 Require(bars.Length == 168 + (int)(scoreEnd - scoreStart).TotalHours + 1,
-    "H1 development input length differs");
+    "H1 scored input length differs");
 
 static TideLabH1V1ReplayResult ReplayTwice(TideLabH1V1Bar[] bars,
     DateTime start, DateTime end, TideLabH1V1Cost cost)
@@ -153,7 +159,7 @@ var stressMetrics = TideLabH1V1TrialAccounting.Analyze(bars, scoreStart,
 var options = new JsonSerializerOptions();
 options.Converters.Add(new JsonStringEnumConverter());
 var result = JsonSerializer.SerializeToUtf8Bytes(new {
-    schema_version = 1, phase = "development",
+    schema_version = 1, phase,
     identity_sha256 = id.GetProperty("identity_sha256").GetString(),
     input_sha256 = Hash(inputBytes), score_start_utc = scoreStart,
     score_end_utc = scoreEnd, base_replay = baseReplay,
@@ -163,4 +169,4 @@ var result = JsonSerializer.SerializeToUtf8Bytes(new {
 Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 using (var output = new FileStream(outputPath, FileMode.CreateNew, FileAccess.Write))
     output.Write(result);
-Console.WriteLine($"H1_PRIVATE_DEVELOPMENT status=complete result_sha256={Hash(result)}");
+Console.WriteLine($"H1_PRIVATE_{phase!.ToUpperInvariant()} status=complete result_sha256={Hash(result)}");
