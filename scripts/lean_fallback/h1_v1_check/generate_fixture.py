@@ -17,7 +17,8 @@ def main(destination: Path) -> None:
         # date, while each line retains its UTC bar start.
         local_day = start.astimezone(ZoneInfo("America/New_York"))
         days.setdefault(local_day.strftime("%Y%m%d"), []).append(
-            f"{start:%Y-%m-%d %H:%M:%S},{close}\n"
+            f"{start:%Y-%m-%d %H:%M:%S},{close},"
+            f"{closes[offset - 1] if offset else 100}\n"
         )
     for day, lines in days.items():
         (destination / f"{day}.csv").write_text("".join(lines), encoding="ascii")

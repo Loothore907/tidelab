@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../TideLabH1V1Policy.cs" Link="TideLabH1V1Policy.cs" />
+    <Compile Include="../TideLabH1V1ResearchReplay.cs" Link="TideLabH1V1ResearchReplay.cs" />
   </ItemGroup>
 </Project>

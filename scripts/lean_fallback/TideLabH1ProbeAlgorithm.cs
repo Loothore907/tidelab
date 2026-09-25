@@ -15,6 +15,7 @@ namespace QuantConnect.Algorithm.CSharp
         private readonly TideLabH1V1Policy _v1 = new TideLabH1V1Policy();
         private readonly List<string> _decisions = new List<string>();
         private readonly List<string> _utcTimes = new List<string>();
+        private readonly List<TideLabH1V1Bar> _v1Bars = new List<TideLabH1V1Bar>();
         private int _count;
         private bool _v1IsLong;
 
@@ -34,6 +35,13 @@ namespace QuantConnect.Algorithm.CSharp
             if (!slice.ContainsKey(_symbol)) return;
             _count++;
             _utcTimes.Add(UtcTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture));
+            if (Environment.GetEnvironmentVariable("TL_H1_V1_ACCOUNTING") == "1")
+            {
+                var bar = (TideLabH1Bar)slice[_symbol];
+                _v1Bars.Add(new TideLabH1V1Bar(UtcTime.AddHours(-1),
+                    bar.Open, bar.Value, true));
+                return;
+            }
             if (Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1")
             {
                 var v1Equity = Environment.GetEnvironmentVariable("TL_H1_V1_DRAWDOWN") == "1" &&
@@ -59,6 +67,22 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override void OnEndOfAlgorithm()
         {
+            if (Environment.GetEnvironmentVariable("TL_H1_V1_ACCOUNTING") == "1")
+            {
+                var scoreStart = new DateTime(2026, 1, 8, 5, 0, 0, DateTimeKind.Utc);
+                var scoreEnd = scoreStart.AddHours(2);
+                var baseline = TideLabH1V1ResearchReplay.Run(_v1Bars,
+                    scoreStart, scoreEnd, TideLabH1V1Cost.Base);
+                var stress = TideLabH1V1ResearchReplay.Run(_v1Bars,
+                    scoreStart, scoreEnd, TideLabH1V1Cost.Stress);
+                if (_count != 171 || baseline.Fills.Count != 2 ||
+                    baseline.Decisions.Count != 2 || baseline.Units != 0m ||
+                    stress.Fills.Count != 2 || stress.Units != 0m ||
+                    stress.Cash >= baseline.Cash)
+                    throw new Exception("H1 v1 historical accounting differs");
+                Log($"H1V1_ACCOUNTING clock=historical bars={_count} cash={baseline.Cash.ToString(CultureInfo.InvariantCulture)} fees={baseline.TotalFees.ToString(CultureInfo.InvariantCulture)} stress_cash={stress.Cash.ToString(CultureInfo.InvariantCulture)} fills=2 orders=0");
+                return;
+            }
             if (Environment.GetEnvironmentVariable("TL_H1_V1_PROBE") == "1")
             {
                 var drawdown = Environment.GetEnvironmentVariable("TL_H1_V1_DRAWDOWN") == "1";
@@ -90,6 +114,7 @@ namespace QuantConnect.Algorithm.CSharp
 
     public class TideLabH1Bar : BaseData
     {
+        public decimal Open { get; set; }
         public override DateTime EndTime
         {
             get => Time.AddHours(1);
@@ -108,6 +133,7 @@ namespace QuantConnect.Algorithm.CSharp
             DateTime date, bool isLiveMode)
         {
             var fields = line.Split(',');
+            var close = decimal.Parse(fields[1], CultureInfo.InvariantCulture);
             return new TideLabH1Bar
             {
                 Symbol = config.Symbol,
@@ -115,7 +141,9 @@ namespace QuantConnect.Algorithm.CSharp
                 // Convert the fixture's UTC bar start into that local clock first.
                 Time = DateTime.ParseExact(fields[0], "yyyy-MM-dd HH:mm:ss",
                     CultureInfo.InvariantCulture).ConvertFromUtc(TimeZones.NewYork),
-                Value = decimal.Parse(fields[1], CultureInfo.InvariantCulture)
+                Value = close,
+                Open = fields.Length > 2 ?
+                    decimal.Parse(fields[2], CultureInfo.InvariantCulture) : close
             };
         }
     }
