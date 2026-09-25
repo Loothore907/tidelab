@@ -16,6 +16,16 @@ from tidelab.h1_paper_bridge import H1SyntheticPaperBridge  # noqa: E402
 from tidelab.paper_intent import PaperProductRules  # noqa: E402
 
 
+def complete_report(path: Path) -> str:
+    candidate = path.with_name(path.name + ".next")
+    if candidate.exists():
+        raise RuntimeError("torn H1 report candidate; hold")
+    payload = path.read_text(encoding="utf-8")
+    if candidate.exists():
+        raise RuntimeError("torn H1 report candidate; hold")
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("prepare", "claim", "reconcile",
@@ -45,15 +55,15 @@ def main() -> int:
             raise RuntimeError("H1 intent is not claimable")
         print("claimed")
     elif args.action == "reconcile":
-        print(join.reconcile(payload, args.report.read_text(encoding="utf-8")))
+        print(join.reconcile(payload, complete_report(args.report)))
     elif args.action == "revision":
-        report = json.loads(args.report.read_text(encoding="utf-8"),
+        report = json.loads(complete_report(args.report),
                             parse_float=Decimal)
         print("h1-report-v1:" + _digest(report))
     elif args.action == "handoff":
         if args.next_proposal is None:
             parser.error("handoff requires next_proposal")
-        print(join.handoff(payload, args.report.read_text(encoding="utf-8"),
+        print(join.handoff(payload, complete_report(args.report),
                            args.next_proposal.read_text(encoding="utf-8"), rules))
     else:
         print(bridge.intents.state(proposal["ClientId"]))
