@@ -12,7 +12,7 @@ from tidelab.lean_hourly_export import export_lean_hourly_closes
 from tidelab.storage import TideStore
 
 
-START = datetime(2026, 1, 1, 23, tzinfo=timezone.utc)
+START = datetime(2026, 1, 2, 4, tzinfo=timezone.utc)
 SOURCE = "fixture.hourly"
 
 
@@ -27,7 +27,7 @@ def _event(hour: int, *, key: str | None = None) -> MarketEvent:
     )
 
 
-def test_export_uses_utc_day_files_and_exact_closed_hourly_source(tmp_path: Path) -> None:
+def test_export_uses_lean_subscription_day_files_and_exact_closed_hourly_source(tmp_path: Path) -> None:
     store = TideStore(tmp_path / "bars.sqlite3")
     store.initialize()
     store.insert_events([_event(0), _event(1), _event(2)])
@@ -38,8 +38,8 @@ def test_export_uses_utc_day_files_and_exact_closed_hourly_source(tmp_path: Path
     )
     first = (output / "20260101.csv").read_text(encoding="utf-8")
     second = (output / "20260102.csv").read_text(encoding="utf-8")
-    assert first == "2026-01-01 23:00:00,100\n"
-    assert second == "2026-01-02 00:00:00,101\n2026-01-02 01:00:00,102\n"
+    assert first == "2026-01-02 04:00:00,100\n"
+    assert second == "2026-01-02 05:00:00,101\n2026-01-02 06:00:00,102\n"
     assert (result.bars, result.daily_files) == (3, 2)
     assert result.content_sha256 == sha256((first + second).encode()).hexdigest()
     with pytest.raises(FileExistsError):
@@ -66,7 +66,7 @@ def test_gap_and_duplicate_fail_before_writing(tmp_path: Path) -> None:
     assert main([
         "export-lean-h1", "--database", str(store.path), "--venue", "fixture",
         "--instrument", "fixture:BTC-USDT", "--source", SOURCE,
-        "--start", "2026-01-01T23:00:00Z", "--end", "2026-01-02T02:00:00Z",
+        "--start", "2026-01-02T04:00:00Z", "--end", "2026-01-02T07:00:00Z",
         "--output", str(duplicate_output),
     ]) == 2
     assert not duplicate_output.exists()

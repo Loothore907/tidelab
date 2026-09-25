@@ -112,7 +112,7 @@ Download an older BTC-USDT spot candlestick ZIP from the [official OKX historica
 
 The importer requires complete minute coverage, builds UTC hourly bars, skips identical duplicate rows, and stops if an archive changes a stored bar. Downloaded ZIPs and the database remain ignored local files. OKX releases the archive after a delay, so it cannot supply on-time forward paper decisions. See the [source and rights decision](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md) before using or sharing derived material.
 
-To prepare a bounded local signal-input file for LEAN's existing `TideLabH1Bar` custom reader, export exact-source closed hourly bars. The command requires every hour in the selected UTC interval and writes a new directory of daily two-column CSVs under ignored `data/`. Its close-only format can check signal delivery; it cannot model fills, spread, fees, or the complete H1 v1 rule.
+To prepare a bounded local signal-input file for LEAN's existing `TideLabH1Bar` custom reader, export exact-source closed hourly bars. The command requires every hour in the selected UTC interval and writes a new directory of two-column CSVs under ignored `data/`. Row timestamps are UTC; filenames follow LEAN's New York subscription date. An export made before this correction must be regenerated for LEAN. Its close-only format can check signal delivery; it cannot model fills, spread, or fees.
 
 ```powershell
 .\.venv\Scripts\python.exe -m tidelab export-lean-h1 `

@@ -12,6 +12,7 @@ from decimal import Decimal
 from hashlib import sha256
 import json
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from tidelab.domain import decimal_text, isoformat_utc, parse_utc
 from tidelab.storage import TideStore
@@ -45,9 +46,11 @@ def export_lean_hourly_closes(
     store: TideStore, *, venue: str, instrument_id: str, source: str,
     start: datetime, end: datetime, output_dir: str | Path,
 ) -> LeanHourlyExport:
-    """Write UTC daily CSVs only after a full, single-source coverage check.
+    """Write LEAN subscription-date CSVs after a full coverage check.
 
-    The two-column rows match the existing LEAN TideLabH1Bar custom reader.
+    Rows retain UTC timestamps, but file names use New York dates because the
+    existing TideLabH1Bar subscription requests files in that time zone.
+    The two-column rows match that reader.
     They contain close prices only, so they cannot support fill or cost claims.
     """
     start = _exact_utc_hour(start, "start")
@@ -88,7 +91,10 @@ def export_lean_hourly_closes(
         if Decimal(close) <= 0:
             raise ValueError("hourly close must be positive")
         line = f"{when:%Y-%m-%d %H:%M:%S},{close}\n"
-        daily.setdefault(when.strftime("%Y%m%d"), []).append(line)
+        subscription_day = when.astimezone(
+            ZoneInfo("America/New_York")
+        ).strftime("%Y%m%d")
+        daily.setdefault(subscription_day, []).append(line)
         digest.update(line.encode("utf-8"))
 
     destination.mkdir(parents=True, exist_ok=False)
