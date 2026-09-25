@@ -14,6 +14,7 @@ from tidelab.okx_archive import import_okx_archive
 from tidelab.service import refresh_product, sync_closed_bars
 from tidelab.storage import TideStore
 from tidelab.stream import capture_public_stream_sync
+from tidelab.universe_coverage import audit_universe_coverage
 
 
 def _json_print(value: Any) -> None:
@@ -65,6 +66,10 @@ def build_parser() -> argparse.ArgumentParser:
     lean_parser.add_argument("--output", required=True, help="new ignored local directory for daily CSV files")
     _add_bounds(lean_parser)
 
+    universe_parser = subparsers.add_parser("audit-universe-coverage", help="audit a fixed universe's local exact-source hourly coverage")
+    universe_parser.add_argument("--database", required=True, help="existing local SQLite path")
+    universe_parser.add_argument("--plan", required=True, help="versioned universe plan JSON")
+
     sync_parser = subparsers.add_parser("sync", help="synchronize closed hourly bars")
     _add_bounds(sync_parser)
 
@@ -92,6 +97,9 @@ def run(args: argparse.Namespace) -> int:
             source=args.source, start=args.start, end=args.end, output_dir=args.output,
         )
         _json_print(result.as_dict())
+        return 0
+    if args.command == "audit-universe-coverage":
+        _json_print(audit_universe_coverage(args.database, args.plan))
         return 0
     config, store, client = _runtime(args.config)
     if args.command == "init":
