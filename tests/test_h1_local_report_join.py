@@ -75,19 +75,19 @@ def test_partial_cancel_restart_and_next_intent_gate(tmp_path: Path) -> None:
     assert "executions=1" in join.reconcile(payload, json.dumps(partial))
     restarted = H1LocalReportJoin(bridge.intents.path)
     assert "executions=1" in restarted.reconcile(payload, json.dumps(partial))
-    with pytest.raises(RuntimeError, match="not closed"):
-        restarted.resolve_closed(proposal["ClientId"], 2)
     later = _proposal(OPEN + timedelta(hours=1))
     with pytest.raises(RuntimeError, match="unresolved"):
         bridge.prepare(json.dumps(later), observed_at=OPEN + timedelta(hours=1),
                        source_revision="account-rev-1", rules=RULES)
     canceled = _report(proposal, 3, "Canceled", [_fill()], "9009.9", "10")
     restarted.reconcile(payload, json.dumps(canceled))
-    assert restarted.resolve_closed(proposal["ClientId"], 3)
-    assert restarted.resolve_closed(proposal["ClientId"], 3) is False
-    assert bridge.intents.state(proposal["ClientId"]) == "resolved"
-    bridge.prepare(json.dumps(later), observed_at=OPEN + timedelta(hours=1),
-                   source_revision="account-rev-1", rules=RULES)
+    assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
+    with pytest.raises(RuntimeError, match="unresolved"):
+        bridge.prepare(json.dumps(later), observed_at=OPEN + timedelta(hours=1),
+                       source_revision="account-rev-1", rules=RULES)
+    changed_after_close = _report(proposal, 4, "Canceled", [_fill()], "9009.9", "10")
+    with pytest.raises(RuntimeError, match="closed"):
+        restarted.reconcile(payload, json.dumps(changed_after_close))
     with sqlite3.connect(bridge.intents.path) as db:
         assert db.execute("SELECT COUNT(*) FROM h1_local_executions").fetchone()[0] == 1
 
@@ -131,8 +131,7 @@ def test_sell_account_and_report_identity_must_match(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="account"):
         join.reconcile(payload, json.dumps(wrong))
     assert "status=Filled" in join.reconcile(payload, json.dumps(filled))
-    assert join.resolve_closed(proposal["ClientId"], 1)
-    assert bridge.intents.state(proposal["ClientId"]) == "resolved"
+    assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
 
 
 def test_two_partial_executions_close_only_at_exact_quantity(tmp_path: Path) -> None:
@@ -144,10 +143,10 @@ def test_two_partial_executions_close_only_at_exact_quantity(tmp_path: Path) -> 
     second_fill = dict(ExecutionId="EX-2", Quantity="15", Price="98", Fee="0.15")
     final = _report(proposal, 2, "Filled", [_fill(), second_fill], "7539.75", "25")
     assert "executions=2" in join.reconcile(payload, json.dumps(final))
-    assert join.resolve_closed(proposal["ClientId"], 2)
     assert "executions=2" in join.reconcile(payload, json.dumps(final))
     later = _report(proposal, 3, "Filled", [_fill(), second_fill], "7539.75", "25")
-    with pytest.raises(RuntimeError, match="resolved"):
+    with pytest.raises(RuntimeError, match="closed"):
         join.reconcile(payload, json.dumps(later))
+    assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
     with sqlite3.connect(bridge.intents.path) as db:
         assert db.execute("SELECT COUNT(*) FROM h1_local_executions").fetchone()[0] == 2

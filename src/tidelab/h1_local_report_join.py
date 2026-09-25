@@ -163,31 +163,3 @@ class H1LocalReportJoin:
                 db.rollback()
                 raise
         return f"hold revision={revision} status={status} executions={len(entries)}"
-
-    def resolve_closed(self, client_id: str, revision: int) -> bool:
-        """Release only a final synthetic report explicitly accepted by its owner."""
-        with closing(self.intents._connect()) as db:
-            db.execute("BEGIN IMMEDIATE")
-            try:
-                order = db.execute("SELECT * FROM h1_local_orders WHERE client_id=?",
-                                   (client_id,)).fetchone()
-                intent = db.execute("SELECT source_revision FROM paper_intents WHERE client_id=?",
-                                    (client_id,)).fetchone()
-                if (order is None or intent is None or order["revision"] != revision or
-                        order["status"] not in ("Filled", "Canceled")):
-                    raise RuntimeError("H1 order is not closed and reconciled")
-                existing = db.execute("SELECT * FROM paper_intent_resolutions WHERE client_id=?",
-                                      (client_id,)).fetchone()
-                if existing is not None:
-                    if (existing["source_revision"], existing["final_report_revision"]) != (
-                            intent["source_revision"], revision):
-                        raise RuntimeError("H1 resolution changed")
-                    db.commit()
-                    return False
-                db.execute("INSERT INTO paper_intent_resolutions VALUES (?, ?, ?)",
-                           (client_id, intent["source_revision"], revision))
-                db.commit()
-                return True
-            except BaseException:
-                db.rollback()
-                raise
