@@ -326,3 +326,81 @@ def test_late_snapshot_change_after_claim_blocks_future_authority(tmp_path: Path
     with pytest.raises(RuntimeError, match="durable evidence hold"):
         bridge.intents.prepare(PaperIntent("future", RULES.instrument_id,
             "buy", "1", "100", "future-rev"), RULES)
+
+
+def _fifty_one_fills() -> list[dict]:
+    """Invented fills: the last 50 omit one execution needed for reconciliation."""
+    return [dict(ExecutionId=f"EX-{index:02d}", Quantity="0.1", Price="99", Fee="0")
+            for index in range(50)] + [
+                dict(ExecutionId="EX-50", Quantity="5", Price="99", Fee="0")]
+
+
+def _next_exit(terminal: dict, next_open: datetime) -> dict:
+    return _proposal(next_open, side="sell") | {
+        "SourceRevision": "h1-report-v1:" + _digest(terminal),
+        "Quantity": "10", "LimitPrice": "98", "Cash": "9010",
+        "Units": "10", "Equity": "9990"}
+
+
+def test_split_source_reconnect_gap_and_independent_sequences_hold(tmp_path: Path) -> None:
+    """A bounded trade snapshot and independent channel sequences cannot mint a cursor."""
+    proposal = _proposal()
+    bridge, join = _setup(tmp_path, proposal)
+    fills = _fifty_one_fills()
+    terminal = _report(proposal, 1, "Canceled", fills, "9010", "10")
+
+    # The invented reconnect snapshot contains only the latest 50 fills. The
+    # balance already includes all 51, so it cannot reconcile as a full report.
+    missing_fill = terminal | {"Executions": fills[1:]}
+    with pytest.raises(ValueError, match="fill or account mismatch"):
+        join.reconcile(json.dumps(proposal), json.dumps(missing_fill))
+    with sqlite3.connect(bridge.intents.path) as db:
+        assert db.execute("SELECT COUNT(*) FROM h1_local_executions").fetchone()[0] == 0
+
+    # A separate history backfill can supply all invented fills, but it does
+    # not give balance, orders and executions one common source revision.
+    join.reconcile(json.dumps(proposal), json.dumps(terminal))
+    next_open = OPEN + timedelta(hours=1)
+    following = _next_exit(terminal, next_open)
+    split = _snapshot(terminal, next_open) | {
+        "AccountRevision": "balance-sequence-12",
+        "OrdersRevision": "orders-sequence-7",
+        "ExecutionsRevision": "executions-sequence-52"}
+    split_json = json.dumps(split)
+    with pytest.raises(ValueError, match="consistent terminal"):
+        join.handoff(json.dumps(proposal), json.dumps(terminal),
+            json.dumps(following), RULES, snapshot_before_json=split_json,
+            snapshot_after_json=split_json)
+    assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
+    assert bridge.intents.state(following["ClientId"]) is None
+    with sqlite3.connect(bridge.intents.path) as db:
+        assert db.execute("SELECT COUNT(*) FROM paper_intent_resolutions").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM paper_authority_holds").fetchone()[0] == 0
+
+
+def test_many_fill_late_correction_latches_hold_before_route(tmp_path: Path) -> None:
+    """Even an idealized accepted handoff cannot release a later correction."""
+    proposal = _proposal()
+    bridge, join = _setup(tmp_path, proposal)
+    fills = _fifty_one_fills()
+    terminal = _report(proposal, 1, "Canceled", fills, "9010", "10")
+    join.reconcile(json.dumps(proposal), json.dumps(terminal))
+    next_open = OPEN + timedelta(hours=1)
+    following = _next_exit(terminal, next_open)
+    snapshot = json.dumps(_snapshot(terminal, next_open))
+    join.handoff(json.dumps(proposal), json.dumps(terminal), json.dumps(following),
+        RULES, snapshot_before_json=snapshot, snapshot_after_json=snapshot)
+
+    corrected_fills = fills[:-1] + [fills[-1] | {"Price": "98"}]
+    corrected = _report(proposal, 2, "Canceled", corrected_fills, "9015", "10")
+    with pytest.raises(RuntimeError, match="late H1 report correction"):
+        H1LocalReportJoin(bridge.intents.path).claim_after_handoff(
+            json.dumps(following), json.dumps(corrected), snapshot, snapshot, RULES)
+    assert bridge.intents.state(following["ClientId"]) == "prepared"
+    with sqlite3.connect(bridge.intents.path) as db:
+        hold = db.execute("SELECT reason FROM paper_authority_holds").fetchone()
+        assert hold[0] == "late_h1_report_change"
+        assert db.execute("SELECT COUNT(*) FROM h1_local_executions").fetchone()[0] == 51
+    with pytest.raises(RuntimeError, match="durable evidence hold"):
+        H1LocalReportJoin(bridge.intents.path).claim_after_handoff(
+            json.dumps(following), json.dumps(terminal), snapshot, snapshot, RULES)
