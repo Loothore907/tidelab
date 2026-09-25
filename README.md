@@ -47,6 +47,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001B data-rights preflight](docs/evidence/TL-001B-DATA-RIGHTS-PREFLIGHT.md)
 - [TL-001B free and paid data options](docs/evidence/TL-001B-DATA-OPTIONS-20260924.md)
 - [TL-001B selected OKX historical source and delayed-feed limit](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md)
+- [TL-001B bounded cross-market source screen](docs/evidence/TL-001B-OKX-CROSS-MARKET-SCREEN-20260924.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
