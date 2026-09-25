@@ -29,7 +29,7 @@ try
         "managed_feed" or "managed_feed_submit_seed" or
         "managed_manager_submit_seed" or "managed_h1_baseline" or
         "managed_h1_drawdown" or "managed_h1_v1_baseline" or
-        "managed_h1_v1_drawdown")
+        "managed_h1_v1_drawdown" or "managed_h1_v1_accounting")
     {
         new TideLabManagedFeedProbe().LiveFeedEmitsThreeSyntheticHourlyBars();
     }

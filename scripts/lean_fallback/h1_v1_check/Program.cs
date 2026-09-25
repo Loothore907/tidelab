@@ -99,3 +99,5 @@ foreach (var badHour in new[] { firstClose, firstClose.AddHours(2) })
 Console.WriteLine("H1V1_SYNTHETIC_DECISIONS bars=171 warmup=168 parity=pass " +
     "strict_threshold=pass next_open=pass drawdown=pass exposure=pass " +
     "reset=pass continuity=pass orders=0");
+
+H1V1ReplayChecks.Run();

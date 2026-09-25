@@ -1,6 +1,7 @@
 // TideLab-authored synthetic LEAN live data-feed probe. Copy into Lean/Tests/Engine/DataFeeds/.
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -75,6 +76,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             public string H1Scenario;
             public string H1V1Scenario;
             public readonly List<string> H1Decisions = new List<string>();
+            public readonly List<TideLabH1V1Bar> H1V1Bars = new List<TideLabH1V1Bar>();
             private readonly TideLabSyntheticSignal _signal = new TideLabSyntheticSignal();
             private readonly TideLabH1Skeleton _h1 = new TideLabH1Skeleton();
             private readonly TideLabH1V1Policy _h1v1 = new TideLabH1V1Policy();
@@ -85,6 +87,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 {
                     var decision = _h1v1.OnClosedHour(finalWarmupCloseUtc.AddHours(-i),
                         100m, false, 10000m, 0m);
+                    H1V1Bars.Add(new TideLabH1V1Bar(
+                        finalWarmupCloseUtc.AddHours(-i - 1), 100m, 100m, true));
                     if (decision.Intent != TideLabH1V1Intent.Hold)
                         throw new InvalidOperationException("Warmup emitted a decision");
                 }
@@ -97,6 +101,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 TimesUtc.Add(UtcTime);
                 if (H1V1Scenario != null)
                 {
+                    H1V1Bars.Add(new TideLabH1V1Bar(UtcTime.AddHours(-1),
+                        bar.Open, bar.Close, true));
                     var equity = H1V1Scenario == "drawdown" && Closes.Count >= 2 ?
                         8000m : 10000m;
                     var decision = _h1v1.OnClosedHour(UtcTime, bar.Close,
@@ -138,7 +144,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             var h1Scenario = phase == "managed_h1_drawdown" ? "drawdown" :
                 phase == "managed_h1_baseline" ? "baseline" : null;
             var h1v1Scenario = phase == "managed_h1_v1_drawdown" ? "drawdown" :
-                phase == "managed_h1_v1_baseline" ? "baseline" : null;
+                phase == "managed_h1_v1_baseline" ? "baseline" :
+                phase == "managed_h1_v1_accounting" ? "accounting" : null;
             var targetCount = h1v1Scenario != null ? 3 : h1Scenario == null ? 3 : 4;
             var managedDispatch = phase == "managed_manager_submit_seed" ||
                 h1Scenario != null || h1v1Scenario != null;
@@ -163,10 +170,16 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 DataPerSymbol = new Dictionary<Symbol, List<BaseData>>
                 {
                     [symbol] = syntheticCloses
-                        .Select((close, index) => (BaseData)new TradeBar(
-                            start.AddHours(index).ConvertFromUtc(TimeZones.NewYork),
-                            symbol, close, close, close, close,
-                            1m, TimeSpan.FromHours(1)))
+                        .Select((close, index) =>
+                        {
+                            var open = h1v1Scenario == null ? close :
+                                index == 0 ? 100m : index == 1 ? 102m : 98m;
+                            return (BaseData)new TradeBar(
+                                start.AddHours(index).ConvertFromUtc(TimeZones.NewYork),
+                                symbol, open, Math.Max(open, close),
+                                Math.Min(open, close), close,
+                                1m, TimeSpan.FromHours(1));
+                        })
                         .ToList()
                 }
             };
@@ -279,6 +292,23 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     targetCount).Select(i => start.AddHours(i))));
                 if (h1v1Scenario != null)
                 {
+                    if (h1v1Scenario == "accounting")
+                    {
+                        var baseline = TideLabH1V1ResearchReplay.Run(
+                            algorithm.H1V1Bars, start, start.AddHours(2),
+                            TideLabH1V1Cost.Base);
+                        var stress = TideLabH1V1ResearchReplay.Run(
+                            algorithm.H1V1Bars, start, start.AddHours(2),
+                            TideLabH1V1Cost.Stress);
+                        Assert.That(baseline.Fills.Count, Is.EqualTo(2));
+                        Assert.That(baseline.Units, Is.EqualTo(0m));
+                        Assert.That(stress.Fills.Count, Is.EqualTo(2));
+                        Assert.That(stress.Units, Is.EqualTo(0m));
+                        Assert.That(stress.Cash, Is.LessThan(baseline.Cash));
+                        brokerage.Verify(x => x.PlaceOrder(It.IsAny<Order>()), Times.Never);
+                        Console.WriteLine($"H1V1_ACCOUNTING clock=forward warmup=168 feed_bars={targetCount} cash={baseline.Cash.ToString(CultureInfo.InvariantCulture)} fees={baseline.TotalFees.ToString(CultureInfo.InvariantCulture)} stress_cash={stress.Cash.ToString(CultureInfo.InvariantCulture)} fills=2 orders=0");
+                        return;
+                    }
                     var actual = string.Join("|", algorithm.H1Decisions);
                     var expected = h1v1Scenario == "drawdown" ?
                         "169:EnterLong:Clear|170:ExitToCash:DrawdownHalt" :

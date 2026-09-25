@@ -10,12 +10,13 @@ test "$(git -C "$lean_root" rev-parse HEAD)" = \
 
 cp "$source_dir/TideLabH1Skeleton.cs" \
   "$source_dir/TideLabH1V1Policy.cs" \
+  "$source_dir/TideLabH1V1ResearchReplay.cs" \
   "$source_dir/TideLabH1ProbeAlgorithm.cs" \
   "$lean_root/Algorithm.CSharp/"
 mkdir -p "$lean_root/Data/tidelab_h1"
 cp "$source_dir/fixtures/h1_20260101.csv" \
   "$lean_root/Data/tidelab_h1/20260101.csv"
-if [[ ${TL_H1_V1_ONLY:-0} == 1 ]]; then
+if [[ ${TL_H1_V1_ONLY:-0} == 1 || ${TL_H1_V1_ACCOUNTING_ONLY:-0} == 1 ]]; then
   python3 "$source_dir/h1_v1_check/generate_fixture.py" \
     "$lean_root/Data/tidelab_h1_v1"
 fi
@@ -33,6 +34,23 @@ sed -E -i 's/("algorithm-type-name": ")[^"]+(".*)/\1TideLabH1ProbeAlgorithm\2/' 
 grep -q '"algorithm-type-name": "TideLabH1ProbeAlgorithm"' "$config"
 
 cd "$release_dir"
+if [[ ${TL_H1_V1_ACCOUNTING_ONLY:-0} == 1 ]]; then
+  TL_H1_V1_PROBE=1 TL_H1_V1_ACCOUNTING=1 \
+    "$dotnet_bin" QuantConnect.Lean.Launcher.dll \
+    >"$report_dir/accounting.log" 2>&1 || {
+      grep -Ei 'H1V1_|ERROR::|EXCEPTION|Exception|runtime error' \
+        "$report_dir/accounting.log" | tail -n 40 >&2 || true
+      exit 1
+    }
+  marker=$(grep 'H1V1_ACCOUNTING clock=historical' \
+    "$report_dir/accounting.log" | tail -n 1 || true)
+  [[ -n "$marker" ]] || {
+    tail -n 40 "$report_dir/accounting.log" >&2
+    exit 1
+  }
+  echo "$marker"
+  exit 0
+fi
 if [[ ${TL_H1_V1_ONLY:-0} == 1 ]]; then
   for scenario in baseline drawdown; do
     drawdown=0
