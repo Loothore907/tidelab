@@ -10,7 +10,7 @@ import sqlite3
 
 import pytest
 
-from tidelab.h1_local_report_join import H1LocalReportJoin
+from tidelab.h1_local_report_join import H1LocalReportJoin, _digest
 from tidelab.h1_paper_bridge import H1SyntheticPaperBridge
 from tidelab.paper_intent import PaperProductRules
 
@@ -150,3 +150,42 @@ def test_two_partial_executions_close_only_at_exact_quantity(tmp_path: Path) -> 
     assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
     with sqlite3.connect(bridge.intents.path) as db:
         assert db.execute("SELECT COUNT(*) FROM h1_local_executions").fetchone()[0] == 2
+
+
+def test_terminal_report_handoff_prepares_next_exit_atomically(tmp_path: Path) -> None:
+    proposal = _proposal()
+    bridge, join = _setup(tmp_path, proposal)
+    payload = json.dumps(proposal)
+    join.reconcile(payload, json.dumps(_report(proposal, 1, "Submitted", [], "10000", "0")))
+    join.reconcile(payload, json.dumps(_report(proposal, 2, "PartiallyFilled",
+                                            [_fill()], "9009.9", "10")))
+    terminal = _report(proposal, 3, "Canceled", [_fill()], "9009.9", "10")
+    next_open = OPEN + timedelta(hours=1)
+    following = _proposal(next_open, side="sell") | {
+        "SourceRevision": "h1-report-v1:" + _digest(terminal),
+        "Quantity": "10", "LimitPrice": "98", "Cash": "9009.9",
+        "Units": "10", "Equity": "9989.9"}
+    next_payload = json.dumps(following)
+    with pytest.raises(RuntimeError, match="terminal"):
+        join.handoff(payload, json.dumps(_report(proposal, 2, "PartiallyFilled",
+                                              [_fill()], "9009.9", "10")),
+                     next_payload, RULES)
+    with pytest.raises(ValueError, match="report/account handoff"):
+        join.handoff(payload, json.dumps(terminal),
+                     json.dumps(following | {"Cash": "9009.8"}), RULES)
+    assert bridge.intents.state(proposal["ClientId"]) == "submission_unknown"
+    assert "quantity=10" in join.handoff(payload, json.dumps(terminal),
+                                         next_payload, RULES)
+    assert "replay" in join.handoff(payload, json.dumps(terminal),
+                                   next_payload, RULES)
+    assert bridge.intents.state(proposal["ClientId"]) == "resolved"
+    assert bridge.intents.state(following["ClientId"]) == "prepared"
+    assert bridge.claim_once(following["ClientId"], observed_at=next_open,
+                             opening_utc=next_open,
+                             source_revision=following["SourceRevision"], rules=RULES)
+    assert not bridge.claim_once(following["ClientId"], observed_at=next_open,
+                                 opening_utc=next_open,
+                                 source_revision=following["SourceRevision"], rules=RULES)
+    with sqlite3.connect(bridge.intents.path) as db:
+        assert db.execute("SELECT COUNT(*) FROM paper_intent_resolutions").fetchone()[0] == 1
+        assert db.execute("SELECT COUNT(*) FROM paper_intents").fetchone()[0] == 2

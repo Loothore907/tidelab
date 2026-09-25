@@ -57,6 +57,32 @@ class H1SyntheticPaperBridge:
 
     def prepare(self, proposal_json: str, *, observed_at: datetime,
                 source_revision: str, rules: PaperProductRules) -> PaperIntent:
+        intent, opening, digest = self.validate(proposal_json,
+            observed_at=observed_at, source_revision=source_revision, rules=rules)
+        self.intents.prepare(intent, rules)
+        with closing(self.intents._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                db.execute("""INSERT OR IGNORE INTO h1_paper_proposals
+                    VALUES (?, ?, ?, ?, ?)""",
+                    (intent.client_id, opening.isoformat(), source_revision,
+                     rules.identity, digest))
+                stored = db.execute("SELECT * FROM h1_paper_proposals WHERE client_id=?",
+                                    (intent.client_id,)).fetchone()
+                if (stored["opening_utc"], stored["source_revision"],
+                    stored["rules_identity"], stored["proposal_hash"]) != (
+                    opening.isoformat(), source_revision, rules.identity, digest):
+                    raise ValueError("proposal changed for stable client identity")
+                db.commit()
+            except BaseException:
+                db.rollback()
+                raise
+        return intent
+
+    def validate(self, proposal_json: str, *, observed_at: datetime,
+                 source_revision: str, rules: PaperProductRules
+                 ) -> tuple[PaperIntent, datetime, str]:
+        """Validate a proposal without writing; handoff inserts it atomically."""
         proposal = json.loads(proposal_json, parse_float=Decimal)
         if not isinstance(proposal, dict) or proposal.get("Policy") != "H1-v1":
             raise ValueError("expected H1 v1 policy proposal")
@@ -105,28 +131,11 @@ class H1SyntheticPaperBridge:
             raise ValueError("H1 exit inventory mismatch")
         intent = PaperIntent(client_id, instrument, side, str(quantity),
                              str(price), source_revision)
-        self.intents.prepare(intent, rules)
+        rules.validate(intent)
         canonical = json.dumps(proposal, sort_keys=True, separators=(",", ":"),
                                default=str)
         digest = hashlib.sha256(canonical.encode()).hexdigest()
-        with closing(self.intents._connect()) as db:
-            db.execute("BEGIN IMMEDIATE")
-            try:
-                db.execute("""INSERT OR IGNORE INTO h1_paper_proposals
-                    VALUES (?, ?, ?, ?, ?)""",
-                    (client_id, opening.isoformat(), source_revision,
-                     rules.identity, digest))
-                stored = db.execute("SELECT * FROM h1_paper_proposals WHERE client_id=?",
-                                    (client_id,)).fetchone()
-                if (stored["opening_utc"], stored["source_revision"],
-                    stored["rules_identity"], stored["proposal_hash"]) != (
-                    opening.isoformat(), source_revision, rules.identity, digest):
-                    raise ValueError("proposal changed for stable client identity")
-                db.commit()
-            except BaseException:
-                db.rollback()
-                raise
-        return intent
+        return intent, opening, digest
 
     def claim_once(self, client_id: str, *, observed_at: datetime,
                    opening_utc: datetime, source_revision: str,

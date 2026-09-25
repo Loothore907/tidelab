@@ -7,7 +7,14 @@ using QuantConnect.Tests.Engine.DataFeeds;
 try
 {
     TestGlobals.Initialize();
-    if (Environment.GetEnvironmentVariable("TL001A_PHASE") == "cost_fill")
+    if (Environment.GetEnvironmentVariable("TL001A_PHASE")?.StartsWith(
+        "h1_report_", StringComparison.Ordinal) == true)
+    {
+        TideLabH1LocalReportProbe.Run(
+            Environment.GetEnvironmentVariable("TL001A_REPORT_PATH"),
+            Environment.GetEnvironmentVariable("TL001A_PHASE"));
+    }
+    else if (Environment.GetEnvironmentVariable("TL001A_PHASE") == "cost_fill")
     {
         TideLabCostFillProbe.Run();
     }

@@ -1,6 +1,8 @@
 # TL-001A LEAN synthetic historical probe
 
-These TideLab-authored files use only three synthetic hourly values. They submit no orders and require no QuantConnect account, API token, or market-data download. They exercise the open-source LEAN Launcher directly, not the paid LEAN CLI.
+The initial historical probe uses only three synthetic hourly values and submits no orders. The later synthetic brokerage probes submit to mock brokerages only. None requires a QuantConnect account, API token, or market-data download. They exercise the open-source LEAN checkout directly, not the paid LEAN CLI.
+
+The current H1 report/account path can be run in an isolated pinned checkout with `TL_H1_REPORT_ONLY=1 bash scripts/lean_fallback/run_forward_recovery_probe.sh <lean-checkout> <dotnet-10-binary>`. It generates a frozen-policy entry, routes one LEAN mock-broker order, reconciles a partial/canceled local report across processes, atomically prepares the next policy exit from the terminal account, then checks a corrected execution hold. See [the H1 handoff evidence](../../docs/evidence/TL-002-H1-LEAN-REPORT-HANDOFF.md).
 
 Reproduce in an **isolated** LEAN source checkout at commit [`88bce0fc6fe282378ee73c54cef1090d0d7a73ee`](https://github.com/QuantConnect/Lean/commit/88bce0fc6fe282378ee73c54cef1090d0d7a73ee) with .NET SDK 10:
 
