@@ -14,6 +14,7 @@ from tidelab.universe_coverage import audit_universe_coverage
 START = datetime(2024, 1, 1, tzinfo=timezone.utc)
 END = datetime(2024, 3, 1, tzinfo=timezone.utc)
 NATIVE = json.dumps({"archive_sha256": "a" * 64, "minute_rows": 60, "archive_period": "2024-01"})
+LEGACY_NATIVE = json.dumps({"archive_sha256": "a" * 64, "minute_rows": 60, "archive_month": "2024-01"})
 
 
 def _plan(path: Path) -> Path:
@@ -78,6 +79,22 @@ def test_other_source_cannot_fill_gap_and_bad_provenance_excludes(tmp_path: Path
     assert btc["status"] == "excluded_short_continuity"
     assert btc["other_source_rows_ignored"] == 1
     assert any(gap["start"] == isoformat_utc(missing) and gap["hours"] == 1 for gap in btc["gaps"])
+    assert eth["status"] == "excluded_invalid_source_rows"
+    assert eth["invalid_source_rows"] == 744
+
+
+def test_legacy_month_provenance_is_eligible_but_malformed_month_is_not(tmp_path: Path) -> None:
+    store = TideStore(tmp_path / "invented.sqlite3")
+    store.initialize()
+    january_end = datetime(2024, 2, 1, tzinfo=timezone.utc)
+    _bars(store, "okx:BTC-USDT", START, january_end, native=LEGACY_NATIVE)
+    malformed = json.dumps({"archive_sha256": "a" * 64, "minute_rows": 60,
+                            "archive_month": "2024-13"})
+    _bars(store, "okx:ETH-USDT", START, january_end, native=malformed)
+
+    btc, eth = audit_universe_coverage(store.path, _plan(tmp_path / "plan.json"))["markets"]
+    assert btc["status"] == "coverage_eligible"
+    assert btc["exact_source_hours"] == 744
     assert eth["status"] == "excluded_invalid_source_rows"
     assert eth["invalid_source_rows"] == 744
 
