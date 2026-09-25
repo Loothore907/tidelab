@@ -10,4 +10,7 @@
     <Compile Include="../TideLabH1V1ResearchReplay.cs" Link="TideLabH1V1ResearchReplay.cs" />
     <Compile Include="../TideLabH1V1PaperProposal.cs" Link="TideLabH1V1PaperProposal.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="synthetic_input.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

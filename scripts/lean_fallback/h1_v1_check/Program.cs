@@ -5,8 +5,22 @@ static void Check(bool condition, string message)
     if (!condition) throw new Exception(message);
 }
 
-var firstClose = new DateTime(2026, 1, 1, 1, 0, 0, DateTimeKind.Utc);
-var closes = Enumerable.Repeat(100m, 168).Concat(new[] { 102m, 98m, 110m }).ToArray();
+using var input = System.Text.Json.JsonDocument.Parse(File.ReadAllText(
+    Path.Combine(AppContext.BaseDirectory, "synthetic_input.json")));
+var fixture = input.RootElement;
+var firstClose = DateTime.Parse(fixture.GetProperty("first_close_utc").GetString()!,
+    System.Globalization.CultureInfo.InvariantCulture,
+    System.Globalization.DateTimeStyles.RoundtripKind);
+var warmupHours = fixture.GetProperty("warmup_hours").GetInt32();
+var warmupClose = decimal.Parse(fixture.GetProperty("warmup_close").GetString()!,
+    System.Globalization.CultureInfo.InvariantCulture);
+var closes = Enumerable.Repeat(warmupClose, warmupHours).Concat(
+    fixture.GetProperty("scored_closes").EnumerateArray().Select(value =>
+        decimal.Parse(value.GetString()!, System.Globalization.CultureInfo.InvariantCulture))).ToArray();
+Check(firstClose.Kind == DateTimeKind.Utc && warmupHours == 168 &&
+    warmupClose == 100m && closes.SequenceEqual(
+        Enumerable.Repeat(100m, 168).Concat(new[] { 102m, 98m, 110m })),
+    "Synthetic input definition changed unexpectedly");
 
 List<TideLabH1V1Decision> Replay(bool forward, bool drawdown = false)
 {
