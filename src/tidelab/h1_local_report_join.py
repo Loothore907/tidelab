@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from contextlib import closing
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 from pathlib import Path
 
-from tidelab.paper_intent import PaperIntentStore
+from tidelab.h1_paper_bridge import H1SyntheticPaperBridge
+from tidelab.paper_intent import PaperIntentStore, PaperProductRules
 
 
 def _amount(value: object) -> Decimal:
@@ -19,6 +21,11 @@ def _amount(value: object) -> Decimal:
     if not number.is_finite():
         raise ValueError("invalid report decimal")
     return number
+
+
+def _digest(value: dict) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True,
+        separators=(",", ":"), default=str).encode()).hexdigest()
 
 
 class H1LocalReportJoin:
@@ -109,10 +116,8 @@ class H1LocalReportJoin:
                 cash != _amount(report.get("Cash")) or
                 holding != _amount(report.get("Holding"))):
             raise ValueError("H1 report fill or account mismatch")
-        proposal_hash = hashlib.sha256(json.dumps(proposal, sort_keys=True,
-            separators=(",", ":"), default=str).encode()).hexdigest()
-        report_hash = hashlib.sha256(json.dumps(report, sort_keys=True,
-            separators=(",", ":"), default=str).encode()).hexdigest()
+        proposal_hash = _digest(proposal)
+        report_hash = _digest(report)
         with closing(self.intents._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             try:
@@ -163,3 +168,88 @@ class H1LocalReportJoin:
                 db.rollback()
                 raise
         return f"hold revision={revision} status={status} executions={len(entries)}"
+
+    def handoff(self, proposal_json: str, report_json: str,
+                next_proposal_json: str, rules: PaperProductRules) -> str:
+        """Atomically retire a verified terminal fixture and prepare its next H1 intent.
+
+        This is a single-writer synthetic report protocol. It does not establish
+        finality of a real broker report or permit account-derived live orders.
+        """
+        # Reconcile first, so all execution and account checks apply before the
+        # transaction below compares the exact persisted terminal report hash.
+        self.reconcile(proposal_json, report_json)
+        proposal = json.loads(proposal_json, parse_float=Decimal)
+        report = json.loads(report_json, parse_float=Decimal)
+        next_proposal = json.loads(next_proposal_json, parse_float=Decimal)
+        if report["BrokerStatus"] not in ("Filled", "Canceled"):
+            raise RuntimeError("H1 handoff requires a terminal report")
+        report_hash = _digest(report)
+        source_revision = "h1-report-v1:" + report_hash
+        prior_open = datetime.fromisoformat(
+            proposal["ObservedOpenUtc"].replace("Z", "+00:00"))
+        next_open = datetime.fromisoformat(
+            next_proposal["ObservedOpenUtc"].replace("Z", "+00:00"))
+        cash, holding = _amount(report["Cash"]), _amount(report["Holding"])
+        next_price = _amount(next_proposal["LimitPrice"])
+        if (next_open != prior_open + timedelta(hours=1) or
+                next_proposal["InstrumentId"] != proposal["InstrumentId"] or
+                next_proposal["ExperimentId"] != proposal["ExperimentId"] or
+                next_proposal["SourceRevision"] != source_revision or
+                _amount(next_proposal["Cash"]) != cash or
+                _amount(next_proposal["Units"]) != holding or
+                _amount(next_proposal["Equity"]) != cash + holding * next_price):
+            raise ValueError("next H1 proposal lacks exact report/account handoff")
+        bridge = H1SyntheticPaperBridge(self.intents.path)
+        intent, opening, digest = bridge.validate(next_proposal_json,
+            observed_at=next_open, source_revision=source_revision, rules=rules)
+        prior_id = proposal["ClientId"]
+        with closing(self.intents._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                old = db.execute("SELECT * FROM h1_local_orders WHERE client_id=?",
+                                 (prior_id,)).fetchone()
+                previous = db.execute("SELECT * FROM paper_intents WHERE client_id=?",
+                                      (prior_id,)).fetchone()
+                if (old is None or old["report_hash"] != report_hash or
+                        old["revision"] != report["Revision"] or
+                        old["status"] != report["BrokerStatus"] or
+                        previous is None or previous["state"] != "submission_unknown"):
+                    raise RuntimeError("terminal H1 report changed during handoff")
+                resolved = db.execute("SELECT * FROM paper_intent_resolutions WHERE client_id=?",
+                                      (prior_id,)).fetchone()
+                existing = db.execute("SELECT * FROM paper_intents WHERE client_id=?",
+                                      (intent.client_id,)).fetchone()
+                if resolved is not None:
+                    saved = db.execute("SELECT * FROM h1_paper_proposals WHERE client_id=?",
+                                       (intent.client_id,)).fetchone()
+                    if (existing is None or saved is None or
+                            resolved["final_report_revision"] != old["revision"] or
+                            resolved["source_revision"] != previous["source_revision"] or
+                            saved["proposal_hash"] != digest or
+                            saved["source_revision"] != source_revision):
+                        raise RuntimeError("H1 handoff replay changed")
+                    db.commit()
+                    return f"handoff replay client={intent.client_id}"
+                if existing is not None or db.execute("""SELECT 1 FROM paper_intents AS i
+                    LEFT JOIN paper_intent_resolutions AS r ON r.client_id=i.client_id
+                    WHERE r.client_id IS NULL AND i.client_id<>? LIMIT 1""",
+                    (prior_id,)).fetchone():
+                    raise RuntimeError("another H1 intent prevents handoff")
+                db.execute("INSERT INTO paper_intent_resolutions VALUES (?, ?, ?)",
+                           (prior_id, previous["source_revision"], old["revision"]))
+                db.execute("""INSERT INTO paper_intents
+                    (client_id, instrument_id, side, quantity, limit_price,
+                     source_revision, rules_identity, state)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'prepared')""",
+                    (intent.client_id, intent.instrument_id, intent.side,
+                     intent.quantity, intent.limit_price, intent.source_revision,
+                     rules.identity))
+                db.execute("INSERT INTO h1_paper_proposals VALUES (?, ?, ?, ?, ?)",
+                           (intent.client_id, opening.isoformat(), source_revision,
+                            rules.identity, digest))
+                db.commit()
+            except BaseException:
+                db.rollback()
+                raise
+        return f"handoff terminal={prior_id} next={intent.client_id} quantity={intent.quantity}"

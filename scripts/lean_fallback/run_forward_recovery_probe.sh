@@ -14,6 +14,7 @@ cp "$source_dir/TideLabSyntheticSignal.cs" \
   "$source_dir/TideLabH1Skeleton.cs" \
   "$source_dir/TideLabH1V1Policy.cs" \
   "$source_dir/TideLabH1V1ResearchReplay.cs" \
+  "$source_dir/TideLabH1V1PaperProposal.cs" \
   "$source_dir/TideLabH1ProbeAlgorithm.cs" \
   "$lean_root/Algorithm.CSharp/"
 mkdir -p "$lean_root/Data/tidelab_h1"
@@ -29,6 +30,7 @@ cp "$source_dir/TideLabForwardRecoveryProbe.cs" \
   "$source_dir/TideLabCostFillProbe.cs" \
   "$source_dir/TideLabConservativePaperFillProbe.cs" \
   "$source_dir/TideLabJoinedPaperWorkflowProbe.cs" \
+  "$source_dir/TideLabH1LocalReportProbe.cs" \
   "$lean_root/Tests/Engine/Setup/"
 cp "$source_dir/TideLabManagedFeedProbe.cs" \
   "$lean_root/Tests/Engine/DataFeeds/"
@@ -54,7 +56,7 @@ run_phase() {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   fi
-  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE|JOINED)|H1_PARITY)|H1V1_(PARITY|ACCOUNTING)' "$report_dir/$report-$phase.log" || {
+  grep -E 'TL001A_(LEAN_(FORWARD|FEED|LEDGER|JOURNAL|SNAPSHOT|PAPER|INTENT|COST_FILL|CONSERVATIVE|JOINED)|H1_PARITY)|H1V1_(PARITY|ACCOUNTING|LEAN_REPORT)' "$report_dir/$report-$phase.log" || {
     cat "$report_dir/$report-$phase.log" >&2
     return 1
   }
@@ -62,6 +64,73 @@ run_phase() {
     grep -q "$required" "$report_dir/$report-$phase.log"
   fi
 }
+
+if [[ ${TL_H1_REPORT_ONLY:-0} == 1 ]]; then
+  bridge="$source_dir/../h1_lean_report_bridge.py"
+  proposal="$report_dir/h1-proposal.json"
+  "$dotnet_bin" run --project "$source_dir/h1_v1_check/H1V1Check.csproj" \
+    -c Release -- --emit-paper-proposal >"$report_dir/h1-proposal.log"
+  sed -n 's/^H1V1_PAPER_PROPOSAL_JSON=//p' "$report_dir/h1-proposal.log" >"$proposal"
+  test -s "$proposal"
+  export TL_H1_PROPOSAL_PATH="$proposal" TL_H1_BRIDGE_SCRIPT="$bridge" \
+    TL_H1_BRIDGE_PYTHON=python3
+  export TL_H1_BRIDGE_DATABASE="$report_dir/h1.sqlite3"
+  python3 "$bridge" prepare "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json"
+  run_phase h1 h1_report_seed success 'quantity=25 revision=1 new_submissions=1'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json"
+  run_phase h1 h1_report_restore success 'revision=1 cash=10000 holding=0 new_submissions=0'
+  run_phase h1 h1_report_partial success 'quantity=10.0 cash=9009.9 holding=10.0 new_submissions=0'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json"
+  run_phase h1 h1_report_restore success 'revision=2 cash=9009.9 holding=10.0 new_submissions=0'
+  run_phase h1 h1_report_restore success 'revision=2 cash=9009.9 holding=10.0 new_submissions=0'
+  run_phase h1 h1_report_cancel success 'revision=3 holding=10.0 new_submissions=0'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json"
+  run_phase h1 h1_report_restore success 'revision=3 cash=9009.9 holding=10.0 new_submissions=0'
+  test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json")" = submission_unknown
+  echo 'H1V1_LEAN_REPORT gate=closed_report_still_holds_next_intent'
+  revision=$(python3 "$bridge" revision "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json")
+  next_proposal="$report_dir/h1-next-proposal.json"
+  "$dotnet_bin" run --project "$source_dir/h1_v1_check/H1V1Check.csproj" \
+    -c Release -- --emit-paper-handoff "$report_dir/h1.json" "$revision" \
+    >"$report_dir/h1-handoff.log"
+  sed -n 's/^H1V1_PAPER_HANDOFF_JSON=//p' "$report_dir/h1-handoff.log" >"$next_proposal"
+  test -s "$next_proposal"
+  python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+    "$report_dir/h1.json" "$next_proposal"
+  python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+    "$report_dir/h1.json" "$next_proposal"
+  test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json")" = resolved
+  export TL_H1_PROPOSAL_PATH="$next_proposal"
+  run_phase h1_next h1_report_seed success 'quantity=-10 revision=1 new_submissions=1'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$next_proposal" "$report_dir/h1_next.json"
+  run_phase h1_next h1_report_restore success 'holding=10.0 new_submissions=0'
+  test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$next_proposal" "$report_dir/h1_next.json")" = submission_unknown
+  echo 'H1V1_LEAN_REPORT gate=terminal_handoff_next_exit_submitted_once'
+
+  export TL_H1_PROPOSAL_PATH="$proposal"
+  export TL_H1_BRIDGE_DATABASE="$report_dir/h1-correct.sqlite3"
+  python3 "$bridge" prepare "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_correct.json"
+  run_phase h1_correct h1_report_seed success 'quantity=25 revision=1 new_submissions=1'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_correct.json"
+  run_phase h1_correct h1_report_partial success 'quantity=10.0 cash=9009.9 holding=10.0 new_submissions=0'
+  python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_correct.json"
+  run_phase h1_correct h1_report_correct success 'journal=must_hold new_submissions=0'
+  if python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$proposal" \
+      "$report_dir/h1_correct.json" >"$report_dir/h1-correction-block.log" 2>&1; then
+    echo 'Corrected H1 execution unexpectedly reconciled' >&2
+    exit 1
+  fi
+  grep -q 'H1 execution removed or corrected; hold' "$report_dir/h1-correction-block.log"
+  if TL001A_REPORT_PATH="$report_dir/h1_correct.json" TL001A_PHASE=h1_report_restore \
+      "$dotnet_bin" "$runner" >"$report_dir/h1-restore-block.log" 2>&1; then
+    echo 'Corrected H1 execution unexpectedly restored' >&2
+    exit 1
+  fi
+  grep -q 'BLOCK_H1_reconcile' "$report_dir/h1-restore-block.log"
+  test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1_correct.json")" = submission_unknown
+  echo 'H1V1_LEAN_REPORT gate=corrected_execution_holds_before_setup'
+  exit 0
+fi
 
 if [[ ${TL_H1_V1_ACCOUNTING_ONLY:-0} == 1 ]]; then
   run_phase h1_v1 managed_h1_v1_accounting success 'H1V1_ACCOUNTING clock=forward warmup=168 feed_bars=3'

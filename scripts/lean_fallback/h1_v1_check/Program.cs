@@ -147,3 +147,23 @@ Console.WriteLine("H1V1_PAPER_PROPOSAL entry=25 exit=25 drawdown_exit=25 stable=
 if (args.Contains("--emit-paper-proposal"))
     Console.WriteLine("H1V1_PAPER_PROPOSAL_JSON=" +
         System.Text.Json.JsonSerializer.Serialize(entry));
+if (args.Length == 3 && args[0] == "--emit-paper-handoff")
+{
+    using var terminal = System.Text.Json.JsonDocument.Parse(
+        File.ReadAllText(args[1]));
+    var account = terminal.RootElement;
+    Check(account.GetProperty("BrokerStatus").GetString() == "Canceled" &&
+        account.GetProperty("Revision").GetInt32() == 3 &&
+        account.GetProperty("ClientId").GetString() == entry.ClientId,
+        "H1 test handoff requires the expected canceled entry");
+    var cash = account.GetProperty("Cash").GetDecimal();
+    var units = account.GetProperty("Holding").GetDecimal();
+    var mark = 98m;
+    var next = TideLabH1V1PaperBoundary.Create(historical[169],
+        "synthetic-h1-check", "synthetic:BTC-USDT", args[2],
+        historical[169].ClosedAtUtc, mark, cash + units * mark, cash, units);
+    Check(next.Side == "sell" && next.Quantity == units,
+        "H1 test handoff must propose the remaining inventory");
+    Console.WriteLine("H1V1_PAPER_HANDOFF_JSON=" +
+        System.Text.Json.JsonSerializer.Serialize(next));
+}
