@@ -57,6 +57,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [TL-001B free and paid data options](docs/evidence/TL-001B-DATA-OPTIONS-20260924.md)
 - [TL-001B selected OKX historical source and delayed-feed limit](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md)
 - [TL-001B bounded cross-market source screen](docs/evidence/TL-001B-OKX-CROSS-MARKET-SCREEN-20260924.md)
+- [TL-003 synthetic first-pass universe coverage gate](docs/evidence/TL-003-FIRST-PASS-COVERAGE-GATE.md)
 - [Current handoff and next task](HANDOFF.md)
 - [Project context map](docs/CONTEXT_MAP.md) and [repo-local context skill](.agents/skills/tidelab-context/SKILL.md)
 - [Agent working instructions](AGENTS.md)
@@ -133,6 +134,10 @@ To prepare a bounded local signal-input file for LEAN's existing `TideLabH1Bar` 
 ```
 
 Keep these real-data-derived CSVs local. This prepares the reader's file format; it does not run LEAN. The [H1 v1 specification](docs/experiments/H1-V1-PREREGISTRATION.md) lists the remaining strategy, accounting, and trial gates before a real-data performance run.
+
+### First-pass universe coverage
+
+The [fixed five-asset plan](research/first-pass-universe-v1.json) and local `audit-universe-coverage` command report exact-source closed-hour gaps and shared 24-month continuity before any market-strategy ranking. The command reads an existing database without acquiring data or reading price payloads. Keep any real-data-derived output local under ignored `data/`; see the [coverage gate](docs/evidence/TL-003-FIRST-PASS-COVERAGE-GATE.md). Coverage does not grant research rights or establish a timely feed.
 
 ## Next research gates
 

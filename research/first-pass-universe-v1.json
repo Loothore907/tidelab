@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "plan_id": "okx-usdt-spot-five-20260924-v1",
+  "venue": "okx",
+  "source": "okx.historical_archive.candlesticks.1m",
+  "start": "2023-07-01T00:00:00Z",
+  "end": "2026-09-01T00:00:00Z",
+  "minimum_contiguous_months": 24,
+  "instruments": [
+    "okx:BTC-USDT",
+    "okx:ETH-USDT",
+    "okx:BNB-USDT",
+    "okx:XRP-USDT",
+    "okx:SOL-USDT"
+  ]
+}
