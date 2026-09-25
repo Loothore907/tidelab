@@ -73,12 +73,19 @@ def _valid_native(raw: str) -> bool:
         native = json.loads(raw)
     except (TypeError, ValueError):
         return False
-    return (isinstance(native, dict)
-            and isinstance(native.get("archive_sha256"), str)
+    if not isinstance(native, dict):
+        return False
+    period = native.get("archive_period")
+    # Earlier OKX imports recorded the same monthly provenance under archive_month.
+    legacy_month = native.get("archive_month")
+    valid_period = (isinstance(period, str) and bool(period)
+                    and legacy_month is None)
+    valid_legacy_month = (period is None and isinstance(legacy_month, str)
+                          and re.fullmatch(r"\d{4}-(?:0[1-9]|1[0-2])", legacy_month) is not None)
+    return (isinstance(native.get("archive_sha256"), str)
             and _DIGEST.fullmatch(native["archive_sha256"]) is not None
             and native.get("minute_rows") == 60
-            and isinstance(native.get("archive_period"), str)
-            and bool(native["archive_period"]))
+            and (valid_period or valid_legacy_month))
 
 
 def audit_universe_coverage(database: str | Path, plan_path: str | Path) -> dict[str, Any]:
