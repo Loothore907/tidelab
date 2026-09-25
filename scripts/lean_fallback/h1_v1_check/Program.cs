@@ -101,3 +101,35 @@ Console.WriteLine("H1V1_SYNTHETIC_DECISIONS bars=171 warmup=168 parity=pass " +
     "reset=pass continuity=pass orders=0");
 
 H1V1ReplayChecks.Run();
+
+var entry = TideLabH1V1PaperBoundary.Create(historical[168],
+    "synthetic-h1-check", "synthetic:BTC-USDT", "account-rev-1",
+    historical[168].ClosedAtUtc, 100m, 10000m, 10000m, 0m);
+var entryAgain = TideLabH1V1PaperBoundary.Create(historical[168],
+    "synthetic-h1-check", "synthetic:BTC-USDT", "account-rev-1",
+    historical[168].ClosedAtUtc, 100m, 10000m, 10000m, 0m);
+Check(entry == entryAgain && entry.Side == "buy" &&
+    entry.Quantity == 25m && entry.TargetGrossExposure == 0.25m,
+    "H1 policy did not produce a stable 25% paper proposal");
+var exitProposal = TideLabH1V1PaperBoundary.Create(historical[169],
+    "synthetic-h1-check", "synthetic:BTC-USDT", "account-rev-2",
+    historical[169].ClosedAtUtc, 98m, 10000m, 7500m, 25m);
+Check(exitProposal.Side == "sell" && exitProposal.Quantity == 25m &&
+    exitProposal.ClientId != entry.ClientId,
+    "H1 exit did not use full reconciled inventory");
+var drawdownExit = TideLabH1V1PaperBoundary.Create(stopped[169],
+    "synthetic-h1-drawdown", "synthetic:BTC-USDT", "account-rev-2",
+    stopped[169].ClosedAtUtc, 98m, 8000m, 5500m, 25m);
+Check(drawdownExit.Side == "sell" && drawdownExit.EntriesHalted &&
+    drawdownExit.Risk == TideLabH1V1Risk.DrawdownHalt,
+    "Drawdown exit must remain available while entries are halted");
+var blocked = false;
+try { TideLabH1V1PaperBoundary.Create(historical[168],
+    "synthetic-h1-check", "synthetic:BTC-USDT", "account-rev-1",
+    historical[168].ClosedAtUtc.AddHours(1), 100m, 10000m, 10000m, 0m); }
+catch (ArgumentException) { blocked = true; }
+Check(blocked, "A late opening snapshot must be blocked");
+Console.WriteLine("H1V1_PAPER_PROPOSAL entry=25 exit=25 drawdown_exit=25 stable=yes late=blocked orders=0");
+if (args.Contains("--emit-paper-proposal"))
+    Console.WriteLine("H1V1_PAPER_PROPOSAL_JSON=" +
+        System.Text.Json.JsonSerializer.Serialize(entry));
