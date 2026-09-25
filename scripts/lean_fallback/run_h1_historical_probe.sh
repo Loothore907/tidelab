@@ -11,6 +11,8 @@ test "$(git -C "$lean_root" rev-parse HEAD)" = \
 cp "$source_dir/TideLabH1Skeleton.cs" \
   "$source_dir/TideLabH1V1Policy.cs" \
   "$source_dir/TideLabH1V1ResearchReplay.cs" \
+  "$source_dir/TideLabH1ConservativeExecution.cs" \
+  "$source_dir/TideLabH1V1TrialAccounting.cs" \
   "$source_dir/TideLabH1ProbeAlgorithm.cs" \
   "$lean_root/Algorithm.CSharp/"
 mkdir -p "$lean_root/Data/tidelab_h1"

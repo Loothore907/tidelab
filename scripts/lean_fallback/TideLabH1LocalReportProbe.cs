@@ -219,6 +219,90 @@ namespace QuantConnect.Tests.Engine.Setup
             }
             var report = Read<Report>(path);
             CheckIdentity(proposal, report);
+            if (phase == "h1_report_cost_missed")
+            {
+                if (report.Revision != 1 || report.BrokerStatus != "Submitted")
+                    throw new InvalidDataException("H1 missed fill requires submitted report");
+                var now = proposal.ObservedOpenUtc;
+                var stale = TideLabH1ConservativeExecution.Decide(true,
+                    proposal.Quantity, proposal.LimitPrice, 0m,
+                    TideLabH1V1Cost.Base,
+                    new TideLabH1SyntheticLiquidity(now.AddMinutes(-3), 99.8m, 10m),
+                    now, TimeSpan.FromMinutes(2), 1m);
+                var empty = TideLabH1ConservativeExecution.Decide(true,
+                    proposal.Quantity, proposal.LimitPrice, 0m,
+                    TideLabH1V1Cost.Base,
+                    new TideLabH1SyntheticLiquidity(now, 99.8m, 0m),
+                    now, TimeSpan.FromMinutes(2), 1m);
+                var limit = TideLabH1ConservativeExecution.Decide(true,
+                    proposal.Quantity, proposal.LimitPrice, 0m,
+                    TideLabH1V1Cost.Base,
+                    new TideLabH1SyntheticLiquidity(now, 100m, 10m),
+                    now, TimeSpan.FromMinutes(2), 1m);
+                Assert.That(stale.State, Is.EqualTo("HOLD_STALE_OR_UNKNOWN"));
+                Assert.That(empty.State, Is.EqualTo("HOLD_NO_LIQUIDITY"));
+                Assert.That(limit.State, Is.EqualTo("HOLD_LIMIT"));
+                Assert.That(JsonSerializer.Serialize(Read<Report>(path)),
+                    Is.EqualTo(JsonSerializer.Serialize(report)));
+                Console.WriteLine("H1V1_LEAN_REPORT phase=cost_missed " +
+                    "stale=HOLD empty=HOLD limit=HOLD revision=1 new_submissions=0");
+                return;
+            }
+            if (phase == "h1_report_cost_partial")
+            {
+                if (proposal.Side != "buy" || report.Revision != 1 ||
+                    report.BrokerStatus != "Submitted")
+                    throw new InvalidDataException("H1 cost partial requires entry report");
+                var now = proposal.ObservedOpenUtc;
+                var fill = TideLabH1ConservativeExecution.Decide(true,
+                    proposal.Quantity, proposal.LimitPrice, 0m,
+                    TideLabH1V1Cost.Base,
+                    new TideLabH1SyntheticLiquidity(now, 99.8m, 10m),
+                    now, TimeSpan.FromMinutes(2), 1m);
+                Assert.That(fill.State, Is.EqualTo("PARTIAL"));
+                report = report with
+                {
+                    Revision = 2, BrokerStatus = "PartiallyFilled",
+                    Executions = new List<Execution> {
+                        new("H1-COST-ENTRY-" + proposal.ClientId[5..21],
+                            fill.Quantity, fill.Price, fill.Fee) },
+                    Cash = proposal.Cash - fill.Quantity * fill.Price - fill.Fee,
+                    Holding = proposal.Units + fill.Quantity
+                };
+                Write(path, report, replace: true);
+                Console.WriteLine($"H1V1_LEAN_REPORT phase=cost_partial revision=2 " +
+                    $"quantity={fill.Quantity} price={fill.Price} fee={fill.Fee} " +
+                    $"remaining={fill.Remaining} cash={report.Cash} " +
+                    $"holding={report.Holding} new_submissions=0");
+                return;
+            }
+            if (phase == "h1_report_cost_sell_fill")
+            {
+                if (proposal.Side != "sell" || report.Revision != 1 ||
+                    report.BrokerStatus != "Submitted")
+                    throw new InvalidDataException("H1 cost sell requires exit report");
+                var now = proposal.ObservedOpenUtc;
+                var fill = TideLabH1ConservativeExecution.Decide(false,
+                    proposal.Quantity, proposal.LimitPrice, 0m,
+                    TideLabH1V1Cost.Base,
+                    new TideLabH1SyntheticLiquidity(now, 98.2m, 10m),
+                    now, TimeSpan.FromMinutes(2), 1m);
+                Assert.That(fill.State, Is.EqualTo("FILLED"));
+                report = report with
+                {
+                    Revision = 2, BrokerStatus = "Filled",
+                    Executions = new List<Execution> {
+                        new("H1-COST-EXIT-" + proposal.ClientId[5..21],
+                            fill.Quantity, fill.Price, fill.Fee) },
+                    Cash = proposal.Cash + fill.Quantity * fill.Price - fill.Fee,
+                    Holding = proposal.Units - fill.Quantity
+                };
+                Write(path, report, replace: true);
+                Console.WriteLine($"H1V1_LEAN_REPORT phase=cost_sell_fill revision=2 " +
+                    $"quantity={fill.Quantity} price={fill.Price} fee={fill.Fee} " +
+                    $"cash={report.Cash} holding={report.Holding} new_submissions=0");
+                return;
+            }
             if (phase == "h1_report_partial")
             {
                 if (report.Revision != 1 || report.BrokerStatus != "Submitted")
