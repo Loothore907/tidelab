@@ -8,7 +8,7 @@ Build a venue- and product-agnostic research core around canonical market data, 
 
 TideLab is licensed under Apache-2.0. [TL-001A selected pinned LEAN](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md) as the initial synthetic historical and local paper integration target. The engine is not yet an installed TideLab runtime or a production paper system. TideLab remains independent and will not default to an upstream fork.
 
-The economic objective is to discover whether any strategy, combined with a feasible execution environment, has positive expectancy after realistic costs and can eventually support useful income within a defined loss budget. Backtests select candidates; immutable forward tests evaluate them on newly arriving data. No profitable strategy or regular income capability has been demonstrated.
+The economic objective is to discover whether any market-and-strategy candidate, combined with a feasible execution environment, has positive expectancy after realistic costs and can eventually support useful income within a defined loss budget. TideLab should screen an objectively defined, affordable market universe rather than ask the owner to nominate promising pairs. Record screened and rejected candidates and every strategy trial; backtests nominate candidates, while immutable forward tests evaluate them on newly arriving data. BTC and the frozen H1 hypothesis are initial research fixtures, not a selected opportunity. No cross-market scanner, profitable strategy, or regular income capability has been demonstrated.
 
 Initial work remains public-data and simulation only. No exchange credentials, deposits, paid infrastructure, live trading, or external account operation are authorized.
 
