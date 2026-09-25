@@ -140,7 +140,57 @@ PY
   python3 "$bridge" handoff "$TL_H1_BRIDGE_DATABASE" "$proposal" \
     "$report_dir/h1.json" "$next_proposal" "$snapshot_before" "$snapshot_after"
   test "$(python3 "$bridge" state "$TL_H1_BRIDGE_DATABASE" "$proposal" "$report_dir/h1.json")" = resolved
+  fresh_before="$report_dir/h1-claim-before.json"
+  fresh_after="$report_dir/h1-claim-after.json"
+  TL_H1_SNAPSHOT_PATH="$fresh_before" run_phase h1 h1_report_snapshot success \
+    'source=synthetic-local-broker new_submissions=0'
+  TL_H1_SNAPSHOT_PATH="$fresh_after" run_phase h1 h1_report_snapshot success \
+    'source=synthetic-local-broker new_submissions=0'
   export TL_H1_PROPOSAL_PATH="$next_proposal"
+  export TL_H1_PRIOR_REPORT_PATH="$report_dir/h1.json"
+  export TL_H1_FRESH_BEFORE_PATH="$fresh_before"
+  export TL_H1_FRESH_AFTER_PATH="$fresh_after"
+  late_database="$report_dir/h1-late.sqlite3"
+  python3 - "$TL_H1_BRIDGE_DATABASE" "$late_database" <<'PY'
+import sqlite3
+import sys
+with sqlite3.connect(sys.argv[1]) as source, sqlite3.connect(sys.argv[2]) as copy:
+    source.backup(copy)
+PY
+  python3 - "$report_dir/h1.json" "$report_dir/h1_late.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+report = json.loads(Path(sys.argv[1]).read_text())
+report["Revision"] += 1
+report["Executions"][0]["Price"] = 98
+report["Cash"] = 9019.9
+Path(sys.argv[2]).write_text(json.dumps(report))
+PY
+  late_revision=$(python3 "$bridge" revision "$late_database" "$proposal" "$report_dir/h1_late.json")
+  late_before="$report_dir/h1-late-before.json"
+  late_after="$report_dir/h1-late-after.json"
+  TL_H1_PROPOSAL_PATH="$proposal" TL_H1_REPORT_REFERENCE="$late_revision" \
+    TL_H1_SNAPSHOT_PATH="$late_before" run_phase h1_late h1_report_snapshot success \
+    'source=synthetic-local-broker new_submissions=0'
+  TL_H1_PROPOSAL_PATH="$proposal" TL_H1_REPORT_REFERENCE="$late_revision" \
+    TL_H1_SNAPSHOT_PATH="$late_after" run_phase h1_late h1_report_snapshot success \
+    'source=synthetic-local-broker new_submissions=0'
+  TL_H1_BRIDGE_DATABASE="$late_database" \
+    TL_H1_PRIOR_REPORT_PATH="$report_dir/h1_late.json" \
+    TL_H1_FRESH_BEFORE_PATH="$late_before" TL_H1_FRESH_AFTER_PATH="$late_after" \
+    run_phase h1_late_next h1_report_seed blocked 'BLOCK_H1_claim'
+  test ! -e "$report_dir/h1_late_next.json"
+  test "$(python3 "$bridge" state "$late_database" "$next_proposal" "$report_dir/h1_late_next.json")" = prepared
+  if python3 "$bridge" claim "$late_database" "$next_proposal" \
+      "$report_dir/h1_late_next.json" --prior-report "$report_dir/h1.json" \
+      --fresh-before "$fresh_before" --fresh-after "$fresh_after" \
+      >"$report_dir/h1-late-retry.log" 2>&1; then
+    echo 'H1 successor unexpectedly reclaimed after late correction' >&2
+    exit 1
+  fi
+  grep -q 'durable evidence hold' "$report_dir/h1-late-retry.log"
+  echo 'H1V1_LEAN_REPORT gate=late_correction_holds_successor_without_submission'
   run_phase h1_next h1_report_seed success 'quantity=-10 revision=1 new_submissions=1'
   python3 "$bridge" reconcile "$TL_H1_BRIDGE_DATABASE" "$next_proposal" "$report_dir/h1_next.json"
   run_phase h1_next h1_report_restore success 'holding=10.0 new_submissions=0'

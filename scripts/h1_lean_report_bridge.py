@@ -29,13 +29,16 @@ def complete_report(path: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("prepare", "claim", "reconcile",
-                                           "state", "revision", "handoff"))
+                                           "state", "revision", "handoff", "audit"))
     parser.add_argument("database", type=Path)
     parser.add_argument("proposal", type=Path)
     parser.add_argument("report", type=Path)
     parser.add_argument("next_proposal", type=Path, nargs="?")
     parser.add_argument("snapshot_before", type=Path, nargs="?")
     parser.add_argument("snapshot_after", type=Path, nargs="?")
+    parser.add_argument("--prior-report", type=Path)
+    parser.add_argument("--fresh-before", type=Path)
+    parser.add_argument("--fresh-after", type=Path)
     args = parser.parse_args()
     payload = args.proposal.read_text(encoding="utf-8")
     proposal = json.loads(payload)
@@ -51,9 +54,17 @@ def main() -> int:
                                 source_revision=proposal["SourceRevision"], rules=rules)
         print(f"prepared client={intent.client_id} quantity={intent.quantity}")
     elif args.action == "claim":
-        if not bridge.claim_once(proposal["ClientId"], observed_at=opening,
-                                 opening_utc=opening,
-                                 source_revision=proposal["SourceRevision"], rules=rules):
+        if proposal["SourceRevision"].startswith("h1-report-v1:"):
+            if (args.prior_report is None or args.fresh_before is None or
+                    args.fresh_after is None):
+                parser.error("successor claim requires fresh prior report and two snapshots")
+            if join.claim_after_handoff(payload, complete_report(args.prior_report),
+                    complete_report(args.fresh_before),
+                    complete_report(args.fresh_after), rules) != "claimed":
+                raise RuntimeError("H1 successor intent is not claimable")
+        elif not bridge.claim_once(proposal["ClientId"], observed_at=opening,
+                                   opening_utc=opening,
+                                   source_revision=proposal["SourceRevision"], rules=rules):
             raise RuntimeError("H1 intent is not claimable")
         print("claimed")
     elif args.action == "reconcile":
@@ -70,6 +81,11 @@ def main() -> int:
                            args.next_proposal.read_text(encoding="utf-8"), rules,
                            snapshot_before_json=complete_report(args.snapshot_before),
                            snapshot_after_json=complete_report(args.snapshot_after)))
+    elif args.action == "audit":
+        if args.fresh_before is None or args.fresh_after is None:
+            parser.error("audit requires two fresh snapshots")
+        print(join.observe_handoff(proposal["ClientId"], complete_report(args.report),
+            complete_report(args.fresh_before), complete_report(args.fresh_after)))
     else:
         print(bridge.intents.state(proposal["ClientId"]))
     return 0

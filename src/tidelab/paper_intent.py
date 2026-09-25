@@ -107,6 +107,7 @@ class PaperIntentStore:
                     limit_price TEXT NOT NULL,
                     source_revision TEXT NOT NULL,
                     rules_identity TEXT NOT NULL,
+                    claim_guard TEXT,
                     state TEXT NOT NULL CHECK (state IN ('prepared', 'submission_unknown'))
                 )"""
             )
@@ -114,6 +115,15 @@ class PaperIntentStore:
             if "rules_identity" not in columns:
                 connection.execute("""ALTER TABLE paper_intents ADD COLUMN
                     rules_identity TEXT NOT NULL DEFAULT 'unversioned'""")
+            if "claim_guard" not in columns:
+                connection.execute("ALTER TABLE paper_intents ADD COLUMN claim_guard TEXT")
+            # Guard successors created by the earlier H1 handoff schema too.
+            connection.execute("""UPDATE paper_intents SET claim_guard='h1_snapshot'
+                WHERE claim_guard IS NULL AND source_revision LIKE 'h1-report-v1:%'""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS paper_authority_holds (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                client_id TEXT NOT NULL, reason TEXT NOT NULL,
+                evidence_hash TEXT NOT NULL)""")
             connection.execute(
                 """CREATE TABLE IF NOT EXISTS paper_intent_resolutions (
                     client_id TEXT PRIMARY KEY REFERENCES paper_intents(client_id),
@@ -132,6 +142,8 @@ class PaperIntentStore:
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                if connection.execute("SELECT 1 FROM paper_authority_holds").fetchone():
+                    raise RuntimeError("paper authority has a durable evidence hold")
                 existing = connection.execute(
                     "SELECT * FROM paper_intents WHERE client_id=?", (intent.client_id,)
                 ).fetchone()
@@ -166,6 +178,8 @@ class PaperIntentStore:
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                if connection.execute("SELECT 1 FROM paper_authority_holds").fetchone():
+                    raise RuntimeError("paper authority has a durable evidence hold")
                 row = connection.execute(
                     "SELECT * FROM paper_intents WHERE client_id=?", (client_id,)
                 ).fetchone()
@@ -173,6 +187,8 @@ class PaperIntentStore:
                     row["rules_identity"] != rules.identity or row["state"] != "prepared"):
                     connection.commit()
                     return False
+                if row["claim_guard"] is not None:
+                    raise RuntimeError("paper intent requires source-specific guarded claim")
                 rules.validate(PaperIntent(row["client_id"], row["instrument_id"],
                                            row["side"], row["quantity"],
                                            row["limit_price"], row["source_revision"]))
