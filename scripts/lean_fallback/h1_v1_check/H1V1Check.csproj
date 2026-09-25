@@ -8,6 +8,8 @@
   <ItemGroup>
     <Compile Include="../TideLabH1V1Policy.cs" Link="TideLabH1V1Policy.cs" />
     <Compile Include="../TideLabH1V1ResearchReplay.cs" Link="TideLabH1V1ResearchReplay.cs" />
+    <Compile Include="../TideLabH1ConservativeExecution.cs" Link="TideLabH1ConservativeExecution.cs" />
+    <Compile Include="../TideLabH1V1TrialAccounting.cs" Link="TideLabH1V1TrialAccounting.cs" />
     <Compile Include="../TideLabH1V1PaperProposal.cs" Link="TideLabH1V1PaperProposal.cs" />
   </ItemGroup>
   <ItemGroup>

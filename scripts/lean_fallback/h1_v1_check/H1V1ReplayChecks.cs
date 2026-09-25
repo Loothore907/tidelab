@@ -9,15 +9,32 @@ internal static class H1V1ReplayChecks
 
     public static void Run()
     {
-        var firstStart = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var scoreStart = firstStart.AddHours(168);
-        var scoreEnd = scoreStart.AddHours(2);
-        var bars = Enumerable.Range(0, 171).Select(index => new TideLabH1V1Bar(
-            firstStart.AddHours(index),
-            index == 169 ? 102m : index == 170 ? 98m : 100m,
-            index == 168 ? 102m : index == 169 ? 98m : 100m,
-            index < 170
-        )).ToArray();
+        using var input = System.Text.Json.JsonDocument.Parse(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "synthetic_input.json")));
+        var fixture = input.RootElement;
+        var firstClose = DateTime.Parse(
+            fixture.GetProperty("first_close_utc").GetString()!,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind);
+        var warmupHours = fixture.GetProperty("warmup_hours").GetInt32();
+        var warmupClose = decimal.Parse(
+            fixture.GetProperty("warmup_close").GetString()!,
+            System.Globalization.CultureInfo.InvariantCulture);
+        var closes = Enumerable.Repeat(warmupClose, warmupHours).Concat(
+            fixture.GetProperty("scored_closes").EnumerateArray().Select(value =>
+                decimal.Parse(value.GetString()!,
+                    System.Globalization.CultureInfo.InvariantCulture))).ToArray();
+        Check(firstClose.Kind == DateTimeKind.Utc && warmupHours == 168 &&
+            warmupClose == 100m && closes.SequenceEqual(
+                Enumerable.Repeat(100m, 168).Concat(new[] { 102m, 98m, 110m })),
+            "Synthetic historical input definition changed unexpectedly");
+        var firstStart = firstClose.AddHours(-1);
+        var scoreStart = firstStart.AddHours(warmupHours);
+        var scoreEnd = firstStart.AddHours(closes.Length - 1);
+        var bars = Enumerable.Range(0, closes.Length).Select(index =>
+            new TideLabH1V1Bar(firstStart.AddHours(index),
+                index == 0 ? warmupClose : closes[index - 1], closes[index],
+                index < closes.Length - 1)).ToArray();
 
         var result = TideLabH1V1ResearchReplay.Run(bars, scoreStart,
             scoreEnd, TideLabH1V1Cost.Base);
@@ -110,6 +127,73 @@ internal static class H1V1ReplayChecks
             scoreEnd, TideLabH1V1Cost.Base); }
         catch (ArgumentException) { rejected = true; }
         Check(rejected, "Replay accepted an unclosed scored bar");
+
+        var opening = bars[169].StartUtc;
+        var buyLiquidity = new TideLabH1SyntheticLiquidity(opening, 99.8m, 10m);
+        var partial = TideLabH1ConservativeExecution.Decide(true, 25m, 100m,
+            0m, TideLabH1V1Cost.Base, buyLiquidity, opening,
+            TimeSpan.FromMinutes(2), 1m);
+        Check(partial == new TideLabH1ExecutionDecision("PARTIAL", 10m,
+            99.8998m, 2.497495m, 15m),
+            "Conservative H1 partial fill or declared cost changed");
+        Check(TideLabH1ConservativeExecution.Decide(true, 25m, 100m, 0m,
+            TideLabH1V1Cost.Base, buyLiquidity with
+                { ObservedAtUtc = opening.AddMinutes(-3) }, opening,
+            TimeSpan.FromMinutes(2), 1m).State == "HOLD_STALE_OR_UNKNOWN",
+            "Stale H1 liquidity must hold");
+        Check(TideLabH1ConservativeExecution.Decide(true, 25m, 100m, 0m,
+            TideLabH1V1Cost.Base, buyLiquidity with { AvailableUnits = 0m },
+            opening, TimeSpan.FromMinutes(2), 1m).State == "HOLD_NO_LIQUIDITY",
+            "Unobserved H1 size must not fill");
+        Check(TideLabH1ConservativeExecution.Decide(true, 25m, 99m, 0m,
+            TideLabH1V1Cost.Base, buyLiquidity, opening,
+            TimeSpan.FromMinutes(2), 1m).State == "HOLD_LIMIT",
+            "Buy execution may not exceed the limit");
+        Check(TideLabH1ConservativeExecution.Decide(true, 25.000000001m, 100m,
+            0m, TideLabH1V1Cost.Base, buyLiquidity, opening,
+            TimeSpan.FromMinutes(2), 1m).State == "REJECT_TERMS",
+            "H1 execution must enforce eight-decimal units");
+        var sellLiquidity = new TideLabH1SyntheticLiquidity(
+            bars[170].StartUtc, 98.2m, 10m);
+        var sell = TideLabH1ConservativeExecution.Decide(false, 10m, 98m,
+            0m, TideLabH1V1Cost.Base, sellLiquidity,
+            bars[170].StartUtc, TimeSpan.FromMinutes(2), 1m);
+        Check(sell == new TideLabH1ExecutionDecision("FILLED", 10m,
+            98.1018m, 2.452545m, 0m),
+            "Conservative H1 sell fill or declared cost changed");
+
+        var trial = TideLabH1V1TrialAccounting.Analyze(bars, scoreStart,
+            result, TideLabH1V1Cost.Base);
+        var stressedTrial = TideLabH1V1TrialAccounting.Analyze(bars,
+            scoreStart, stress, TideLabH1V1Cost.Stress);
+        Check(trial.Strategy.FinalCash == result.Cash &&
+            trial.Strategy.Fees == result.TotalFees &&
+            trial.Strategy.ClosedRoundTrips == 1 &&
+            trial.Strategy.LargestRoundTripPnl == result.Cash - 10000m &&
+            trial.Strategy.NetWithoutLargestRoundTrip == 0m &&
+            trial.Cash.FinalCash == 10000m && trial.Cash.MaximumDrawdown == 0m &&
+            trial.QuarterHold.FinalCash > trial.Strategy.FinalCash &&
+            trial.QuarterHold.FinalCash < trial.Cash.FinalCash &&
+            trial.FullHold.FinalCash < trial.QuarterHold.FinalCash &&
+            trial.FullHold.FinalCash > 0m &&
+            trial.Strategy.MaximumDrawdown > 0m &&
+            trial.Strategy.LongestUnderwaterHours > 0 &&
+            trial.Strategy.UnderwaterHours >=
+                trial.Strategy.LongestUnderwaterHours &&
+            stressedTrial.Strategy.FinalCash < trial.Strategy.FinalCash &&
+            stressedTrial.QuarterHold.FinalCash < trial.QuarterHold.FinalCash,
+            "Registered H1 metrics or cost stress changed");
+        rejected = false;
+        try { TideLabH1V1TrialAccounting.Analyze(bars, scoreStart,
+            result with { Cash = result.Cash + 1m }, TideLabH1V1Cost.Base); }
+        catch (ArgumentException) { rejected = true; }
+        Check(rejected, "Trial metrics accepted an unreconciled final account");
+        Console.WriteLine("H1V1_SYNTHETIC_TRIAL accounting=pass " +
+            $"round_trips={trial.Strategy.ClosedRoundTrips} " +
+            $"cash={trial.Strategy.FinalCash} " +
+            $"quarter={trial.QuarterHold.FinalCash} " +
+            $"full={trial.FullHold.FinalCash} " +
+            $"stress={stressedTrial.Strategy.FinalCash}");
 
         Console.WriteLine("H1V1_SYNTHETIC_ACCOUNTING replay=identical " +
             "next_open=pass units_8dp=pass fees=pass cash=pass " +

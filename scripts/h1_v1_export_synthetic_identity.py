@@ -17,6 +17,22 @@ def digest(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
 
+def cost_digest() -> str:
+    """Bind every TideLab H1 cost and trial-accounting source to the identity."""
+    names = (
+        "TideLabH1V1ResearchReplay.cs",
+        "TideLabH1ConservativeExecution.cs",
+        "TideLabH1V1TrialAccounting.cs",
+    )
+    hasher = sha256()
+    for name in names:
+        payload = (ROOT / "scripts/lean_fallback" / name).read_bytes()
+        hasher.update(name.encode("utf-8") + b"\0")
+        hasher.update(len(payload).to_bytes(8, "big"))
+        hasher.update(payload)
+    return hasher.hexdigest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="new manifest path under ignored data/")
@@ -41,7 +57,7 @@ def main() -> None:
               "sha256": digest(input_path), "kind": "synthetic",
               "rights_reference": "TideLab-authored"},
         cost={"model_id": "h1-v1-research-cost", "revision": "v1",
-              "sha256": digest(ROOT / "scripts/lean_fallback/TideLabH1V1ResearchReplay.cs")},
+              "sha256": cost_digest()},
         trial={"strategy_id": "h1", "strategy_version": "v1",
                "trial_id": "h1-v1-synthetic-accounting", "sequence": 1,
                "origin": "human", "parent_trial_id": None},

@@ -43,7 +43,11 @@ def main() -> None:
     identity = json.loads(identity_path.read_text(encoding="utf-8"))
     registry = TrialRegistry(registry_path)
     registry.initialize()
-    registry.start(args.attempt_id, identity, args.phase, datetime.now(timezone.utc))
+    if registry.status(args.attempt_id) is not None:
+        parser.error("attempt ID already exists; use a new ID for every launch")
+    if not registry.start(args.attempt_id, identity, args.phase,
+                          datetime.now(timezone.utc)):
+        parser.error("attempt ID already exists; use a new ID for every launch")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with log_path.open("xb") as output:

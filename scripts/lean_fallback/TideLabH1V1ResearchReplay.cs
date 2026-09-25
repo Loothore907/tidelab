@@ -104,13 +104,13 @@ namespace QuantConnect.Algorithm.CSharp
                 if (intent == TideLabH1V1Intent.EnterLong)
                 {
                     if (units != 0m) throw new InvalidOperationException("Entry while long");
-                    var price = open * (1m + cost.AdversePriceRate);
+                    var price = TideLabH1ConservativeExecution.Price(open, true, cost);
                     var target = cash * TideLabH1V1Policy.EntryTargetGrossExposure;
                     var quantity = decimal.Floor(target * 100000000m / price) /
                         100000000m;
                     if (quantity <= 0m)
                         throw new InvalidOperationException("Rounded entry has zero units");
-                    var fee = quantity * price * cost.FeeRate;
+                    var fee = TideLabH1ConservativeExecution.Fee(quantity, price, cost);
                     cash -= quantity * price + fee;
                     if (cash < 0m) throw new InvalidOperationException("Borrowing is forbidden");
                     units = quantity;
@@ -121,9 +121,9 @@ namespace QuantConnect.Algorithm.CSharp
                 else if (intent == TideLabH1V1Intent.ExitToCash)
                 {
                     if (units <= 0m) throw new InvalidOperationException("Exit while in cash");
-                    var price = open * (1m - cost.AdversePriceRate);
+                    var price = TideLabH1ConservativeExecution.Price(open, false, cost);
                     var quantity = units;
-                    var fee = quantity * price * cost.FeeRate;
+                    var fee = TideLabH1ConservativeExecution.Fee(quantity, price, cost);
                     cash += quantity * price - fee;
                     units = 0m;
                     totalFees += fee;

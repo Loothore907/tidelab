@@ -4,6 +4,8 @@ The initial historical probe uses only three synthetic hourly values and submits
 
 The current H1 report/account path can be run in an isolated pinned checkout with `TL_H1_REPORT_ONLY=1 bash scripts/lean_fallback/run_forward_recovery_probe.sh <lean-checkout> <dotnet-10-binary>`. It generates a frozen-policy entry, routes one LEAN mock-broker order, reconciles a partial/canceled local report across processes, atomically prepares the next policy exit from the terminal account, then checks a corrected execution hold. See [the H1 handoff evidence](../../docs/evidence/TL-002-H1-LEAN-REPORT-HANDOFF.md).
 
+The costed synthetic H1 follow-up uses `TL_H1_COST_ONLY=1` with the same runner and separate pinned checkout. It checks stale, empty and over-limit liquidity holds, a fee-bearing partial entry, canceled remainder, report-bound exit, full sell, and repeated fresh LEAN setup. The standalone `h1_v1_check` additionally computes base/stress strategy and benchmark trial metrics on its invented fixture. See [the execution and trial evidence](../../docs/evidence/TL-002-H1-CONSERVATIVE-EXECUTION-TRIAL-ACCOUNTING.md).
+
 Reproduce in an **isolated** LEAN source checkout at commit [`88bce0fc6fe282378ee73c54cef1090d0d7a73ee`](https://github.com/QuantConnect/Lean/commit/88bce0fc6fe282378ee73c54cef1090d0d7a73ee) with .NET SDK 10:
 
 1. Copy `TideLabSyntheticProbeAlgorithm.cs` and `TideLabSyntheticSignal.cs` into LEAN's `Algorithm.CSharp/`.
