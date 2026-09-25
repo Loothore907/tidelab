@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 from tidelab.h1_paper_bridge import H1SyntheticPaperBridge
-from tidelab.paper_intent import PaperIntentStore, PaperProductRules
+from tidelab.paper_intent import PaperIntent, PaperIntentStore, PaperProductRules
 
 
 def _amount(value: object) -> Decimal:
@@ -257,6 +257,8 @@ class H1LocalReportJoin:
         with closing(self.intents._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             try:
+                if db.execute("SELECT 1 FROM paper_authority_holds").fetchone():
+                    raise RuntimeError("paper authority has a durable evidence hold")
                 old = db.execute("SELECT * FROM h1_local_orders WHERE client_id=?",
                                  (prior_id,)).fetchone()
                 previous = db.execute("SELECT * FROM paper_intents WHERE client_id=?",
@@ -295,8 +297,8 @@ class H1LocalReportJoin:
                            (prior_id, evidence_hash))
                 db.execute("""INSERT INTO paper_intents
                     (client_id, instrument_id, side, quantity, limit_price,
-                     source_revision, rules_identity, state)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'prepared')""",
+                     source_revision, rules_identity, claim_guard, state)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'h1_snapshot', 'prepared')""",
                     (intent.client_id, intent.instrument_id, intent.side,
                      intent.quantity, intent.limit_price, intent.source_revision,
                      rules.identity))
@@ -308,3 +310,97 @@ class H1LocalReportJoin:
                 db.rollback()
                 raise
         return f"handoff terminal={prior_id} next={intent.client_id} quantity={intent.quantity}"
+
+    def observe_handoff(self, next_client_id: str, report_json: str,
+                        snapshot_before_json: str | None,
+                        snapshot_after_json: str | None, *,
+                        claim: tuple[PaperIntent, datetime, str, PaperProductRules] | None = None
+                        ) -> str:
+        """Recheck an invented source before claim; latch later changes durably.
+
+        The caller must supply fresh complete source reads. This local protocol
+        cannot make an external broker read atomic with SQLite or prevent a
+        correction arriving after the read.
+        """
+        blocked = None
+        with closing(self.intents._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                if db.execute("SELECT 1 FROM paper_authority_holds").fetchone():
+                    raise RuntimeError("paper authority has a durable evidence hold")
+                next_intent = db.execute("SELECT * FROM paper_intents WHERE client_id=?",
+                                         (next_client_id,)).fetchone()
+                saved = db.execute("SELECT * FROM h1_paper_proposals WHERE client_id=?",
+                                   (next_client_id,)).fetchone()
+                if (next_intent is None or saved is None or
+                        next_intent["claim_guard"] != "h1_snapshot" or
+                        saved["source_revision"] != next_intent["source_revision"]):
+                    raise RuntimeError("H1 successor lacks guarded handoff")
+                parent = db.execute("""SELECT o.report_hash, s.evidence_hash
+                    FROM h1_local_orders AS o
+                    JOIN paper_intent_resolutions AS r ON r.client_id=o.client_id
+                    JOIN h1_handoff_snapshots AS s ON s.client_id=o.client_id
+                    WHERE 'h1-report-v1:' || o.report_hash=?
+                    AND r.final_report_revision=o.revision""",
+                    (next_intent["source_revision"],)).fetchone()
+                if parent is None:
+                    raise RuntimeError("H1 successor lacks resolved parent report")
+                try:
+                    report = json.loads(report_json, parse_float=Decimal)
+                except (TypeError, ValueError):
+                    report = None
+                candidate_hash = (_digest(report) if isinstance(report, dict)
+                                  else hashlib.sha256(str(report_json).encode()).hexdigest())
+                if candidate_hash != parent["report_hash"]:
+                    blocked = "late H1 report correction; hold"
+                    reason = "late_h1_report_change"
+                    evidence_hash = candidate_hash
+                else:
+                    opening = datetime.fromisoformat(saved["opening_utc"])
+                    evidence_hash = _stable_snapshot_pair(snapshot_before_json,
+                        snapshot_after_json, report, opening)
+                    if evidence_hash != parent["evidence_hash"]:
+                        blocked = "late H1 snapshot change; hold"
+                        reason = "late_h1_snapshot_change"
+                if blocked is not None:
+                    db.execute("INSERT INTO paper_authority_holds VALUES (1, ?, ?, ?)",
+                               (next_client_id, reason, evidence_hash))
+                elif claim is not None:
+                    intent, opening, digest, rules = claim
+                    if (intent.client_id != next_client_id or
+                            saved["opening_utc"] != opening.isoformat() or
+                            saved["proposal_hash"] != digest or
+                            saved["rules_identity"] != rules.identity or
+                            next_intent["source_revision"] != intent.source_revision or
+                            next_intent["rules_identity"] != rules.identity):
+                        raise RuntimeError("H1 successor claim identity changed")
+                    if next_intent["state"] != "prepared":
+                        db.commit()
+                        return "already claimed"
+                    rules.validate(PaperIntent(next_intent["client_id"],
+                        next_intent["instrument_id"], next_intent["side"],
+                        next_intent["quantity"], next_intent["limit_price"],
+                        next_intent["source_revision"]))
+                    db.execute("""UPDATE paper_intents SET state='submission_unknown'
+                        WHERE client_id=? AND state='prepared'""", (next_client_id,))
+                db.commit()
+            except BaseException:
+                db.rollback()
+                raise
+        if blocked is not None:
+            raise RuntimeError(blocked)
+        return "claimed" if claim is not None else "unchanged"
+
+    def claim_after_handoff(self, next_proposal_json: str, report_json: str,
+                            snapshot_before_json: str | None,
+                            snapshot_after_json: str | None,
+                            rules: PaperProductRules) -> str:
+        proposal = json.loads(next_proposal_json, parse_float=Decimal)
+        opening = datetime.fromisoformat(
+            proposal["ObservedOpenUtc"].replace("Z", "+00:00"))
+        bridge = H1SyntheticPaperBridge(self.intents.path)
+        intent, opening, digest = bridge.validate(next_proposal_json,
+            observed_at=opening, source_revision=proposal["SourceRevision"], rules=rules)
+        return self.observe_handoff(intent.client_id, report_json,
+            snapshot_before_json, snapshot_after_json,
+            claim=(intent, opening, digest, rules))

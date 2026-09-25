@@ -74,6 +74,17 @@ namespace QuantConnect.Tests.Engine.Setup
             };
             foreach (var argument in new[] { script, action, database, proposal, report })
                 start.ArgumentList.Add(argument);
+            if (action == "claim" &&
+                Environment.GetEnvironmentVariable("TL_H1_PRIOR_REPORT_PATH") is string prior)
+            {
+                var before = Environment.GetEnvironmentVariable("TL_H1_FRESH_BEFORE_PATH") ??
+                    throw new InvalidDataException("Missing fresh H1 snapshot before path");
+                var after = Environment.GetEnvironmentVariable("TL_H1_FRESH_AFTER_PATH") ??
+                    throw new InvalidDataException("Missing fresh H1 snapshot after path");
+                foreach (var argument in new[] { "--prior-report", prior,
+                    "--fresh-before", before, "--fresh-after", after })
+                    start.ArgumentList.Add(argument);
+            }
             using var process = Process.Start(start) ??
                 throw new InvalidDataException("H1 bridge process did not start");
             var error = process.StandardError.ReadToEnd();
@@ -148,7 +159,6 @@ namespace QuantConnect.Tests.Engine.Setup
                             limit.LimitPrice != proposal.LimitPrice ||
                             order.Symbol != symbol)
                             throw new InvalidDataException("H1 LEAN order terms changed");
-                        Bridge("claim"); // SQLite unknown state precedes broker write.
                         order.BrokerId = new List<string>
                             { "H1-BROKER-" + proposal.ClientId[5..21] };
                         Write(path, new Report(1, proposal.ClientId,
@@ -182,6 +192,16 @@ namespace QuantConnect.Tests.Engine.Setup
                         { Symbol = symbol, Value = proposal.LimitPrice });
                     algorithm.SetFinishedWarmingUp();
                     algorithm.Transactions.SetOrderProcessor(transaction);
+                    try
+                    {
+                        Bridge("claim"); // Durable unknown state precedes LEAN routing.
+                    }
+                    catch (InvalidDataException)
+                    {
+                        Console.WriteLine("H1V1_LEAN_REPORT gate=claim_holds " +
+                            "new_submissions=0");
+                        throw;
+                    }
                     var ticket = algorithm.LimitOrder(symbol,
                         proposal.Side == "buy" ? proposal.Quantity : -proposal.Quantity,
                         proposal.LimitPrice);

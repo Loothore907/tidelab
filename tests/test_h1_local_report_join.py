@@ -13,7 +13,7 @@ import pytest
 from scripts.h1_lean_report_bridge import complete_report
 from tidelab.h1_local_report_join import H1LocalReportJoin, _digest, _stable_snapshot_pair
 from tidelab.h1_paper_bridge import H1SyntheticPaperBridge
-from tidelab.paper_intent import PaperProductRules
+from tidelab.paper_intent import PaperIntent, PaperProductRules
 
 
 OPEN = datetime(2026, 1, 8, 2, tzinfo=timezone.utc)
@@ -249,9 +249,18 @@ def test_terminal_report_handoff_prepares_next_exit_atomically(tmp_path: Path) -
             snapshot_after_json=json.dumps(changed))
     assert bridge.intents.state(proposal["ClientId"]) == "resolved"
     assert bridge.intents.state(following["ClientId"]) == "prepared"
-    assert bridge.claim_once(following["ClientId"], observed_at=next_open,
-                             opening_utc=next_open,
-                             source_revision=following["SourceRevision"], rules=RULES)
+    with pytest.raises(RuntimeError, match="guarded claim"):
+        bridge.claim_once(following["ClientId"], observed_at=next_open,
+                          opening_utc=next_open,
+                          source_revision=following["SourceRevision"], rules=RULES)
+    with pytest.raises(RuntimeError, match="two broker snapshot reads"):
+        join.claim_after_handoff(next_payload, json.dumps(terminal),
+            None, snapshot_json, RULES)
+    assert bridge.intents.state(following["ClientId"]) == "prepared"
+    assert join.claim_after_handoff(next_payload, json.dumps(terminal),
+        snapshot_json, snapshot_json, RULES) == "claimed"
+    assert join.claim_after_handoff(next_payload, json.dumps(terminal),
+        snapshot_json, snapshot_json, RULES) == "already claimed"
     assert not bridge.claim_once(following["ClientId"], observed_at=next_open,
                                  opening_utc=next_open,
                                  source_revision=following["SourceRevision"], rules=RULES)
@@ -259,3 +268,61 @@ def test_terminal_report_handoff_prepares_next_exit_atomically(tmp_path: Path) -
         assert db.execute("SELECT COUNT(*) FROM paper_intent_resolutions").fetchone()[0] == 1
         assert db.execute("SELECT COUNT(*) FROM paper_intents").fetchone()[0] == 2
         assert db.execute("SELECT COUNT(*) FROM h1_handoff_snapshots").fetchone()[0] == 1
+
+
+def test_late_correction_latches_hold_before_successor_claim(tmp_path: Path) -> None:
+    proposal = _proposal()
+    bridge, join = _setup(tmp_path, proposal)
+    terminal = _report(proposal, 1, "Canceled", [_fill()], "9009.9", "10")
+    next_open = OPEN + timedelta(hours=1)
+    following = _proposal(next_open, side="sell") | {
+        "SourceRevision": "h1-report-v1:" + _digest(terminal),
+        "Quantity": "10", "LimitPrice": "98", "Cash": "9009.9",
+        "Units": "10", "Equity": "9989.9"}
+    snapshot = json.dumps(_snapshot(terminal, next_open))
+    join.handoff(json.dumps(proposal), json.dumps(terminal), json.dumps(following),
+        RULES, snapshot_before_json=snapshot, snapshot_after_json=snapshot)
+    corrected = _report(proposal, 2, "Canceled", [_fill(price="98")], "9019.9", "10")
+    restarted = H1LocalReportJoin(bridge.intents.path)
+    with pytest.raises(RuntimeError, match="late H1 report correction"):
+        restarted.claim_after_handoff(json.dumps(following), json.dumps(corrected),
+            snapshot, snapshot, RULES)
+    assert bridge.intents.state(following["ClientId"]) == "prepared"
+    with sqlite3.connect(bridge.intents.path) as db:
+        assert db.execute("SELECT reason FROM paper_authority_holds").fetchone()[0] == "late_h1_report_change"
+        assert db.execute("SELECT price FROM h1_local_executions").fetchone()[0] == "99"
+    with pytest.raises(RuntimeError, match="durable evidence hold"):
+        join.claim_after_handoff(json.dumps(following), json.dumps(terminal),
+            snapshot, snapshot, RULES)
+    with pytest.raises(RuntimeError, match="durable evidence hold"):
+        bridge.intents.claim_once(following["ClientId"], following["SourceRevision"], RULES)
+
+
+def test_late_snapshot_change_after_claim_blocks_future_authority(tmp_path: Path) -> None:
+    proposal = _proposal()
+    bridge, join = _setup(tmp_path, proposal)
+    terminal = _report(proposal, 1, "Canceled", [_fill()], "9009.9", "10")
+    next_open = OPEN + timedelta(hours=1)
+    following = _proposal(next_open, side="sell") | {
+        "SourceRevision": "h1-report-v1:" + _digest(terminal),
+        "Quantity": "10", "LimitPrice": "98", "Cash": "9009.9",
+        "Units": "10", "Equity": "9989.9"}
+    snapshot = _snapshot(terminal, next_open)
+    saved = json.dumps(snapshot)
+    join.handoff(json.dumps(proposal), json.dumps(terminal), json.dumps(following),
+        RULES, snapshot_before_json=saved, snapshot_after_json=saved)
+    assert join.claim_after_handoff(json.dumps(following), json.dumps(terminal),
+        saved, saved, RULES) == "claimed"
+    changed_token = "later-cursor"
+    changed = json.dumps(snapshot | {"ConsistencyToken": changed_token,
+        "AccountRevision": changed_token, "OrdersRevision": changed_token,
+        "ExecutionsRevision": changed_token})
+    with pytest.raises(RuntimeError, match="late H1 snapshot change"):
+        H1LocalReportJoin(bridge.intents.path).observe_handoff(following["ClientId"],
+            json.dumps(terminal), changed, changed)
+    with sqlite3.connect(bridge.intents.path) as db:
+        assert db.execute("SELECT reason FROM paper_authority_holds").fetchone()[0] == "late_h1_snapshot_change"
+    assert bridge.intents.state(following["ClientId"]) == "submission_unknown"
+    with pytest.raises(RuntimeError, match="durable evidence hold"):
+        bridge.intents.prepare(PaperIntent("future", RULES.instrument_id,
+            "buy", "1", "100", "future-rev"), RULES)

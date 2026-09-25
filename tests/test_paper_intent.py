@@ -83,6 +83,22 @@ def test_legacy_unversioned_intent_cannot_be_claimed(tmp_path: Path) -> None:
         store.prepare(PaperIntent("old", "synthetic:BTC-USD", "buy", "0.4", "89.91", "report-7"), RULES)
 
 
+def test_existing_h1_successor_gains_claim_guard_on_upgrade(tmp_path: Path) -> None:
+    path = tmp_path / "paper.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("""CREATE TABLE paper_intents (
+            client_id TEXT PRIMARY KEY, instrument_id TEXT, side TEXT, quantity TEXT,
+            limit_price TEXT, source_revision TEXT, rules_identity TEXT, state TEXT)""")
+        db.execute("INSERT INTO paper_intents VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                   ("next", RULES.instrument_id, "buy", "0.4", "89.91",
+                    "h1-report-v1:old-hash", RULES.identity, "prepared"))
+    store = PaperIntentStore(path)
+    store.initialize()
+    with pytest.raises(RuntimeError, match="source-specific guarded claim"):
+        store.claim_once("next", "h1-report-v1:old-hash", RULES)
+    assert store.state("next") == "prepared"
+
+
 def test_changed_stored_terms_hold_at_claim(tmp_path: Path) -> None:
     path = tmp_path / "paper.sqlite3"
     store = PaperIntentStore(path)
