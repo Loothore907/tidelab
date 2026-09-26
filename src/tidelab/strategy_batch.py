@@ -22,11 +22,14 @@ from tidelab.strategy_intake import record_digest, validate_record
 
 _ID = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
-_UNIT = Decimal("0.00000001")
 _HOUR = timedelta(hours=1)
 _MAX_PACKAGE_BYTES = 64 * 1024
 _MAX_NODES = 64
 _MAX_DEPTH = 12
+SYNTHETIC_ENGINE = "tidelab-strategy-batch-v1"
+SYNTHETIC_COST = {"fee_rate": "0.0025", "adverse_rate": "0.001",
+                  "initial_cash": "10000", "quantity_unit": "0.00000001"}
+_UNIT = Decimal(SYNTHETIC_COST["quantity_unit"])
 
 
 class UnsupportedPackage(ValueError):
@@ -224,9 +227,9 @@ def signal_trace(strategy: ParsedStrategy, bars: Sequence[Bar]) -> list[dict[str
 
 
 def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
-                       initial_cash: Decimal = Decimal("10000"),
-                       fee_rate: Decimal = Decimal("0.0025"),
-                       adverse_rate: Decimal = Decimal("0.001")) -> dict[str, str | int]:
+                       initial_cash: Decimal = Decimal(SYNTHETIC_COST["initial_cash"]),
+                       fee_rate: Decimal = Decimal(SYNTHETIC_COST["fee_rate"]),
+                       adverse_rate: Decimal = Decimal(SYNTHETIC_COST["adverse_rate"])) -> dict[str, str | int]:
     """One closed-bar/next-open full-fill contract test, never a market claim."""
     if (len(bars) <= strategy.warmup or any(
             not isinstance(value, Decimal) or not value.is_finite() or value < 0

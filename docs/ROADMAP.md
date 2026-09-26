@@ -78,7 +78,7 @@ Publication standard approved 2026-09-21 and priority clarified 2026-09-22: publ
 
 ## Evaluation design for TL-003 and later
 
-Build TL-003 as the [deterministic strategy pipeline](decisions/TL-003-DETERMINISTIC-STRATEGY-PIPELINE.md): source-specific ingestion/parsing, typed versioned packages, capability matching, batch testing, complete variant accounting and a shared evaluation backend. The initial normalized-JSON/synthetic checker is a foundation proof, not a general paper/Pine parser or a historical batch engine. Add source frontends and rights-cleared historical/LEAN parity in reviewable slices. AI may draft a translation for review but is not the default evaluator or a runtime dependency.
+Build TL-003 as the [deterministic strategy pipeline](decisions/TL-003-DETERMINISTIC-STRATEGY-PIPELINE.md): source-specific ingestion/parsing, typed versioned packages, capability matching, batch testing, complete variant accounting and a shared evaluation backend. The normalized-JSON/synthetic checker, bounded Pine v5 frontend and synthetic attempt ledger are foundation proofs, not a general paper/Pine parser or a historical batch engine. Add source frontends and rights-cleared historical/LEAN parity in reviewable slices. AI may draft a translation for review but is not the default evaluator or a runtime dependency.
 
 Partition data chronologically into development and untouched evaluation periods. Select dates before inspecting evaluation performance and record all experiments. Seek rising, falling, and sideways conditions where available. Quantify data omissions; never claim a regime was tested if it was not.
 
