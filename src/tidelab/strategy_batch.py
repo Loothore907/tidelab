@@ -151,6 +151,12 @@ def parse_package(package: Mapping[str, Any], record: Mapping[str, Any]) -> Pars
 def load_json(path: Path, *, max_bytes: int = _MAX_PACKAGE_BYTES) -> dict[str, Any]:
     if path.stat().st_size > max_bytes:
         raise ValueError("input exceeds size limit")
+    return parse_json_bytes(path.read_bytes(), max_bytes=max_bytes)
+
+
+def parse_json_bytes(raw: bytes, *, max_bytes: int = _MAX_PACKAGE_BYTES) -> dict[str, Any]:
+    if len(raw) > max_bytes:
+        raise ValueError("input exceeds size limit")
     def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result = {}
         for key, value in pairs:
@@ -158,7 +164,7 @@ def load_json(path: Path, *, max_bytes: int = _MAX_PACKAGE_BYTES) -> dict[str, A
                 raise ValueError("duplicate JSON key")
             result[key] = value
         return result
-    result = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique,
+    result = json.loads(raw.decode("utf-8"), object_pairs_hook=unique,
                         parse_constant=lambda _: (_ for _ in ()).throw(
                             ValueError("nonfinite JSON number")))
     if not isinstance(result, dict):
@@ -207,6 +213,14 @@ def _boolean(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> 
     if op == "or":
         return any(_boolean(arg, closes, index) for arg in node["args"])
     return not _boolean(node["arg"], closes, index)
+
+
+def signal_trace(strategy: ParsedStrategy, bars: Sequence[Bar]) -> list[dict[str, int | bool]]:
+    """Closed-bar predicates, before any synthetic next-open execution."""
+    closes = [bar.close for bar in bars]
+    return [{"index": index, "entry": _boolean(strategy.entry, closes, index),
+             "exit": _boolean(strategy.exit, closes, index)}
+            for index in range(strategy.warmup - 1, len(bars) - 1)]
 
 
 def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
