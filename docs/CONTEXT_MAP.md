@@ -5,6 +5,7 @@ This is a navigation map, not a second source of authority. For a fresh session,
 | Question | First source | Then inspect |
 | --- | --- | --- |
 | What is authorized and prohibited? | `AGENTS.md` | The applicable roadmap gate and fresh user instruction |
+| How do we prevent development drift across agents? | `docs/DEVELOPMENT_LOOP.md` | The slice brief in the owning issue/PR, exact-head review and acceptance evidence; `HANDOFF.md` for the current slice |
 | Where do we resume? | `HANDOFF.md` | Current GitHub issues/PRs, reviews, exact-head checks, and working diff |
 | What is the product hypothesis and economic test? | `README.md`, `docs/PLAN.md` | `docs/STRATEGY_RESEARCH.md` for experiment discipline |
 | How does an external strategy idea reach code? | `docs/decisions/TL-003-STRATEGY-INTAKE-BOUNDARY.md` | `docs/STRATEGY_RESEARCH.md`, the local intake record, and its owning issue |
