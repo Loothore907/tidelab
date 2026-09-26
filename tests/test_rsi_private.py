@@ -118,7 +118,7 @@ def test_full_private_route_uses_invented_archives_once(tmp_path, monkeypatch):
     assert rsi.prepare('test')['status'] == 'prepared'
     import subprocess, sys
     snapshot = rsi.study() / 'snapshot.sqlite3'
-    observed = subprocess.check_output([sys.executable, '-c', 'from pathlib import Path; from tidelab.rsi_private import file_hash; import sys; print(file_hash(Path(sys.argv[1])))', str(snapshot)], text=True).strip()
+    observed = subprocess.check_output([sys.executable, '-c', 'from pathlib import Path; from hashlib import sha256; import sys; print(sha256(Path(sys.argv[1]).read_bytes()).hexdigest())', str(snapshot)], text=True).strip()
     assert observed == batch.read(rsi.study() / 'prepared.json')['snapshot_file_sha256']
     assert not snapshot.with_name(snapshot.name + '-wal').exists()
     with pytest.raises(sqlite3.IntegrityError): rsi.prepare('test')
