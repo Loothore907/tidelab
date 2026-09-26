@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import sqlite3
 from typing import Mapping
+from time import monotonic, sleep
 
 from tidelab.domain import canonical_json
 from tidelab.experiment_identity import build_experiment_identity
@@ -61,7 +62,19 @@ class TrialRegistry:
 
     def initialize(self) -> None:
         with closing(self._connect()) as db:
-            db.execute("PRAGMA journal_mode = WAL")
+            # SQLite can return BUSY immediately while two connections bootstrap
+            # WAL, even with busy_timeout set. Retrying this idempotent pragma
+            # cannot rerun a trial or erase an admission request.
+            deadline = monotonic() + 10
+            while True:
+                try:
+                    db.execute("PRAGMA journal_mode = WAL")
+                    break
+                except sqlite3.OperationalError as exc:
+                    if (getattr(exc, "sqlite_errorcode", 0) & 255) not in (
+                            sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED) or monotonic() >= deadline:
+                        raise
+                    sleep(0.05)
             db.execute("""CREATE TABLE IF NOT EXISTS trial_attempts (
                 attempt_id TEXT PRIMARY KEY,
                 identity_sha256 TEXT NOT NULL,
@@ -119,6 +132,7 @@ class TrialRegistry:
             raise ValueError("invalid_batch_identity")
         if not inventory:
             raise ValueError("empty_inventory")
+        import json
         now = datetime.now(timezone.utc).isoformat()
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -136,6 +150,9 @@ class TrialRegistry:
                             or terminal[0] not in ("aborted", "failed")
                             or prior["plan_sha256"] != plan_sha256):
                         reason = "phase_already_reserved"
+                    elif [x.get("identity") for x in json.loads(prior["inventory_json"])] != [
+                            x.get("identity") for x in inventory]:
+                        reason = "retry_identity_changed"
                 elif retry_of is not None:
                     reason = "invalid_retry_parent"
                 if db.execute("""SELECT 1 FROM research_batches b LEFT JOIN batch_outcomes o
@@ -165,6 +182,14 @@ class TrialRegistry:
                 "SELECT * FROM batch_job_outcomes WHERE batch_id=?", (batch_id,))}
             terminal = db.execute("SELECT * FROM batch_outcomes WHERE batch_id=?", (batch_id,)).fetchone()
             result["terminal"] = dict(terminal) if terminal else None
+            result["attempt_statuses"] = {}
+            attempts = [x["attempt_id"] for x in result["inventory"] if "attempt_id" in x]
+            for offset in range(0, len(attempts), 500):
+                ids = attempts[offset:offset + 500]
+                for attempt in db.execute(f"""SELECT a.attempt_id, o.outcome FROM trial_attempts a
+                    LEFT JOIN trial_outcomes o ON o.attempt_id=a.attempt_id
+                    WHERE a.attempt_id IN ({','.join('?' for _ in ids)})""", ids):
+                    result["attempt_statuses"][attempt["attempt_id"]] = attempt["outcome"] or "open"
             return result
 
     def finish_job(self, batch_id: str, index: int, result: dict) -> None:

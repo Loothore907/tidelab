@@ -82,7 +82,7 @@ def test_preflight_never_reads_prices(tmp_path, monkeypatch, mutation, reason):
     assert len(result["jobs"]) == 19
 
 
-@pytest.mark.parametrize("damage", ["gap", "duplicate", "digest", "provenance", "nonfinite"])
+@pytest.mark.parametrize("damage", ["gap", "duplicate", "digest", "provenance", "nonfinite", "null", "array", "duplicate_key"])
 def test_partition_failures_are_retained_and_other_market_completes(tmp_path, damage):
     args = setup(tmp_path)
     with sqlite3.connect(args[2]) as db:
@@ -96,6 +96,9 @@ def test_partition_failures_are_retained_and_other_market_completes(tmp_path, da
             db.execute("UPDATE market_events SET received_at_utc='2026-01-01T00:00:01Z' WHERE event_id='synthetic:ALPHA-USD-0'")
         elif damage == "provenance":
             db.execute("UPDATE market_events SET source='unknown' WHERE event_id='synthetic:ALPHA-USD-0'")
+        elif damage in ("null", "array", "duplicate_key"):
+            payload = {"null": "null", "array": "[]", "duplicate_key": '{"open":"1","open":"2"}'}[damage]
+            db.execute("UPDATE market_events SET payload_json=? WHERE event_id='synthetic:ALPHA-USD-0'", (payload,))
         else:
             db.execute("UPDATE market_events SET payload_json=? WHERE event_id='synthetic:ALPHA-USD-0'",
                        (json.dumps(dict(open="NaN", close="1", high="1", low="1", volume="1")),))
@@ -181,6 +184,9 @@ run(*[Path(x) for x in sys.argv[2:]], checkpoint=checkpoint)
             batch.recover(args[-1], args[-2])
     result = batch.recover(args[-1], args[-2], abort=point != "last_artifact")
     assert len(result["jobs"]) == 19
+    assert result["reserved_executable_jobs"] == 16
+    assert result["attempt_count"] == (0 if point == "reserved" else 16)
+    assert result["terminal_attempt_count"] == result["attempt_count"]
     assert result["status"] == ("completed" if point == "last_artifact" else "aborted")
     assert batch.recover(args[-1], args[-2]) == result
     registry = TrialRegistry(args[-2])
@@ -245,6 +251,9 @@ def test_linked_retry_preserves_failed_attempts(tmp_path):
     first = batch.recover(args[-1], args[-2], abort=True)
     retry = batch.run(*args[:-1], tmp_path / "retry", retry_of=first["batch_id"])
     assert retry["status"] == "completed"
+    original_inventory = TrialRegistry(args[-2]).batch(first["batch_id"])["inventory"]
+    retried_inventory = TrialRegistry(args[-2]).batch(retry["batch_id"])["inventory"]
+    assert [x.get("identity") for x in original_inventory] == [x.get("identity") for x in retried_inventory]
     with sqlite3.connect(args[-2]) as db:
         assert db.execute("SELECT COUNT(*) FROM trial_attempts").fetchone()[0] == 32
         assert db.execute("SELECT COUNT(*) FROM trial_outcomes WHERE outcome='aborted'").fetchone()[0] == 16
@@ -260,3 +269,36 @@ def test_decimal_domain_and_overflow_fail_closed():
     bars[5] = Bar(bars[5].start, Decimal("1e9"), Decimal("1e20"))
     with pytest.raises(ArithmeticError, match="overflow"):
         replay_package(strategy, bars, initial_cash=Decimal("1e9"), score_start=3)
+
+
+def test_wal_bootstrap_busy_retry_is_bounded(tmp_path, monkeypatch):
+    import contextlib
+    registry = TrialRegistry(tmp_path / "registry.sqlite3")
+    connection = registry._connect()
+    calls = []
+    class Contended:
+        def execute(self, sql, *args):
+            if sql == "PRAGMA journal_mode = WAL":
+                calls.append(sql)
+                if len(calls) <= 2:
+                    error = sqlite3.OperationalError("database is locked")
+                    error.sqlite_errorcode = sqlite3.SQLITE_BUSY
+                    raise error
+            return connection.execute(sql, *args)
+        def close(self):
+            connection.close()
+    monkeypatch.setattr(registry, "_connect", lambda: Contended())
+    registry.initialize()
+    assert len(calls) == 3
+
+
+def test_retry_rejects_changed_execution_identity(tmp_path, monkeypatch):
+    args = setup(tmp_path)
+    class Crash(BaseException): pass
+    def stop(stage):
+        if stage == "reserved": raise Crash()
+    with pytest.raises(Crash): batch.run(*args, checkpoint=stop)
+    old = batch.recover(args[-1], args[-2], abort=True)
+    monkeypatch.setattr(batch.platform, "python_version", lambda: "different-runtime")
+    result = batch.run(*args[:-1], tmp_path / "changed-retry", retry_of=old["batch_id"])
+    assert result["status"] == "blocked" and result["reason"] == "retry_identity_changed"

@@ -7,7 +7,7 @@ import json
 import sqlite3
 
 from tidelab.domain import canonical_json, isoformat_utc, parse_utc
-from tidelab.strategy_batch import Bar
+from tidelab.strategy_batch import Bar, parse_json_bytes
 from tidelab.package_lean_parity import _domain
 
 SOURCE = "tidelab.synthetic.hourly.v1"
@@ -49,9 +49,9 @@ def read_partition(database: Path, descriptor: dict, market: str, *, capture=Non
         for index, row in enumerate(rows):
             if (row["event_time_utc"] != isoformat_utc(first + index * HOUR)
                     or row["source"] != SOURCE or row["closed"] != 1 or row["schema_version"] != 1
-                    or json.loads(row["native_json"]) != {"kind": "tidelab_synthetic", "author": "TideLab"}):
+                    or parse_json_bytes(row["native_json"].encode()) != {"kind": "tidelab_synthetic", "author": "TideLab"}):
                 raise ValueError("source_clock_or_provenance_mismatch")
-            payload = json.loads(row["payload_json"])
+            payload = parse_json_bytes(row["payload_json"].encode())
             if set(payload) != {"open", "high", "low", "close", "volume"}:
                 raise ValueError("invalid_ohlcv")
             for value in payload.values():

@@ -142,6 +142,9 @@ def preflight(plan: dict, descriptor: dict) -> None:
     allocation = Decimal(plan["benchmark_allocation"])
     if not allocation.is_finite() or not 0 < allocation <= 1 or allocation.as_tuple().exponent < -8:
         raise ValueError("invalid_benchmark_allocation")
+    if (not isinstance(plan["jobs"], list) or not isinstance(plan["packages"], list)
+            or not 1 <= len(plan["packages"]) <= 10000):
+        raise ValueError("invalid_inventory")
     if (type(plan["budget"]) is not int or not 1 <= len(plan["jobs"]) <= plan["budget"] <= 10000
             or type(plan["max_bars"]) is not int or not 3 <= plan["max_bars"] <= 10000):
         raise ValueError("budget_or_bar_limit")
@@ -260,7 +263,9 @@ def close_batch(registry, batch_id, output, status):
     summary = {"batch_id": batch_id, "status": status, "jobs": list(state["jobs"].values()),
                "submitted_jobs": len(state["inventory"]),
                "distinct_configurations": len({x["configuration_key"] for x in state["inventory"] if x.get("configuration_key")}),
-               "attempt_count": sum("attempt_id" in x for x in state["inventory"]),
+               "reserved_executable_jobs": sum("attempt_id" in x for x in state["inventory"]),
+               "attempt_count": len(state["attempt_statuses"]),
+               "terminal_attempt_count": sum(value != "open" for value in state["attempt_statuses"].values()),
                "strategy_jobs": sum(x["job"].get("benchmark") is None for x in state["inventory"] if isinstance(x["job"], dict)),
                "benchmark_jobs": sum(x["job"].get("benchmark") is not None for x in state["inventory"] if isinstance(x["job"], dict))}
     if not (output / "summary.json").exists():
@@ -330,13 +335,13 @@ def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, 
                 cost={"model_id": job["cost"], "revision": "v1", "sha256": digest(canonical_json(plan["costs"][job["cost"]]).encode())},
                 trial={"strategy_id": f"{plan['family']}.{item['configuration_key']}", "strategy_version": plan["generation"],
                        "trial_id": f"{plan['family']}.{plan['generation']}.{item['index']}", "sequence": item["index"] + 1,
-                       "origin": "human", "parent_trial_id": retry_of})
+                       "origin": "human", "parent_trial_id": None})
         write(output / "admission.json", {"batch_id": batch_id, "plan_sha256": plan_hash,
                                          "inputs_sha256": inputs_hash, "inventory": inventory})
     except (ValueError, KeyError, TypeError, ArithmeticError, OSError) as exc:
         result = {"status": "blocked", "reason": str(exc), "batch_id": batch_id,
                   "jobs": [{"index": i, "status": "blocked"} for i, _ in enumerate(
-                      plan.get("jobs", []) if isinstance(locals().get("plan"), dict) else [])]}
+                      plan["jobs"] if isinstance(locals().get("plan"), dict) and isinstance(plan.get("jobs"), list) else [])]}
         write(output / "rejection.json", result)
         finalize(output)
         return result
