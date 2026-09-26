@@ -21,6 +21,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [Core plan and assumptions](docs/PLAN.md)
 - [Strategy research protocol](docs/STRATEGY_RESEARCH.md)
 - [Frozen H1 v1 research specification](docs/experiments/H1-V1-PREREGISTRATION.md)
+- [Preregistered five-market candidate screen](docs/experiments/FIVE-MARKET-SCREEN-V1-PREREGISTRATION.md)
 - [Exchange, access, and deployment decisions](docs/ARCHITECTURE.md)
 - [Roadmap and evaluation gates](docs/ROADMAP.md)
 - [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
@@ -140,6 +141,8 @@ Keep these real-data-derived CSVs local. This prepares the reader's file format;
 The [fixed five-asset plan](research/first-pass-universe-v1.json) and local `audit-universe-coverage` command report exact-source closed-hour gaps and shared 24-month continuity before any market-strategy ranking. The command reads an existing database without acquiring data or reading price payloads. Keep any real-data-derived output local under ignored `data/`; see the [coverage gate](docs/evidence/TL-003-FIRST-PASS-COVERAGE-GATE.md). Coverage does not grant research rights or establish a timely feed.
 
 A bounded private audit has now run on the five-market local database. Read `data/okx/first-pass-coverage-private.json` locally for its exact result and gaps; do not publish it. No candidate ranking or cross-market strategy scanner has run.
+
+The [TL-003 v1 preregistration](docs/experiments/FIVE-MARKET-SCREEN-V1-PREREGISTRATION.md) fixes a ten-combination offline screen. Its local runner, `scripts/tl003_screen.py`, accepts `--phase development`, then `validation`, then `untouched`, each with `--terms-reviewed-utc-date YYYY-MM-DD`. It requires clean integrated `main`, fresh matching `origin/main`, successful exact-head CI, and a same-day review of the official OKX historical terms. Results and the append-only attempt registry are written only to ignored `data/tl003_screen_v1/`. Run each later phase only if the prior private decision nominates it. This is a historical full-fill estimate, not LEAN paper execution or an on-time feed.
 
 ## Next research gates
 
