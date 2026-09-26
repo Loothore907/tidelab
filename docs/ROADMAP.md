@@ -122,3 +122,7 @@ The public repository is [Loothore907/tidelab](https://github.com/Loothore907/ti
 Use `main` as the integration base and an issue-linked focused branch/PR for each coherent slice. Issues #1-#4 and PRs #5-#6 record the foundation and open-source decision. Run required local checks and exact-head CI and integrate only within granted authority. Follow the user's global Git hygiene instructions. Do not invent remote evidence or bypass checks.
 
 TL-001A and TL-001B are separate reviewable slices after TL-001 integration. Evidence capture is ongoing and sanitized; selecting video software, purchasing services, recording private account activity, or publishing a video requires separate later scope.
+
+## Shared historical batch next slice
+
+Under #95, the [backend contract](decisions/TL-003-HISTORICAL-BATCH-BACKEND.md) specifies a reusable package-to-results path with atomic batch admission, existing trial accounting, common costs, partition boundaries and recovery. First implement and demonstrate the whole path using synthetic SQLite history and pinned LEAN comparison. Real candidate selection, snapshot approval and phase/trial budgets remain separate; the specification does not implement or authorize them.
