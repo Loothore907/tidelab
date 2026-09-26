@@ -112,19 +112,35 @@ class TrialRegistry:
                 batch_id TEXT PRIMARY KEY REFERENCES research_batches(batch_id),
                 outcome TEXT NOT NULL, finished_utc TEXT NOT NULL,
                 artifact_sha256 TEXT NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS research_access (
+                grant_id TEXT NOT NULL, stage TEXT NOT NULL, identity_json TEXT NOT NULL,
+                started_utc TEXT NOT NULL, PRIMARY KEY(grant_id,stage))""")
             for table in ("trial_attempts", "trial_outcomes", "batch_requests",
-                          "research_batches", "batch_job_outcomes", "batch_outcomes"):
+                          "research_batches", "batch_job_outcomes", "batch_outcomes", "research_access"):
                 db.execute(f"""CREATE TRIGGER IF NOT EXISTS {table}_no_update
                     BEFORE UPDATE ON {table} BEGIN SELECT RAISE(ABORT, 'immutable trial record'); END""")
                 db.execute(f"""CREATE TRIGGER IF NOT EXISTS {table}_no_delete
                     BEFORE DELETE ON {table} BEGIN SELECT RAISE(ABORT, 'immutable trial record'); END""")
+
+    def reserve_access(self, grant_id: str, stage: str, identity: dict) -> None:
+        """One immutable authorization consumption before private data access."""
+        with closing(self._connect()) as db:
+            db.execute("INSERT INTO research_access VALUES (?,?,?,?)",
+                       (grant_id, stage, canonical_json(identity), datetime.now(timezone.utc).isoformat()))
+
+    def access(self, grant_id: str, stage: str) -> dict | None:
+        import json
+        with closing(self._connect()) as db:
+            row = db.execute("SELECT identity_json FROM research_access WHERE grant_id=? AND stage=?",
+                             (grant_id, stage)).fetchone()
+        return json.loads(row[0]) if row else None
 
     def reserve_batch(self, batch_id: str, *, family: str, generation: str,
                       phase: str, plan_sha256: str, inventory: list[dict],
                       retry_of: str | None = None) -> str | None:
         """Atomically admit the complete inventory, or retain a rejected request.
 
-        Only synthetic development is currently executable. Returned text is a
+        The caller owns source authority; only development is admitted here. Returned text is a
         rejection reason; no exception/rollback erases a concurrency loser.
         """
         if any(not isinstance(v, str) or not _TOKEN.fullmatch(v)
