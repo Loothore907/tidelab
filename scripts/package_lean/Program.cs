@@ -11,6 +11,7 @@ using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.Results;
 using QuantConnect.Lean.Engine.TransactionHandlers;
 using QuantConnect.Orders;
+using QuantConnect.Indicators;
 using QuantConnect.Orders.Fees;
 using QuantConnect.Orders.Fills;
 using QuantConnect.Securities;
@@ -49,6 +50,7 @@ sealed class SyntheticFee(decimal rate, decimal adverse) : FeeModel
 
 sealed class PackageAlgorithm : QCAlgorithm
 {
+    private static RelativeStrengthIndex _rsi = new(14, MovingAverageType.Wilders);
     private readonly List<OrderEvent> _filled = new();
     public override void OnOrderEvent(OrderEvent orderEvent)
     {
@@ -67,6 +69,7 @@ sealed class PackageAlgorithm : QCAlgorithm
         return op switch
         {
             "number" => 1,
+            "rsi_wilder" => 15,
             "close" => node.GetProperty("lag").GetInt32() + 1,
             "sma" => node.GetProperty("lag").GetInt32() + node.GetProperty("window").GetInt32(),
             "gt" or "lt" => Math.Max(Warmup(node.GetProperty("left")), Warmup(node.GetProperty("right"))),
@@ -79,6 +82,7 @@ sealed class PackageAlgorithm : QCAlgorithm
     private static decimal Number(JsonElement node, List<decimal> closes)
     {
         var op = node.GetProperty("op").GetString();
+        if (op == "rsi_wilder") return _rsi.Current.Value;
         if (op == "number") return D(node.GetProperty("value"));
         var end = closes.Count - node.GetProperty("lag").GetInt32();
         return op switch
@@ -102,6 +106,8 @@ sealed class PackageAlgorithm : QCAlgorithm
 
     public object Replay(JsonElement input)
     {
+        var schema = input.GetProperty("package").GetProperty("schema_version").GetInt32();
+        _rsi = new RelativeStrengthIndex(14, MovingAverageType.Wilders);
         var rule = input.GetProperty("package").GetProperty("rule");
         var entryRule = rule.GetProperty("entry");
         var exitRule = rule.GetProperty("exit");
@@ -184,6 +190,7 @@ sealed class PackageAlgorithm : QCAlgorithm
                 security.SetMarketPrice(new Tick(start.AddHours(1), security.Symbol, close, close));
                 Portfolio.CashBook["TL"].CurrencyConversion.ConversionRate = close;
                 closes.Add(close);
+                _rsi.Update(start.AddHours(1), close);
                 bool? entry = null, exit = null;
                 var action = "hold";
                 if (index >= scoreStart && closes.Count >= warmup && index != bars.Length - 1)
@@ -200,9 +207,15 @@ sealed class PackageAlgorithm : QCAlgorithm
                 }
                 if (Portfolio.CashBook["USD"].Amount < 0 || security.Holdings.Quantity < 0)
                     throw new InvalidOperationException("Negative cash or holdings");
-                if (index >= scoreStart) traces.Add(new { index, close_utc = U(UtcTime), entry, exit, action, fill = fillTrace,
-                    cash = S(Portfolio.CashBook["USD"].Amount), units = S(security.Holdings.Quantity),
-                    equity = S(Portfolio.TotalPortfolioValue) });
+                if (index >= scoreStart)
+                {
+                    var row = new Dictionary<string, object?> { ["index"] = index, ["close_utc"] = U(UtcTime),
+                        ["entry"] = entry, ["exit"] = exit, ["action"] = action, ["fill"] = fillTrace,
+                        ["cash"] = S(Portfolio.CashBook["USD"].Amount), ["units"] = S(security.Holdings.Quantity),
+                        ["equity"] = S(Portfolio.TotalPortfolioValue) };
+                    if (schema == 2) { row["rsi"] = S(_rsi.Current.Value); row["rsi_ready"] = _rsi.IsReady; }
+                    traces.Add(row);
+                }
             }
             if (Transactions.GetOpenOrders().Count != 0 || ErrorMessages.Count != 0)
                 throw new InvalidOperationException("LEAN retained open orders or reported errors: " + string.Join("; ", ErrorMessages));

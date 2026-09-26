@@ -27,7 +27,8 @@ DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 AUTHORITY = "issue-95-synthetic-foundation"
 METRICS = ["net_return", "max_drawdown", "fill_count", "round_trips", "fees", "turnover", "exposure"]
 SOURCES = ["historical_batch.py", "historical_input.py", "strategy_batch.py", "trial_registry.py",
-           "experiment_identity.py", "package_lean_parity.py", "strategy_intake.py", "domain.py"]
+           "experiment_identity.py", "package_lean_parity.py", "strategy_intake.py", "domain.py",
+           "rsi_private.py"]
 
 
 def digest(raw: bytes) -> str:
@@ -177,7 +178,7 @@ def preflight(plan: dict, descriptor: dict) -> None:
             raise ValueError("invalid_snapshot_partition")
 
 
-def prepare_jobs(plan: dict, descriptor: dict, packages: dict) -> list[dict]:
+def prepare_jobs(plan: dict, descriptor: dict, packages: dict, package_validator=validate_package_domain) -> list[dict]:
     inventory, seen = [], {}
     for index, job in enumerate(plan["jobs"]):
         item = {"index": index, "job": job, "status": "admitted"}
@@ -192,7 +193,7 @@ def prepare_jobs(plan: dict, descriptor: dict, packages: dict) -> list[dict]:
             item["inputs"] = {key: source[key] for key in ("package_sha256", "record_sha256")}
             if source.get("error"):
                 raise ValueError(source["error"])
-            parsed = validate_package_domain(source["package"], source["record"])
+            parsed = package_validator(source["package"], source["record"])
             if parsed.warmup > descriptor["partitions"][job["market"]]["warmup_bars"]:
                 raise UnsupportedPackage("insufficient_declared_warmup")
             semantic = {"rule": source["package"]["rule"], "requirements": source["package"]["requirements"]}
@@ -278,13 +279,16 @@ def close_batch(registry, batch_id, output, status):
 
 
 def run(plan_path: Path, descriptor_path: Path, database: Path, registry_path: Path,
-        output: Path, *, retry_of: str | None = None, checkpoint=lambda _: None) -> dict:
+        output: Path, *, retry_of: str | None = None, checkpoint=lambda _: None, _policy=None) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     with exclusive(output):
-        return _run(plan_path, descriptor_path, database, registry_path, output, retry_of, checkpoint)
+        return _run(plan_path, descriptor_path, database, registry_path, output, retry_of, checkpoint, _policy)
 
 
-def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, checkpoint):
+def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, checkpoint, policy=None):
+    check_plan = policy.preflight if policy else preflight
+    package_validator = policy.package if policy else validate_package_domain
+    reader = policy.read_partition if policy else read_partition
     started = perf_counter()
     batch_id = "batch-" + uuid4().hex
     write(output / "attempt.json", {"batch_id": batch_id, "started_utc": now()})
@@ -296,7 +300,7 @@ def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, 
         plan = parse_json_bytes(raw, max_bytes=4 * 1024 * 1024)
         desc_raw = freeze(descriptor_path, inputs / "snapshot.json", 1024 * 1024)
         descriptor = parse_json_bytes(desc_raw, max_bytes=1024 * 1024)
-        preflight(plan, descriptor)
+        check_plan(plan, descriptor)
         if digest(desc_raw) != plan["snapshot_sha256"]:
             raise ValueError("descriptor_digest_mismatch")
         packages = {}
@@ -313,7 +317,7 @@ def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, 
             except (ValueError, UnicodeError) as exc:
                 source["error"] = type(exc).__name__
             packages[ref["id"]] = source
-        inventory = prepare_jobs(plan, descriptor, packages)
+        inventory = prepare_jobs(plan, descriptor, packages, package_validator)
         revision = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
         runtime = {"code_revision": revision, "python": platform.python_version(),
                    "sources": {name: digest((ROOT / "src/tidelab" / name).read_bytes()) for name in SOURCES}}
@@ -330,8 +334,8 @@ def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, 
                 code={"repository": "Loothore907:tidelab", "revision": revision},
                 configuration={"id": f"{plan['family']}.{plan['generation']}.{item['index']}",
                                "sha256": digest(canonical_json({"plan": plan, "job": job, "inputs": inputs_hash}).encode())},
-                data={"source_id": SOURCE, "revision": plan["generation"], "sha256": descriptor["partitions"][job["market"]]["sha256"],
-                      "kind": "synthetic", "rights_reference": "TideLab-authored"},
+                data={"source_id": descriptor["source"], "revision": plan["generation"], "sha256": descriptor["partitions"][job["market"]]["sha256"],
+                      "kind": descriptor["kind"], "rights_reference": descriptor["rights_reference"]},
                 cost={"model_id": job["cost"], "revision": "v1", "sha256": digest(canonical_json(plan["costs"][job["cost"]]).encode())},
                 trial={"strategy_id": f"{plan['family']}.{item['configuration_key']}", "strategy_version": plan["generation"],
                        "trial_id": f"{plan['family']}.{plan['generation']}.{item['index']}", "sequence": item["index"] + 1,
@@ -372,13 +376,13 @@ def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, 
                     raise ValueError("partition_previously_failed")
                 if job["market"] not in cache:
                     try:
-                        cache[job["market"]] = read_partition(database, descriptor, job["market"],
+                        cache[job["market"]] = reader(database, descriptor, job["market"],
                             capture=lambda rows: write(output / f"market-{plan['markets'].index(job['market'])}.json", {"rows": rows}))
                     except (ValueError, ArithmeticError, OSError, sqlite3.Error) as exc:
                         failed_markets.add(job["market"])
                         raise ValueError("partition_read_failed") from exc
                 source = packages[job["package"]]
-                strategy = validate_package_domain(source["package"], source["record"])
+                strategy = package_validator(source["package"], source["record"])
                 if job["benchmark"]:
                     strategy = replace(strategy, target_fraction=Decimal(plan["benchmark_allocation"]))
                 cost = validate_cost(plan["costs"][job["cost"]])

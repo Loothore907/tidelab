@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_EVEN
 from hashlib import sha256
+from functools import cached_property
 import json
 from pathlib import Path
 import re
@@ -55,6 +56,7 @@ class ParsedStrategy:
     target_fraction: Decimal
     warmup: int
     package_sha256: str
+    schema_version: int = 1
 
 
 def _decimal(value: Any, name: str, *, positive: bool = False) -> Decimal:
@@ -69,13 +71,18 @@ def _decimal(value: Any, name: str, *, positive: bool = False) -> Decimal:
     return parsed
 
 
-def _expr(node: Any, kind: str, depth: int, counter: list[int]) -> int:
+def _expr(node: Any, kind: str, depth: int, counter: list[int], schema: int = 1) -> int:
     if depth > _MAX_DEPTH or not isinstance(node, dict):
         raise ValueError("rule expression exceeds depth or is not an object")
     counter[0] += 1
     if counter[0] > _MAX_NODES:
         raise ValueError("rule expression exceeds node limit")
     op = node.get("op")
+    if kind == "number" and op == "rsi_wilder" and schema == 2:
+        if (node != {"op": "rsi_wilder", "period": 14, "lag": 0}
+                or type(node["period"]) is not int or type(node["lag"]) is not int):
+            raise UnsupportedPackage("only_rsi14_lag_zero_supported")
+        return 15
     if kind == "number" and op == "number":
         if set(node) != {"op", "value"}:
             raise ValueError("number expression has unexpected fields")
@@ -92,17 +99,17 @@ def _expr(node: Any, kind: str, depth: int, counter: list[int]) -> int:
     if kind == "boolean" and op in {"gt", "lt"}:
         if set(node) != {"op", "left", "right"}:
             raise ValueError("comparison has unexpected fields")
-        return max(_expr(node["left"], "number", depth + 1, counter),
-                   _expr(node["right"], "number", depth + 1, counter))
+        return max(_expr(node["left"], "number", depth + 1, counter, schema),
+                   _expr(node["right"], "number", depth + 1, counter, schema))
     if kind == "boolean" and op in {"and", "or"}:
         args = node.get("args")
         if set(node) != {"op", "args"} or not isinstance(args, list) or not 2 <= len(args) <= 8:
             raise ValueError("logical expression needs 2 to 8 clauses")
-        return max(_expr(arg, "boolean", depth + 1, counter) for arg in args)
+        return max(_expr(arg, "boolean", depth + 1, counter, schema) for arg in args)
     if kind == "boolean" and op == "not":
         if set(node) != {"op", "arg"}:
             raise ValueError("not expression has unexpected fields")
-        return _expr(node["arg"], "boolean", depth + 1, counter)
+        return _expr(node["arg"], "boolean", depth + 1, counter, schema)
     raise UnsupportedPackage("unsupported rule operation or type")
 
 
@@ -111,7 +118,7 @@ def parse_package(package: Mapping[str, Any], record: Mapping[str, Any]) -> Pars
     if (not isinstance(package, dict) or set(package) !=
             {"schema_version", "strategy_id", "version", "source", "requirements", "rule"}):
         raise ValueError("strategy package fields differ")
-    if (type(package["schema_version"]) is not int or package["schema_version"] != 1
+    if (type(package["schema_version"]) is not int or package["schema_version"] not in (1, 2)
             or type(package["version"]) is not int or package["version"] < 1):
         raise ValueError("unsupported strategy package version")
     if not isinstance(package["strategy_id"], str) or not _ID.fullmatch(package["strategy_id"]):
@@ -142,13 +149,13 @@ def parse_package(package: Mapping[str, Any], record: Mapping[str, Any]) -> Pars
     if fraction > 1:
         raise ValueError("target_fraction exceeds cash-only exposure")
     nodes = [0]
-    warmup = max(_expr(rule["entry"], "boolean", 0, nodes),
-                 _expr(rule["exit"], "boolean", 0, nodes))
+    warmup = max(_expr(rule["entry"], "boolean", 0, nodes, package["schema_version"]),
+                 _expr(rule["exit"], "boolean", 0, nodes, package["schema_version"]))
     digest = sha256(canonical_json(package).encode("utf-8")).hexdigest()
     return ParsedStrategy(package["strategy_id"], package["version"],
                           source["candidate_id"], source["version"],
                           source["record_sha256"], rule["entry"], rule["exit"],
-                          fraction, warmup, digest)
+                          fraction, warmup, digest, package["schema_version"])
 
 
 def load_json(path: Path, *, max_bytes: int = _MAX_PACKAGE_BYTES) -> dict[str, Any]:
@@ -194,8 +201,38 @@ def parse_synthetic_bars(fixture: Mapping[str, Any]) -> tuple[Bar, ...]:
     return tuple(bars)
 
 
+class CloseSeries(list):
+    @cached_property
+    def rsi14(self) -> list[Decimal]:
+        """Match pinned LEAN Wilder seeding and rounded-zero-loss behavior.
+
+        Derived algorithm behavior: QuantConnect LEAN (Apache-2.0), source pin
+        88bce0fc6fe282378ee73c54cef1090d0d7a73ee. Independently written Python
+        adaptation; native implementation remains the comparison reference.
+        """
+        gain = loss = total_gain = total_loss = Decimal(0)
+        k = Decimal(1) / 14
+        values = []
+        for index, close in enumerate(self):
+            if index:
+                change = close - self[index - 1]
+                up, down = max(change, Decimal(0)), max(-change, Decimal(0))
+                if index < 14:
+                    total_gain += up
+                    total_loss += down
+                    gain, loss = total_gain / index, total_loss / index
+                else:
+                    gain = up * k + gain * (1 - k)
+                    loss = down * k + loss * (1 - k)
+            values.append(Decimal(100) if loss.quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_EVEN) == 0
+                          else Decimal(100) - Decimal(100) / (1 + gain / loss))
+        return values
+
+
 def _numeric(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> Decimal:
     op = node["op"]
+    if op == "rsi_wilder":
+        return closes.rsi14[index]
     if op == "number":
         return Decimal(node["value"])
     if op == "close":
@@ -220,7 +257,7 @@ def _boolean(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> 
 
 def signal_trace(strategy: ParsedStrategy, bars: Sequence[Bar]) -> list[dict[str, int | bool]]:
     """Closed-bar predicates, before any synthetic next-open execution."""
-    closes = [bar.close for bar in bars]
+    closes = CloseSeries(bar.close for bar in bars)
     return [{"index": index, "entry": _boolean(strategy.entry, closes, index),
              "exit": _boolean(strategy.exit, closes, index)}
             for index in range(strategy.warmup - 1, len(bars) - 1)]
@@ -283,7 +320,7 @@ def replay_package(strategy: ParsedStrategy, bars: Sequence[Bar], *,
     cash, units = initial_cash, Decimal(0)
     pending: tuple[str, Decimal] | None = None
     fills = decisions = 0
-    closes = [bar.close for bar in bars]
+    closes = CloseSeries(bar.close for bar in bars)
     for index, bar in enumerate(bars):
         fill = None
         if benchmark == "passive" and index == score_start:
@@ -328,6 +365,7 @@ def replay_package(strategy: ParsedStrategy, bars: Sequence[Bar], *,
         if emit is not None and index >= score_start:
             emit({"index": index,
                           "close_utc": (bar.start + _HOUR).isoformat().replace("+00:00", "Z"),
+                          **({"rsi": str(closes.rsi14[index]), "rsi_ready": index >= 14} if strategy.schema_version == 2 else {}),
                           "entry": entry, "exit": exit_signal, "action": action,
                           "fill": fill, "cash": str(cash), "units": str(units),
                           "equity": str(cash + units * bar.close)})

@@ -21,7 +21,7 @@ from tidelab.strategy_batch import (SYNTHETIC_COST, UnsupportedPackage,
 
 LEAN_PIN = "88bce0fc6fe282378ee73c54cef1090d0d7a73ee"
 CONTRACT = "tidelab-package-lean-synthetic-v1"
-MONEY_FIELDS = {"cash", "equity", "price", "fee"}
+MONEY_FIELDS = {"cash", "equity", "price", "fee", "rsi"}
 EXACT_DECIMAL_FIELDS = {"units", "quantity"}
 TOLERANCE = Decimal("1e-18")
 ROOT = Path(__file__).resolve().parents[2]
@@ -66,9 +66,9 @@ def validate_input(package: dict, record: dict, fixture: dict):
     return strategy, bars
 
 
-def validate_package_domain(package: dict, record: dict):
+def validate_package_domain(package: dict, record: dict, *, synthetic_only: bool = True):
     strategy = parse_package(package, record)
-    if record["source"]["kind"] != "synthetic_example":
+    if synthetic_only and record["source"]["kind"] != "synthetic_example":
         raise UnsupportedPackage("synthetic_intake_required")
     _domain(package["rule"]["target_fraction"])
 
