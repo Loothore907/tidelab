@@ -31,3 +31,9 @@ Run `python -m pytest tests/test_rsi_private.py`. Invented archives exercise the
 The `lean-package-parity` CI job supplies the pinned actual LEAN runtime. RSI cases compare native indicator readiness/value and full signal/order/fill/portfolio traces for flat/rising/falling, tiny loss, near-threshold arithmetic, stress and 336-bar scored warmup. Money/indicator values use the existing 1e-18 comparator tolerance; discrete decisions must agree exactly. This establishes bounded observed parity, not every possible decimal input or venue-realistic fills.
 
 Review, CI and integration must finish before private snapshot preparation. Exact reviewed head, results and finding dispositions belong in the PR. Any real preparation or trial failure is retained and needs a new decision before replacement. Private results must not be copied into this public document, issues, PRs or CI artifacts. #3 timely-source rights and #48 external execution remain independent.
+
+## Integrated execution checkpoint
+
+PR #104 merged at `2882c780a810662042b6204c6b95519aec6cda98`; [exact-main CI](https://github.com/Loothore907/tidelab/actions/runs/36269738664) passed all three jobs. Distinct review approved the identical source tree at `51836763469b586ff78693cbb91a7bd7d9e3e665`. Final CI suites reported 167 Windows tests (19 runtime-dependent skips), 70 tests in the actual LEAN job, 13 bakeoff tests and two context tests passing in their respective jobs.
+
+The specifically approved private workflow was subsequently executed once and audited. Its grant is consumed, not available for replay. The retained local `data/research_program/rsi-v1/REPORT.md`, `review.json`, `audit.json` and `independent-review.json` contain the disposition and evidence; the canonical registry and external anchor must remain intact. No private result is published here. Follow HANDOFF.md for the next proposal boundary instead of treating the command examples as a new execution instruction.
