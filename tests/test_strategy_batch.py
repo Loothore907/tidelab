@@ -1,11 +1,13 @@
 """The package parser and batch loop use invented source and bar fixtures only."""
 
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_DOWN
 from pathlib import Path
 
 import pytest
 
-from tidelab.strategy_batch import (UnsupportedPackage, evaluate_batch, evaluate_synthetic,
+from tidelab.strategy_batch import (Bar, UnsupportedPackage, evaluate_batch, evaluate_synthetic,
                                     load_json, parse_package,
                                     parse_synthetic_bars)
 from tidelab.strategy_intake import load_record, record_digest
@@ -32,6 +34,22 @@ def test_normalized_package_runs_with_closed_signal_and_next_open_fill():
     assert result["fill_count"] >= 2
     assert result["source_sha256"] == record_digest(record)
     assert evaluate_synthetic(parsed, bars) == result
+
+
+def test_buy_uses_next_open_after_closed_signal():
+    record, package, _ = inputs()
+    parsed = parse_package(package, record)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    prices = [(100, 100), (100, 101), (101, 102), (200, 200)]
+    bars = [Bar(start + index * timedelta(hours=1), Decimal(opening), Decimal(closing))
+            for index, (opening, closing) in enumerate(prices)]
+    result = evaluate_synthetic(parsed, bars)
+    fill_price = Decimal(200) * Decimal("1.001")
+    units = (Decimal(2500) / (fill_price * Decimal("1.0025"))).quantize(
+        Decimal("0.00000001"), rounding=ROUND_DOWN)
+    expected = Decimal(10000) - units * fill_price * Decimal("1.0025") + units * 200
+    assert result["fill_count"] == 1
+    assert Decimal(result["terminal_equity"]) == expected
 
 
 def test_binding_unknown_expression_and_capability_fail_closed():
