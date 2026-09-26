@@ -15,13 +15,15 @@ from tidelab.pine_source import capture_pine, verify_pine
 
 
 DEFAULT_REGISTRY = ROOT / "data" / "strategy_intake" / "intake.sqlite3"
-PINE_STORE = DEFAULT_REGISTRY.parent / "pine_sources"
-
-
-def _registry(value: str, parser: argparse.ArgumentParser) -> IntakeRegistry:
+def _registry_path(value: str, parser: argparse.ArgumentParser) -> Path:
     target = Path(value).resolve()
     if not target.is_relative_to((ROOT / "data").resolve()):
         parser.error("the real candidate registry must remain under ignored data/")
+    return target
+
+
+def _registry(value: str, parser: argparse.ArgumentParser) -> IntakeRegistry:
+    target = _registry_path(value, parser)
     registry = IntakeRegistry(target)
     registry.initialize()
     return registry
@@ -40,8 +42,10 @@ def main() -> None:
     capture = sub.add_parser("capture-pine")
     capture.add_argument("record", type=Path)
     capture.add_argument("source_file", type=Path)
+    capture.add_argument("--registry", default=str(DEFAULT_REGISTRY))
     verify = sub.add_parser("verify-pine")
     verify.add_argument("record", type=Path)
+    verify.add_argument("--registry", default=str(DEFAULT_REGISTRY))
     args = parser.parse_args()
 
     if args.action == "list":
@@ -49,10 +53,12 @@ def main() -> None:
         return
     record = load_record(args.record)
     if args.action == "capture-pine":
-        print(canonical_json(capture_pine(record, args.source_file, PINE_STORE)))
+        store = _registry_path(args.registry, parser).parent / "pine_sources"
+        print(canonical_json(capture_pine(record, args.source_file, store)))
         return
     if args.action == "verify-pine":
-        print(canonical_json(verify_pine(record, PINE_STORE)))
+        store = _registry_path(args.registry, parser).parent / "pine_sources"
+        print(canonical_json(verify_pine(record, store)))
         return
     if args.action == "validate":
         print(canonical_json({"candidate_id": record["candidate_id"],
