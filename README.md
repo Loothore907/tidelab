@@ -24,6 +24,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [Deterministic strategy-package and batch pipeline boundary](docs/decisions/TL-003-DETERMINISTIC-STRATEGY-PIPELINE.md)
 - [Bounded Pine v5 synthetic frontend and conformance grammar](docs/evidence/TL-003-PINE-SUBSET-FRONTEND.md)
 - [Append-only synthetic batch attempt ledger](docs/evidence/TL-003-SYNTHETIC-BATCH-LEDGER.md)
+- [Normalized-package / LEAN synthetic execution parity](docs/evidence/TL-003-PACKAGE-LEAN-PARITY.md)
 - [Frozen H1 v1 research specification](docs/experiments/H1-V1-PREREGISTRATION.md)
 - [Preregistered five-market candidate screen](docs/experiments/FIVE-MARKET-SCREEN-V1-PREREGISTRATION.md)
 - [Source-backed five-spot low-volatility exploratory study](docs/experiments/LOW-VOL-FIVE-SPOT-V1-PREREGISTRATION.md)
