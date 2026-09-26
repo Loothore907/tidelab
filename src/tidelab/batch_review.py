@@ -66,4 +66,3 @@ def trace_diagnostics(path, *, fee_rate: Decimal, adverse_rate: Decimal) -> dict
             "terminal_unrealized_net_of_entry_fee": str(marked - basis),
             "terminal_hypothetical_exit_cost": str(marked * (1 - (1 - adverse_rate) * (1 - fee_rate))),
             "meaning": "retained_trace_diagnostics_not_additional_trial"}
-

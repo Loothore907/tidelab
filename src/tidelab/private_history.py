@@ -80,4 +80,3 @@ def rows_for(db, market, window: Window):
         AND instrument_id=? AND event_type='bar' AND interval_seconds=3600
         AND event_time_utc>=? AND event_time_utc<? ORDER BY event_time_utc,event_id""",
         (market, window.first, window.end)).fetchmany(window.rows + 1)
-
