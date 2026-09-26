@@ -88,3 +88,18 @@ def test_private_attempt_is_recorded_before_result_and_cannot_repeat(
             registry, "okx:BTC-USDT", "momentum-720-v1", "development",
             bars(), "a" * 64, "b" * 64, "c" * 40, "d" * 64, "e" * 64,
             datetime(2026, 9, 25, tzinfo=timezone.utc).date(), None)
+
+
+def test_development_registers_exactly_ten_then_blocks_unearned_validation(
+        tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(tl003_screen, "DATA", tmp_path)
+    monkeypatch.setattr(tl003_screen, "integrated_head", lambda: "c" * 40)
+    instruments = [f"okx:{name}-USDT" for name in ("BTC", "ETH", "BNB", "XRP", "SOL")]
+    monkeypatch.setattr(tl003_screen, "preflight", lambda *_: (instruments, "b" * 64))
+    monkeypatch.setattr(tl003_screen, "read_bars", lambda *_: (bars(), "a" * 64))
+    today = datetime.now(timezone.utc).date()
+    decision = tl003_screen.run("development", today)
+    assert decision == {"phase": "development", "attempts": 10,
+                        "outcome": "no_development_survivor", "selected": False}
+    with pytest.raises(RuntimeError, match="did not nominate"):
+        tl003_screen.run("validation", today)
