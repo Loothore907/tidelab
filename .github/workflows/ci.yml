@@ -9,6 +9,38 @@ permissions:
   contents: read
 
 jobs:
+  lean-package-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: QuantConnect/Lean
+          ref: 88bce0fc6fe282378ee73c54cef1090d0d7a73ee
+          path: artifacts/lean-source
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.401"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install pinned Python dependencies
+        run: python -m pip install --requirement requirements.lock
+      - name: Compare packages through LEAN orders and portfolio
+        env:
+          TIDELAB_LEAN_ROOT: ${{ github.workspace }}/artifacts/lean-source
+        run: python -m pytest tests/test_package_lean_parity.py --basetemp=artifacts/package-parity-ci
+      - name: Retain synthetic parity attempts and engine logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lean-parity-${{ github.sha }}
+          path: artifacts/package-parity-ci/**/attempt/
+          if-no-files-found: error
+
   test:
     runs-on: windows-latest
     steps:

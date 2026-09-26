@@ -229,7 +229,8 @@ def signal_trace(strategy: ParsedStrategy, bars: Sequence[Bar]) -> list[dict[str
 def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
                        initial_cash: Decimal = Decimal(SYNTHETIC_COST["initial_cash"]),
                        fee_rate: Decimal = Decimal(SYNTHETIC_COST["fee_rate"]),
-                       adverse_rate: Decimal = Decimal(SYNTHETIC_COST["adverse_rate"])) -> dict[str, str | int]:
+                       adverse_rate: Decimal = Decimal(SYNTHETIC_COST["adverse_rate"]),
+                       trace: list[dict[str, Any]] | None = None) -> dict[str, str | int]:
     """One closed-bar/next-open full-fill contract test, never a market claim."""
     if (len(bars) <= strategy.warmup or any(
             not isinstance(value, Decimal) or not value.is_finite() or value < 0
@@ -246,10 +247,12 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
     fills = decisions = 0
     closes = [bar.close for bar in bars]
     for index, bar in enumerate(bars):
+        fill = None
         if pending:
             side, target = pending
             if side == "sell":
                 price = bar.open * (1 - adverse_rate)
+                quantity = units
                 cash += units * price * (1 - fee_rate)
                 units = Decimal(0)
             else:
@@ -258,20 +261,34 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
                 bought = (amount / (price * (1 + fee_rate))).quantize(_UNIT, rounding=ROUND_DOWN)
                 if bought <= 0:
                     raise ValueError("synthetic target below executable unit")
+                quantity = bought
                 cash -= bought * price * (1 + fee_rate)
                 units += bought
+            fill = {"index": index, "utc": bar.start.isoformat().replace("+00:00", "Z"),
+                    "side": side, "quantity": str(quantity), "price": str(price),
+                    "fee": str(quantity * price * fee_rate)}
             fills += 1
             pending = None
-        if index + 1 < strategy.warmup or index == len(bars) - 1:
-            continue
-        if units and _boolean(strategy.exit, closes, index):
-            pending = ("sell", Decimal(0))
-            decisions += 1
-        elif not units and _boolean(strategy.entry, closes, index):
-            pending = ("buy", (cash + units * bar.close) * strategy.target_fraction)
-            decisions += 1
+        entry = exit_signal = None
+        action = "hold"
+        if index + 1 >= strategy.warmup and index != len(bars) - 1:
+            entry = _boolean(strategy.entry, closes, index)
+            exit_signal = _boolean(strategy.exit, closes, index)
+            if units and exit_signal:
+                pending = ("sell", Decimal(0))
+            elif not units and entry:
+                pending = ("buy", cash * strategy.target_fraction)
+            if pending:
+                action = pending[0]
+                decisions += 1
         if cash < 0 or units < 0:
             raise AssertionError("synthetic cash or inventory became negative")
+        if trace is not None:
+            trace.append({"index": index,
+                          "close_utc": (bar.start + _HOUR).isoformat().replace("+00:00", "Z"),
+                          "entry": entry, "exit": exit_signal, "action": action,
+                          "fill": fill, "cash": str(cash), "units": str(units),
+                          "equity": str(cash + units * bar.close)})
     equity = cash + units * bars[-1].close
     return {"status": "synthetic_contract_tested", "strategy_id": strategy.strategy_id,
             "version": strategy.version, "package_sha256": strategy.package_sha256,
