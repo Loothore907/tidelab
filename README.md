@@ -23,6 +23,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 - [Strategy intake and pre-code drift checkpoint](docs/decisions/TL-003-STRATEGY-INTAKE-BOUNDARY.md)
 - [Frozen H1 v1 research specification](docs/experiments/H1-V1-PREREGISTRATION.md)
 - [Preregistered five-market candidate screen](docs/experiments/FIVE-MARKET-SCREEN-V1-PREREGISTRATION.md)
+- [Source-backed five-spot low-volatility exploratory study](docs/experiments/LOW-VOL-FIVE-SPOT-V1-PREREGISTRATION.md)
 - [Exchange, access, and deployment decisions](docs/ARCHITECTURE.md)
 - [Roadmap and evaluation gates](docs/ROADMAP.md)
 - [Open-source and publication policy](docs/OPEN_SOURCE_AND_PUBLICATION.md)
