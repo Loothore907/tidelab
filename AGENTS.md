@@ -16,6 +16,14 @@ For bounded orientation across sessions, use the repo-local `tidelab-context` sk
 - Do not represent simulation as live performance, a sandbox as realistic execution, or a local check as remote CI.
 - No model-dependent live trade loop or self-modifying live strategy. Optional AI assistance operates outside deterministic risk and execution controls.
 
+## Strategy intake before strategy code
+
+TideLab's intended workflow includes candidate strategies from papers, public code repositories, TradingView scripts and other sources. Before adding or changing a trading rule, classify the requested slice as intake foundation, a particular strategy implementation, or a research evaluation. Words such as "screen," "baseline," "small," and "preregistered" do not make a chosen trading rule into foundation work. Read [the strategy-intake boundary](docs/decisions/TL-003-STRATEGY-INTAKE-BOUNDARY.md) and inspect the exact source-backed intake record before strategy code.
+
+For a particular strategy, record its source and revision, attributed claim, TideLab interpretation, material ambiguities, implementation-rights basis, owning issue and exact implementation scope. If the user has not already authorized that candidate and scope, present the completed proposal for a decision before coding the rule. Foundation authorization does not imply candidate selection. Keep trial authorization separate: freeze a research plan before reading permitted real-data prices. Do not execute unreviewed third-party code as an intake shortcut.
+
+The intake validator and later CI check record structure; they cannot prove the cited authority, external rights, or that this pre-code step happened. Verify those facts independently and state the boundary in the session plan.
+
 ## Engineering and research
 
 - Keep exchange adapters, strategy, risk checks, broker, ledger, and reporting separable without premature distributed infrastructure.
