@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "strategy_id": "synthetic-sma-3",
+  "version": 1,
+  "source": {
+    "candidate_id": "synthetic-batch-family",
+    "version": 1,
+    "record_sha256": "e1d2ab1793e7e6d153f2061dbec9c7503854b8808155150c4f4c2991798afde3"
+  },
+  "requirements": {
+    "interval_seconds": 3600,
+    "product_class": "spot",
+    "position_mode": "long_cash"
+  },
+  "rule": {
+    "entry": {
+      "op": "gt",
+      "left": {"op": "close", "lag": 0},
+      "right": {"op": "sma", "window": 3, "lag": 0}
+    },
+    "exit": {
+      "op": "lt",
+      "left": {"op": "close", "lag": 0},
+      "right": {"op": "sma", "window": 3, "lag": 0}
+    },
+    "target_fraction": "0.25"
+  }
+}
