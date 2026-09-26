@@ -64,7 +64,7 @@ def read_partition(database: Path, descriptor: dict, market: str, *, capture=Non
                     or values["low"] > min(values["open"], values["close"])
                     or values["high"] < values["low"]):
                 raise ValueError("invalid_ohlcv")
-            bars.append(Bar(first + index * HOUR, values["open"], values["close"]))
+            bars.append(Bar(first + index * HOUR, values["open"], values["close"], values["high"], values["low"]))
         if row_digest(rows) != part["sha256"]:
             raise ValueError("snapshot_digest_mismatch")
     if capture is not None:

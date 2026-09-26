@@ -13,13 +13,17 @@ from tidelab.storage import TideStore
 from tidelab.strategy_batch import SYNTHETIC_COST
 
 
-def create_demo(directory: Path, *, scale: bool = False) -> tuple[Path, Path, Path]:
+def create_demo(directory: Path, *, scale: bool = False, channel: bool = False) -> tuple[Path, Path, Path]:
+    if scale and channel:
+        raise ValueError("choose_one_demonstration")
     directory.mkdir(parents=True, exist_ok=False)
     database = directory / "synthetic.sqlite3"
     TideStore(database).initialize()
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    bar_count = 2000 if scale else 12
-    markets = ["synthetic:ALPHA-USD", "synthetic:BETA-USD"]
+    bar_count = 9264 if channel else (2000 if scale else 12)
+    warmup = 480 if channel else 3
+    markets = ["synthetic:" + name + "-USD" for name in
+               (["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON"] if channel else ["ALPHA", "BETA"])]
     descriptor = {"schema_version": 1, "kind": "synthetic", "source": SOURCE, "venue": "tidelab",
                   "interval_seconds": 3600, "rights_reference": "TideLab-authored",
                   "receipt": "tidelab-synthetic-generator-v1", "partitions": {}}
@@ -29,25 +33,37 @@ def create_demo(directory: Path, *, scale: bool = False) -> tuple[Path, Path, Pa
             for index in range(bar_count):
                 opening = Decimal(100 + (index * 7 + market_index * 11) % 31)
                 close = opening + Decimal((index % 5) - 2)
+                if channel:
+                    # Invented long waves, distinct wick extrema and opening gaps.
+                    phase = index % 1200
+                    close = Decimal(200 + min(phase, 1200 - phase) + market_index * 11)
+                    opening = close + Decimal(3 if index % 13 == 0 else -1)
                 payload = {"open": str(opening), "close": str(close), "high": str(max(opening, close)),
                            "low": str(min(opening, close)), "volume": "1000"}
+                if channel:
+                    payload["high"] = str(max(opening, close) + (7 if index % 97 == 0 else 0))
+                    payload["low"] = str(min(opening, close) - (5 if index % 89 == 0 else 0))
                 timestamp = isoformat_utc(start + index * HOUR)
                 row = dict(zip(FIELDS, [f"{market}-{index}", 1, "tidelab", market, "bar", timestamp,
                     timestamp, SOURCE, 3600, 1, canonical_json(payload),
                     canonical_json({"kind": "tidelab_synthetic", "author": "TideLab"})]))
                 db.execute(f"INSERT INTO market_events ({','.join(FIELDS)}) VALUES ({','.join('?' for _ in FIELDS)})", tuple(row.values()))
                 rows.append(row)
-            descriptor["partitions"][market] = {"start": isoformat_utc(start + 3 * HOUR),
-                "end": isoformat_utc(start + bar_count * HOUR), "warmup_bars": 3, "sha256": row_digest(rows)}
+            descriptor["partitions"][market] = {"start": isoformat_utc(start + warmup * HOUR),
+                "end": isoformat_utc(start + bar_count * HOUR), "warmup_bars": warmup, "sha256": row_digest(rows)}
     snapshot = directory / "snapshot.json"
     write(snapshot, descriptor)
     examples = ROOT / "research/examples"
     specs = [(examples / "strategy-batch-packages/synthetic-sma-3-v1.json", examples / "strategy-batch-synthetic-record-v1.json"),
              (examples / "strategy-parity-logic-v1.json", examples / "strategy-parity-logic-record-v1.json")]
     refs = []
-    for index in range(100 if scale else 2):
+    for index in range(1 if channel else (100 if scale else 2)):
         package_path, record_path = specs[index % 2]
         package = json.loads(package_path.read_bytes())
+        if channel:
+            record_path = examples / "channel-breakout-synthetic-record-v1.json"
+            from tidelab.channel_breakout import package as channel_package
+            package = channel_package(json.loads(record_path.read_bytes()))
         if scale:
             package["strategy_id"] = f"synthetic-scale-{index}"
             package["rule"]["target_fraction"] = str(Decimal(index + 1) / 100)
@@ -61,8 +77,11 @@ def create_demo(directory: Path, *, scale: bool = False) -> tuple[Path, Path, Pa
             for ref in refs for market in markets for cost in ("baseline", "stress")]
     jobs.extend({"package": refs[0]["id"], "market": market, "cost": cost, "benchmark": benchmark}
                 for market in markets for cost in ("baseline", "stress") for benchmark in ("cash", "passive"))
+    if channel:
+        jobs = [{"package": refs[0]["id"], "market": market, "cost": cost, "benchmark": benchmark}
+                for market in markets for benchmark in (None, "cash", "passive") for cost in ("baseline", "stress")]
     # Rejections are part of the public synthetic demonstration, not hidden fixtures.
-    for label, raw in (("malformed", b'{bad'), ("unsupported", None)):
+    for label, raw in (() if channel else (("malformed", b'{bad'), ("unsupported", None))):
         if raw is None:
             package = json.loads(specs[0][0].read_bytes())
             package["rule"]["entry"] = {"op": "ema"}
@@ -71,12 +90,13 @@ def create_demo(directory: Path, *, scale: bool = False) -> tuple[Path, Path, Pa
         refs.append({"id": label, "package": f"{label}.json", "record": "record-0.json",
                      "package_sha256": digest(raw), "record_sha256": refs[0]["record_sha256"]})
         jobs.append({"package": label, "market": markets[0], "cost": "baseline", "benchmark": None})
-    jobs.append(deepcopy(jobs[0]))
+    if not channel:
+        jobs.append(deepcopy(jobs[0]))
     end = start + bar_count * HOUR
-    plan = {"schema_version": 1, "kind": "synthetic", "family": "synthetic-batch-scale" if scale else "synthetic-batch-demo",
+    plan = {"schema_version": 1, "kind": "synthetic", "family": "synthetic-channel-demo" if channel else ("synthetic-batch-scale" if scale else "synthetic-batch-demo"),
             "generation": "v1", "parent_experiment": None, "phase": "development", "issue": 95, "authority": AUTHORITY,
             "markets": markets, "partitions": {
-                "development": {"start": isoformat_utc(start + 3 * HOUR), "end": isoformat_utc(end)},
+                "development": {"start": isoformat_utc(start + warmup * HOUR), "end": isoformat_utc(end)},
                 "validation": {"start": isoformat_utc(end), "end": isoformat_utc(end + 10 * HOUR)},
                 "untouched": {"start": isoformat_utc(end + 10 * HOUR), "end": isoformat_utc(end + 20 * HOUR)}},
             "packages": refs, "jobs": jobs, "costs": {"baseline": dict(SYNTHETIC_COST),

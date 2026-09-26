@@ -8,6 +8,7 @@ their text is never silently treated as a runnable definition.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_EVEN
 from hashlib import sha256
@@ -42,6 +43,8 @@ class Bar:
     start: datetime
     open: Decimal
     close: Decimal
+    high: Decimal | None = None
+    low: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,11 @@ class ParsedStrategy:
     warmup: int
     package_sha256: str
     schema_version: int = 1
+
+    @property
+    def preceding_warmup(self) -> int:
+        # v1/v2 retain their historical extra warmup observation.
+        return self.warmup - 1 if self.schema_version == 3 else self.warmup
 
 
 def _decimal(value: Any, name: str, *, positive: bool = False) -> Decimal:
@@ -78,6 +86,12 @@ def _expr(node: Any, kind: str, depth: int, counter: list[int], schema: int = 1)
     if counter[0] > _MAX_NODES:
         raise ValueError("rule expression exceeds node limit")
     op = node.get("op")
+    if kind == "number" and op in {"donchian_upper", "donchian_lower"} and schema == 3:
+        window = 480 if op == "donchian_upper" else 240
+        if (node != {"op": op, "window": window, "lag": 1}
+                or type(node.get("window")) is not int or type(node.get("lag")) is not int):
+            raise UnsupportedPackage("only_channel_480_240_lag_one_supported")
+        return window + 1
     if kind == "number" and op == "rsi_wilder" and schema == 2:
         if (node != {"op": "rsi_wilder", "period": 14, "lag": 0}
                 or type(node["period"]) is not int or type(node["lag"]) is not int):
@@ -118,7 +132,7 @@ def parse_package(package: Mapping[str, Any], record: Mapping[str, Any]) -> Pars
     if (not isinstance(package, dict) or set(package) !=
             {"schema_version", "strategy_id", "version", "source", "requirements", "rule"}):
         raise ValueError("strategy package fields differ")
-    if (type(package["schema_version"]) is not int or package["schema_version"] not in (1, 2)
+    if (type(package["schema_version"]) is not int or package["schema_version"] not in (1, 2, 3)
             or type(package["version"]) is not int or package["version"] < 1):
         raise ValueError("unsupported strategy package version")
     if not isinstance(package["strategy_id"], str) or not _ID.fullmatch(package["strategy_id"]):
@@ -190,18 +204,64 @@ def parse_synthetic_bars(fixture: Mapping[str, Any]) -> tuple[Bar, ...]:
         raise ValueError("only complete TideLab synthetic hourly fixtures are accepted")
     bars = []
     for item in fixture["bars"]:
-        if not isinstance(item, dict) or set(item) != {"start_utc", "open", "close"}:
+        if not isinstance(item, dict) or set(item) not in (
+                {"start_utc", "open", "close"}, {"start_utc", "open", "close", "high", "low"}):
             raise ValueError("synthetic bar fields differ")
         when = parse_utc(item["start_utc"])
         if (when.tzinfo != timezone.utc or when.minute or when.second or when.microsecond
                 or (bars and when != bars[-1].start + _HOUR)):
             raise ValueError("synthetic hourly clock has a gap or duplicate")
-        bars.append(Bar(when, _decimal(item["open"], "open", positive=True),
-                        _decimal(item["close"], "close", positive=True)))
+        bar = Bar(when, _decimal(item["open"], "open", positive=True),
+                  _decimal(item["close"], "close", positive=True),
+                  _decimal(item["high"], "high", positive=True) if "high" in item else None,
+                  _decimal(item["low"], "low", positive=True) if "low" in item else None)
+        if bar.high is not None:
+            validate_ohlc(bar)
+        bars.append(bar)
     return tuple(bars)
 
 
+def validate_ohlc(bar: Bar) -> None:
+    for value in (bar.open, bar.high, bar.low, bar.close):
+        if not isinstance(value, Decimal) or not value.is_finite() or value <= 0:
+            raise ValueError("explicit_positive_ohlc_required")
+        if abs(value) > Decimal("1e9") or value.as_tuple().exponent < -8:
+            raise UnsupportedPackage("outside_cross_runtime_decimal_domain")
+    if bar.high < max(bar.open, bar.close) or bar.low > min(bar.open, bar.close) or bar.high < bar.low:
+        raise ValueError("inconsistent_ohlc")
+
+
 class CloseSeries(list):
+    @classmethod
+    def from_bars(cls, bars: Sequence[Bar], schema: int):
+        result = cls(bar.close for bar in bars)
+        if schema == 3:
+            for bar in bars:
+                validate_ohlc(bar)
+            result.bars = bars
+        return result
+
+    def _prior_extreme(self, window: int, field: str, upper: bool):
+        queue, result = deque(), []
+        for index, bar in enumerate(self.bars):
+            # Observe the previous completed window before admitting this bar.
+            result.append(queue[0][1] if index >= window else None)
+            while queue and queue[0][0] <= index - window:
+                queue.popleft()
+            value = getattr(bar, field)
+            while queue and (queue[-1][1] <= value if upper else queue[-1][1] >= value):
+                queue.pop()
+            queue.append((index, value))
+        return result
+
+    @cached_property
+    def channel_upper(self):
+        return self._prior_extreme(480, "high", True)
+
+    @cached_property
+    def channel_lower(self):
+        return self._prior_extreme(240, "low", False)
+
     @cached_property
     def rsi14(self) -> list[Decimal]:
         """Match pinned LEAN Wilder seeding and rounded-zero-loss behavior.
@@ -233,6 +293,10 @@ def _numeric(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> 
     op = node["op"]
     if op == "rsi_wilder":
         return closes.rsi14[index]
+    if op == "donchian_upper":
+        return closes.channel_upper[index]
+    if op == "donchian_lower":
+        return closes.channel_lower[index]
     if op == "number":
         return Decimal(node["value"])
     if op == "close":
@@ -257,7 +321,7 @@ def _boolean(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> 
 
 def signal_trace(strategy: ParsedStrategy, bars: Sequence[Bar]) -> list[dict[str, int | bool]]:
     """Closed-bar predicates, before any synthetic next-open execution."""
-    closes = CloseSeries(bar.close for bar in bars)
+    closes = CloseSeries.from_bars(bars, strategy.schema_version)
     return [{"index": index, "entry": _boolean(strategy.entry, closes, index),
              "exit": _boolean(strategy.exit, closes, index)}
             for index in range(strategy.warmup - 1, len(bars) - 1)]
@@ -302,7 +366,7 @@ def replay_package(strategy: ParsedStrategy, bars: Sequence[Bar], *,
     The zero default preserves the original synthetic contract's warmup trace.
     """
     if (type(score_start) is not int or not 0 <= score_start < len(bars)
-            or (score_start and score_start < strategy.warmup)
+            or (score_start and score_start < strategy.preceding_warmup)
             or benchmark not in (None, "cash", "passive")):
         raise ValueError("invalid_scoring_boundary")
     validate_cost({"initial_cash": str(initial_cash), "fee_rate": str(fee_rate),
@@ -320,7 +384,7 @@ def replay_package(strategy: ParsedStrategy, bars: Sequence[Bar], *,
     cash, units = initial_cash, Decimal(0)
     pending: tuple[str, Decimal] | None = None
     fills = decisions = 0
-    closes = CloseSeries(bar.close for bar in bars)
+    closes = CloseSeries.from_bars(bars, strategy.schema_version)
     for index, bar in enumerate(bars):
         fill = None
         if benchmark == "passive" and index == score_start:
@@ -366,6 +430,10 @@ def replay_package(strategy: ParsedStrategy, bars: Sequence[Bar], *,
             emit({"index": index,
                           "close_utc": (bar.start + _HOUR).isoformat().replace("+00:00", "Z"),
                           **({"rsi": str(closes.rsi14[index]), "rsi_ready": index >= 14} if strategy.schema_version == 2 else {}),
+                          **({"channel_upper": str(closes.channel_upper[index]) if index >= 480 else None,
+                              "channel_lower": str(closes.channel_lower[index]) if index >= 240 else None,
+                              "channel_ready": index >= 480,
+                              "high": str(bar.high), "low": str(bar.low)} if strategy.schema_version == 3 else {}),
                           "entry": entry, "exit": exit_signal, "action": action,
                           "fill": fill, "cash": str(cash), "units": str(units),
                           "equity": str(cash + units * bar.close)})

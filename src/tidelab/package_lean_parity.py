@@ -22,7 +22,7 @@ from tidelab.strategy_batch import (SYNTHETIC_COST, UnsupportedPackage,
 LEAN_PIN = "88bce0fc6fe282378ee73c54cef1090d0d7a73ee"
 CONTRACT = "tidelab-package-lean-synthetic-v1"
 MONEY_FIELDS = {"cash", "equity", "price", "fee", "rsi"}
-EXACT_DECIMAL_FIELDS = {"units", "quantity"}
+EXACT_DECIMAL_FIELDS = {"units", "quantity", "channel_upper", "channel_lower", "high", "low"}
 TOLERANCE = Decimal("1e-18")
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_SOURCES = ("src/tidelab/package_lean_parity.py", "src/tidelab/strategy_batch.py",
@@ -62,6 +62,9 @@ def validate_input(package: dict, record: dict, fixture: dict):
     for item in fixture["bars"]:
         _domain(item["open"])
         _domain(item["close"])
+        for field in ("high", "low"):
+            if field in item:
+                _domain(item[field])
     validate_package_domain(package, record)
     return strategy, bars
 
@@ -96,8 +99,9 @@ def engine_input(package: dict, fixture: dict, cost: dict | None = None,
     package, fixture = deepcopy(package), deepcopy(fixture)
     package["rule"]["target_fraction"] = format(Decimal(package["rule"]["target_fraction"]), "f")
     for bar in fixture["bars"]:
-        for field in ("open", "close"):
-            bar[field] = format(Decimal(bar[field]), "f")
+        for field in ("open", "close", "high", "low"):
+            if field in bar:
+                bar[field] = format(Decimal(bar[field]), "f")
 
     def walk(node):
         if isinstance(node, dict):
@@ -122,7 +126,9 @@ def compare_traces(expected: Any, observed: Any, path: str = "trace") -> list[di
         differences.append({"field": path, "python": expected, "lean": observed})
 
     field = path.rsplit(".", 1)[-1]
-    if field in MONEY_FIELDS | EXACT_DECIMAL_FIELDS:
+    if field in {"channel_upper", "channel_lower"} and expected is None and observed is None:
+        pass  # Explicitly unavailable until the prior window is ready.
+    elif field in MONEY_FIELDS | EXACT_DECIMAL_FIELDS:
         if not isinstance(expected, str) or not isinstance(observed, str):
             fail()
         else:

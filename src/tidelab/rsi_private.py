@@ -3,8 +3,7 @@
 This module is deliberately not a general third-party-data authorization API.
 """
 from contextlib import closing
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -13,12 +12,13 @@ import subprocess
 from uuid import uuid4
 
 from tidelab import historical_batch as batch
-from tidelab.candidate_screen import _bar
-from tidelab.domain import canonical_json, isoformat_utc, parse_utc
+from tidelab import private_history
+from tidelab.batch_review import review_scenarios
+from tidelab.domain import canonical_json
 from tidelab.historical_input import FIELDS, row_digest
-from tidelab.package_lean_parity import _domain, validate_package_domain
+from tidelab.package_lean_parity import validate_package_domain
 from tidelab.storage import TideStore
-from tidelab.strategy_batch import Bar, SYNTHETIC_COST, parse_json_bytes
+from tidelab.strategy_batch import SYNTHETIC_COST, parse_json_bytes
 from tidelab.strategy_intake import IntakeRegistry, record_digest
 from tidelab.trial_registry import TrialRegistry
 
@@ -96,17 +96,7 @@ def initialize(reviewed: str) -> None:
 
 
 def canonical_registry() -> TrialRegistry:
-    if not anchor_path().exists() or not registry_path().exists():
-        raise ValueError("canonical_program_store_missing")
-    anchor = batch.read(anchor_path())
-    reg = TrialRegistry(registry_path())
-    receipt = reg.access(GRANT, "authorization")
-    if (not receipt or receipt["store_id"] != anchor["store_id"]
-            or anchor.get("grant") != GRANT or anchor.get("authority_sha256") != AUTHORITY_HASH
-            or receipt["authority_sha256"] != AUTHORITY_HASH or receipt["proposal_sha256"] != PROPOSAL
-            or receipt["record_sha256"] != RECORD_HASH):
-        raise ValueError("program_store_identity_mismatch")
-    return reg
+    return private_history.canonical_registry(ROOT, GRANT, AUTHORITY_HASH, PROPOSAL, RECORD_HASH)
 
 
 def package(record: dict) -> dict:
@@ -119,38 +109,11 @@ def package(record: dict) -> dict:
 
 
 def validate_rows(rows, market):
-    if len(rows) != ROWS: raise ValueError("window_count_mismatch")
-    bars, archives = [], {}
-    for index, row in enumerate(rows):
-        when = parse_utc(FIRST) + timedelta(hours=index)
-        if (row["event_time_utc"] != isoformat_utc(when) or row["source"] != SOURCE or row["closed"] != 1
-                or row["schema_version"] != 1 or row["venue"] != "okx" or row["instrument_id"] != market
-                or row["event_type"] != "bar" or row["interval_seconds"] != 3600):
-            raise ValueError("source_continuity_mismatch")
-        payload = parse_json_bytes(row["payload_json"].encode())
-        bar = _bar(when, canonical_json(payload))
-        _domain(str(bar.open)); _domain(str(bar.close))
-        native = parse_json_bytes(row["native_json"].encode())
-        day = (when + timedelta(hours=8)).date()
-        period = native.get("archive_period", native.get("archive_month"))
-        digest = native.get("archive_sha256")
-        if (period not in (day.isoformat(), day.strftime("%Y-%m")) or native.get("minute_rows") != 60
-                or not isinstance(digest, str) or not batch.DIGEST.fullmatch(digest)
-                or ("archive_period" in native and "archive_month" in native)
-                or (len(period) == 10 and "archive_period" not in native)):
-            raise ValueError("archive_provenance_mismatch")
-        name = f"{market.removeprefix('okx:')}-candlesticks-{period}.zip"
-        if name in archives and archives[name] != digest: raise ValueError("conflicting_archive_identity")
-        archives[name] = digest
-        bars.append(Bar(when, bar.open, bar.close))
-    return tuple(bars), archives
+    return private_history.validate_rows(rows, market, private_history.Window(FIRST, END, ROWS))
 
 
 def rows_for(db, market):
-    return db.execute(f"""SELECT {','.join(FIELDS)} FROM market_events WHERE venue='okx'
-        AND instrument_id=? AND event_type='bar' AND interval_seconds=3600
-        AND event_time_utc>=? AND event_time_utc<? ORDER BY event_time_utc,event_id""",
-        (market, FIRST, END)).fetchmany(ROWS + 1)
+    return private_history.rows_for(db, market, private_history.Window(FIRST, END, ROWS))
 
 
 def file_hash(path):
@@ -239,23 +202,7 @@ class ApprovedRSIPolicy:
 
 
 def review(summary: dict) -> dict:
-    markets = []
-    for m_index, market in enumerate(MARKETS):
-        rows = summary["jobs"][m_index * 6:(m_index + 1) * 6]
-        if (len(summary["jobs"]) != 30 or len(rows) != 6
-                or any(x.get("index") != m_index * 6 + i or x["status"] != "completed" for i, x in enumerate(rows))):
-            markets.append({"market": market, "status": "incomplete"}); continue
-        base, stress, cash, cash_stress, passive, passive_stress = [x["metrics"] for x in rows]
-        excess = Decimal(base["net_return"]) - Decimal(passive["net_return"])
-        if base["round_trips"] < 20: status = "inconclusive"
-        elif (Decimal(base["net_return"]) > 0 and excess > 0 and Decimal(stress["net_return"]) > 0
-              and Decimal(base["max_drawdown"]) <= Decimal("0.15")): status = "eligible_for_deeper_review"
-        else: status = "not_nominated"
-        markets.append({"market": market, "status": status, "baseline_excess_return": str(excess)})
-    incomplete = any(x["status"] == "incomplete" for x in markets)
-    return {"status": "incomplete" if incomplete else "reviewed", "markets": markets,
-            "eligibility_provisional": incomplete, "automatic_promotion": False,
-            "scope": "exposed_history_exploratory_triage_not_edge_evidence"}
+    return review_scenarios(summary, MARKETS, minimum_round_trips=20)
 
 
 def execute(reviewed: str) -> dict:
