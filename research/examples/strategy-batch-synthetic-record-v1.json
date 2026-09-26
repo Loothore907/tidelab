@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "candidate_id": "synthetic-batch-family",
+  "version": 1,
+  "stage": "specified",
+  "source": {
+    "kind": "synthetic_example",
+    "title": "TideLab invented moving-average package family",
+    "authors": ["TideLab"],
+    "locator": "urn:tidelab:synthetic:batch-family",
+    "revision": "v1",
+    "content_sha256": null,
+    "accessed_utc": "2026-09-26T00:00:00Z"
+  },
+  "claim": {
+    "attributed_summary": "Invented fixture family for parser and batch contract tests; no market-performance claim.",
+    "economic_rationale": "None; this family checks deterministic strategy-package mechanics only."
+  },
+  "interpretation": {
+    "product_scope": "One synthetic spot-like instrument and cash; no market candidate is selected.",
+    "timeframe": "One closed synthetic hourly bar per decision, with a next-hour hypothetical fill.",
+    "required_data": ["TideLab-authored complete synthetic hourly open and close bars."],
+    "required_capabilities": ["Synthetic long/cash target and deterministic next-open fill contract."],
+    "entry": "When the latest closed price is above a moving average with a manifest-defined window, request a long target.",
+    "exit": "When the latest closed price is below that same moving average, request cash.",
+    "sizing": "Target fraction is a manifest parameter from 0 to 1, with cash for the remainder.",
+    "timing": "Close-only signal; any hypothetical fill occurs no earlier than the next hourly open.",
+    "open_questions": []
+  },
+  "rights": {
+    "implementation_use": "documented",
+    "redistribution": "documented",
+    "evidence_reference": "TideLab-authored synthetic example under the repository Apache-2.0 license"
+  },
+  "decision": {
+    "issue_url": "https://github.com/Loothore907/tidelab/issues/95",
+    "authority_reference": null,
+    "authorized_scope": null,
+    "retirement_reason": null
+  }
+}
