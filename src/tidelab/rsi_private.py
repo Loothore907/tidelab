@@ -2,22 +2,17 @@
 
 This module is deliberately not a general third-party-data authorization API.
 """
-from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
-from pathlib import Path
-import sqlite3
+import sys
+from tidelab import private_workflow
 import subprocess
 from uuid import uuid4
 
 from tidelab import historical_batch as batch
 from tidelab import private_history
 from tidelab.batch_review import review_scenarios
-from tidelab.domain import canonical_json
-from tidelab.historical_input import FIELDS, row_digest
-from tidelab.package_lean_parity import validate_package_domain
-from tidelab.storage import TideStore
 from tidelab.strategy_batch import SYNTHETIC_COST, parse_json_bytes
 from tidelab.strategy_intake import IntakeRegistry, record_digest
 from tidelab.trial_registry import TrialRegistry
@@ -124,81 +119,16 @@ def file_hash(path):
 
 
 def make_plan(descriptor: dict, record: dict) -> dict:
-    refs = [{"id": "rsi14", "package": "package.json", "record": "record.json",
-             "package_sha256": batch.digest((canonical_json(package(record)) + "\n").encode()),
-             "record_sha256": batch.digest((canonical_json(record) + "\n").encode())}]
-    jobs = [{"package": "rsi14", "market": m, "cost": c, "benchmark": b}
-            for m in MARKETS for b in (None, "cash", "passive") for c in ("baseline", "stress")]
-    return {"schema_version": 1, "kind": "third_party", "family": "lean-rsi-long-cash-hourly", "generation": "v1",
-        "parent_experiment": None, "phase": "development", "issue": 95, "authority": GRANT,
-        "markets": MARKETS, "partitions": {"development": {"start": START, "end": END}},
-        "packages": refs, "jobs": jobs, "costs": COSTS, "budget": 30, "max_bars": 10000,
-        "benchmark_allocation": "0.25", "metrics": batch.METRICS, "selection": "none", "retention": "retain_all_local",
-        "snapshot_sha256": batch.digest((canonical_json(descriptor) + "\n").encode())}
+    return private_workflow.make_plan(sys.modules[__name__], descriptor, record)
 
 
 def prepare(reviewed: str) -> dict:
-    head = gate(reviewed); reg = canonical_registry(); record = authority()
-    reg.reserve_access(GRANT, "snapshot", {"head": head, "authority_sha256": AUTHORITY_HASH,
-        "source": SOURCE, "markets": MARKETS, "first": FIRST, "end": END, "terms_reviewed": reviewed})
-    study().mkdir(exist_ok=False)
-    batch.write(study() / "preparation.json", {"head": head, "status": "started", "started_utc": batch.now()})
-    try:
-        snapshot = study() / "snapshot.sqlite3"
-        TideStore(snapshot).initialize()
-        descriptor = {"schema_version": 1, "kind": "third_party", "source": SOURCE, "venue": "okx",
-            "interval_seconds": 3600, "rights_reference": "okx-personal-rsi-v1", "receipt": GRANT, "partitions": {}}
-        archives = {}
-        # One consistent source transaction; no query includes an outside-window payload.
-        source = ROOT / "data/okx/research.sqlite3"
-        with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True)) as db, closing(sqlite3.connect(snapshot)) as target:
-            db.row_factory = sqlite3.Row; db.execute("BEGIN")
-            for market in MARKETS:
-                rows = rows_for(db, market)
-                _, market_archives = validate_rows(rows, market)
-                archives.update(market_archives)
-                target.executemany(f"INSERT INTO market_events ({','.join(FIELDS)}) VALUES ({','.join('?' for _ in FIELDS)})",
-                                   [tuple(row[k] for k in FIELDS) for row in rows])
-                descriptor["partitions"][market] = {"start": START, "end": END, "warmup_bars": 336, "sha256": row_digest(rows)}
-            target.commit()
-            target.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            target.execute("PRAGMA journal_mode=DELETE")
-        for name, expected in archives.items():
-            if file_hash(ROOT / "data/okx" / name) != expected: raise ValueError("archive_bytes_changed")
-        batch.write(study() / "snapshot.json", descriptor)
-        batch.write(study() / "record.json", record)
-        batch.write(study() / "package.json", package(record))
-        batch.write(study() / "plan.json", make_plan(descriptor, record))
-        result = {"status": "prepared", "head": head, "grant": GRANT, "terms_reviewed": reviewed,
-                  "snapshot_file_sha256": file_hash(snapshot), "archives": archives,
-                  "completed_utc": batch.now()}
-        batch.write(study() / "prepared.json", result)
-        reg.reserve_access(GRANT, "snapshot_complete", {"receipt_sha256": batch.digest((study() / "prepared.json").read_bytes()),
-            "descriptor_sha256": batch.digest((study() / "snapshot.json").read_bytes()),
-            "plan_sha256": batch.digest((study() / "plan.json").read_bytes())})
-        return {"status": "prepared", "markets": 5}
-    except Exception as exc:
-        batch.write(study() / "preparation-failed.json", {"status": "failed", "reason": type(exc).__name__, "detail": str(exc)})
-        raise
+    return private_workflow.prepare(sys.modules[__name__], reviewed)
 
 
-class ApprovedRSIPolicy:
-    def __init__(self, record, descriptor): self.record, self.descriptor = record, descriptor
-    def preflight(self, plan, descriptor):
-        if descriptor != self.descriptor or plan != make_plan(descriptor, self.record):
-            raise ValueError("outside_approved_plan")
-    def package(self, candidate, record):
-        if record != self.record or candidate != package(self.record): raise ValueError("outside_selected_candidate")
-        return validate_package_domain(candidate, record, synthetic_only=False)
-    def read_partition(self, database, descriptor, market, *, capture=None):
-        if database.resolve() != (study() / "snapshot.sqlite3").resolve() or market not in MARKETS:
-            raise ValueError("outside_approved_snapshot")
-        with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as db:
-            db.row_factory = sqlite3.Row; db.execute("BEGIN")
-            rows = rows_for(db, market); bars, _ = validate_rows(rows, market)
-            if row_digest(rows) != descriptor["partitions"][market]["sha256"]: raise ValueError("snapshot_rows_changed")
-        if capture: capture([dict(row) for row in rows])
-        return bars
+class ApprovedRSIPolicy(private_workflow.ApprovedPolicy):
+    def __init__(self, record, descriptor):
+        super().__init__(sys.modules[__name__], record, descriptor)
 
 
 def review(summary: dict) -> dict:
@@ -206,25 +136,11 @@ def review(summary: dict) -> dict:
 
 
 def execute(reviewed: str) -> dict:
-    head = gate(reviewed); reg = canonical_registry(); record = authority()
-    receipt = reg.access(GRANT, "snapshot_complete")
-    if not receipt: raise ValueError("snapshot_not_prepared")
-    if (batch.digest((study() / "prepared.json").read_bytes()) != receipt["receipt_sha256"]
-            or batch.digest((study() / "snapshot.json").read_bytes()) != receipt["descriptor_sha256"]
-            or batch.digest((study() / "plan.json").read_bytes()) != receipt["plan_sha256"]):
-        raise ValueError("preparation_identity_changed")
-    prepared = batch.read(study() / "prepared.json")
-    if prepared["head"] != head: raise ValueError("code_changed_since_preparation")
-    descriptor = batch.read(study() / "snapshot.json")
-    # The grant is consumed before verifying snapshot bytes or executing any trial.
-    reg.reserve_access(GRANT, "batch", {"head": head, "snapshot_receipt": receipt, "terms_reviewed": reviewed})
-    if file_hash(study() / "snapshot.sqlite3") != prepared["snapshot_file_sha256"]:
-        raise ValueError("snapshot_file_changed")
-    result = batch.run(study() / "plan.json", study() / "snapshot.json", study() / "snapshot.sqlite3",
-        registry_path(), study() / "attempt", _policy=ApprovedRSIPolicy(record, descriptor))
-    if "jobs" not in result or len(result["jobs"]) != 30: raise ValueError("batch_incomplete")
-    verdict = review(result)
-    batch.write(study() / "review.json", verdict)
-    reg.reserve_access(GRANT, "review", {"review_sha256": batch.digest((study() / "review.json").read_bytes()),
-                                       "batch_id": result["batch_id"]})
-    return {"status": verdict["status"], "jobs": len(result["jobs"]), "results_private": True}
+    return private_workflow.execute(sys.modules[__name__], reviewed)
+
+# Frozen binding values used by the shared snapshot/batch mechanics.
+FAMILY = "lean-rsi-long-cash-hourly"
+PACKAGE_ID = "rsi14"
+RIGHTS = "okx-personal-rsi-v1"
+WARMUP = 336
+policy = ApprovedRSIPolicy

@@ -157,3 +157,5 @@ TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) sel
 - [Registered synthetic historical batch backend](docs/evidence/TL-003-HISTORICAL-BATCH-BACKEND.md): package-to-results CLI, batch admission, common metrics and recovery; real-data execution remains disabled.
 
 - [Channel-breakout synthetic extension](docs/evidence/TL-003-CHANNEL-BREAKOUT-SYNTHETIC.md): reviewed source adaptation, actual high/low channel semantics, shared 30-job invented-history demonstration and native LEAN comparison. Implementation authorization does not grant a private trial.
+
+- [Channel private admission](docs/evidence/TL-003-CHANNEL-PRIVATE-ADMISSION.md): one separately approved grant through shared snapshot and batch mechanics, with canonical-store preservation and private-only results.
