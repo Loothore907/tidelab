@@ -5,6 +5,7 @@ The engine input contains rules and invented bars, never expected signals/fills.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
@@ -74,6 +75,32 @@ def validate_input(package: dict, record: dict, fixture: dict):
                 walk(item)
     walk(package["rule"])
     return strategy, bars
+
+
+def engine_input(package: dict, fixture: dict) -> dict:
+    """Canonicalize validated decimal text, not rules or computed decisions.
+
+    Python Decimal also accepts exponent notation, separators and Unicode digits.
+    LEAN receives the same exact values in invariant fixed-point form; original
+    bytes/identities remain in the attempt's package and fixture snapshots.
+    """
+    package, fixture = deepcopy(package), deepcopy(fixture)
+    package["rule"]["target_fraction"] = format(Decimal(package["rule"]["target_fraction"]), "f")
+    for bar in fixture["bars"]:
+        for field in ("open", "close"):
+            bar[field] = format(Decimal(bar[field]), "f")
+
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get("op") == "number":
+                node["value"] = format(Decimal(node["value"]), "f")
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+    walk(package["rule"])
+    return {"package": package, "fixture": fixture, "cost": dict(SYNTHETIC_COST)}
 
 
 def compare_traces(expected: Any, observed: Any, path: str = "trace") -> list[dict]:
@@ -156,9 +183,10 @@ def run_parity(package_path: Path, record_path: Path, fixture_path: Path,
         sdk = subprocess.check_output([dotnet, "--version"], text=True, encoding="utf-8").strip()
         if not sdk.startswith("10."):
             raise ValueError("dotnet_10_required")
-        _write(output / "runtime.json", {"dotnet_sdk": sdk, "lean_pin": LEAN_PIN})
-        _write(output / "engine-input.json", {
-            "package": inputs["package"], "fixture": inputs["fixture"], "cost": SYNTHETIC_COST})
+        _write(output / "engine-input.json", engine_input(inputs["package"], inputs["fixture"]))
+        _write(output / "runtime.json", {
+            "dotnet_sdk": sdk, "lean_pin": LEAN_PIN,
+            "engine_input_sha256": sha256((output / "engine-input.json").read_bytes()).hexdigest()})
         project = ROOT / "scripts/package_lean/PackageLean.csproj"
         with (output / "build.log").open("x", encoding="utf-8") as log:
             subprocess.run([dotnet, "build", str(project), "-c", "Release",

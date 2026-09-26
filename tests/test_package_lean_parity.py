@@ -105,10 +105,10 @@ def test_invalid_input_failure_is_retained(tmp_path):
 
 
 @pytest.mark.skipif(not os.environ.get("TIDELAB_LEAN_ROOT"), reason="requires pinned LEAN and .NET 10; exercised by lean-package-parity CI")
-@pytest.mark.parametrize("case", ["gap", "repeat", "logic", "open_terminal", "no_trade"])
+@pytest.mark.parametrize("case", ["gap", "repeat", "logic", "open_terminal", "no_trade", "decimal_notation"])
 def test_actual_lean_order_fill_portfolio_route(tmp_path, case):
     package, record, fixture = PACKAGE, RECORD, GAP
-    if case == "logic":
+    if case in {"logic", "decimal_notation"}:
         package = EXAMPLES / "strategy-parity-logic-v1.json"
         record = EXAMPLES / "strategy-parity-logic-record-v1.json"
     if case in {"open_terminal", "no_trade"}:
@@ -120,12 +120,22 @@ def test_actual_lean_order_fill_portfolio_route(tmp_path, case):
             for bar in bars["bars"]:
                 bar.update(open="100", close="100")
         fixture.write_text(json.dumps(bars))
+    if case == "decimal_notation":
+        definition, bars = read(package), read(fixture)
+        definition["rule"]["target_fraction"] = "2.5E-1"
+        definition["rule"]["entry"]["args"][2]["left"]["value"] = "1E+0"
+        definition["rule"]["entry"]["args"][2]["right"]["value"] = "0E+0"
+        bars["bars"][3].update(open="2E+2", close="9_0")
+        bars["bars"][4]["open"] = "５０"
+        package, fixture = tmp_path / "package.json", tmp_path / "bars.json"
+        package.write_text(json.dumps(definition))
+        fixture.write_text(json.dumps(bars))
     output = tmp_path / "attempt"
     result = run_parity(package, record, fixture, Path(os.environ["TIDELAB_LEAN_ROOT"]),
                         os.environ.get("TIDELAB_DOTNET", "dotnet"), output)
     assert result["status"] == "matched", f"{result}; evidence: {output}"
     lean = read(output / "lean.json")
-    if case in {"gap", "repeat", "logic"}:
+    if case in {"gap", "repeat", "logic", "decimal_notation"}:
         assert lean["order_count"] == lean["fill_count"] == 2
         assert_gap(lean["trace"])
     elif case == "open_terminal":
