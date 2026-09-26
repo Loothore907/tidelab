@@ -20,6 +20,7 @@ Open API access alone does not establish research or publication rights. Coinbas
 
 - [Core plan and assumptions](docs/PLAN.md)
 - [Strategy research protocol](docs/STRATEGY_RESEARCH.md)
+- [Strategy intake and pre-code drift checkpoint](docs/decisions/TL-003-STRATEGY-INTAKE-BOUNDARY.md)
 - [Frozen H1 v1 research specification](docs/experiments/H1-V1-PREREGISTRATION.md)
 - [Preregistered five-market candidate screen](docs/experiments/FIVE-MARKET-SCREEN-V1-PREREGISTRATION.md)
 - [Exchange, access, and deployment decisions](docs/ARCHITECTURE.md)

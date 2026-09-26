@@ -8,6 +8,12 @@ Find strategies whose rules and feasible execution environment show positive exp
 
 The platform may support multiple venues and product types. Each experiment remains narrow, versioned, reproducible, and bound to explicit data and execution assumptions.
 
+## Source intake before strategy code
+
+TideLab's strategy library begins with a source-backed candidate record, whether the idea comes from a paper, repository, TradingView script, or another source. The record identifies a pinned source and keeps the author's claim separate from TideLab's proposed rule interpretation. It starts at `captured`; unresolved rule details remain explicit. A candidate becomes `specified` only when its entry, exit, sizing, timing, data, and capability requirements are clear. `implementation_selected` records the issue, implementation-rights evidence, and exact owner-authorized scope before rule code is written. [The TL-003 intake boundary](decisions/TL-003-STRATEGY-INTAKE-BOUNDARY.md) explains the drift this checkpoint addresses.
+
+The local `scripts/strategy_intake.py` command validates and registers metadata without fetching a source or running a strategy. Its append-only registry lives under ignored `data/strategy_intake/`. For example, `python scripts/strategy_intake.py validate research/examples/strategy-intake-synthetic-v1.json` checks the public synthetic example. For a real local record, use `register PATH`, then `precode-check PATH` on its latest selected version. A structural pass only confirms record shape and version; independently verify the cited source rights and owner decision. The intake record precedes the runnable strategy manifest below. Neither record authorizes a market-data trial, advisory output, or trading.
+
 ## Strategy manifest
 
 Register a manifest before evaluation containing:
