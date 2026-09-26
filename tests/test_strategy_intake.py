@@ -30,6 +30,7 @@ def specified(kind: str = "paper") -> dict:
         item["source"]["revision"] = "a" * 40
     if kind == "tradingview_script":
         item["source"]["content_sha256"] = "b" * 64
+        item["source"]["revision"] = "sha256:" + "b" * 64
     item["claim"]["economic_rationale"] = "An invented mechanism for schema testing."
     item["interpretation"].update(
         product_scope="invented spot product", timeframe="one hour",

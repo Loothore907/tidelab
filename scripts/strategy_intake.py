@@ -11,9 +11,11 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from tidelab.domain import canonical_json
 from tidelab.strategy_intake import IntakeRegistry, load_record, record_digest
+from tidelab.pine_source import capture_pine, verify_pine
 
 
 DEFAULT_REGISTRY = ROOT / "data" / "strategy_intake" / "intake.sqlite3"
+PINE_STORE = DEFAULT_REGISTRY.parent / "pine_sources"
 
 
 def _registry(value: str, parser: argparse.ArgumentParser) -> IntakeRegistry:
@@ -35,12 +37,23 @@ def main() -> None:
             command.add_argument("--registry", default=str(DEFAULT_REGISTRY))
     listing = sub.add_parser("list")
     listing.add_argument("--registry", default=str(DEFAULT_REGISTRY))
+    capture = sub.add_parser("capture-pine")
+    capture.add_argument("record", type=Path)
+    capture.add_argument("source_file", type=Path)
+    verify = sub.add_parser("verify-pine")
+    verify.add_argument("record", type=Path)
     args = parser.parse_args()
 
     if args.action == "list":
         print(canonical_json(_registry(args.registry, parser).list_latest()))
         return
     record = load_record(args.record)
+    if args.action == "capture-pine":
+        print(canonical_json(capture_pine(record, args.source_file, PINE_STORE)))
+        return
+    if args.action == "verify-pine":
+        print(canonical_json(verify_pine(record, PINE_STORE)))
+        return
     if args.action == "validate":
         print(canonical_json({"candidate_id": record["candidate_id"],
                               "version": record["version"], "stage": record["stage"],

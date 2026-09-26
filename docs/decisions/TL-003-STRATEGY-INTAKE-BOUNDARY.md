@@ -28,6 +28,8 @@ Stages are `captured`, `specified`, `implementation_selected`, and `retired`. `c
 
 Keep source acquisition separate from intake. The initial command reads a supplied local record; it does not crawl, scrape, download, execute, translate Pine, install packages, or call a model. Real candidate records can stay under ignored `data/strategy_intake/` until their publication rights are reviewed. The repository example is TideLab-authored synthetic metadata.
 
+The follow-on [Pine snapshot issue #91](https://github.com/Loothore907/tidelab/issues/91) adds local capture and hash verification for a manually supplied source file. Its content-addressed snapshot remains ignored. A matching hash proves what bytes TideLab retained; it does not by itself prove publication provenance, source rights, semantic clarity, or candidate selection.
+
 ## Pre-code checkpoint
 
 Before adding or changing **strategy rules** in Python, LEAN/C#, Pine ports, or another runtime, the implementer must:
