@@ -4,12 +4,20 @@ Read README.md, HANDOFF.md, and docs/ROADMAP.md before changing scope. Preserve 
 
 For bounded orientation across sessions, use the repo-local `tidelab-context` skill (`node scripts/tidelab-context.mjs current`) and `docs/CONTEXT_MAP.md`. Its committed-HEAD retrieval is advisory; check working changes, GitHub, provider replies, and exact-head CI separately.
 
+## Development loop and focus
+
+Apply [the development loop](docs/DEVELOPMENT_LOOP.md) to implementation work. Start with one bounded pickup and a short work brief: product outcome, classification, issue/base, scope, observable acceptance and failure cases, and integration authority. Continue within existing approval; ask only for material changes or missing authority.
+
+Keep one active product outcome. Before another abstraction, evaluator, frontend, or prerequisite, identify the concrete consumer and why existing code cannot serve it. Stop expanding when acceptance passes. At closeout, compare the actual diff and evidence with the original brief; passing tests alone do not establish product alignment. Explain tradeoffs and uncertainties without requiring the owner to supply domain expertise.
+
+Use a distinct review before merging changes to shared strategy semantics, execution/accounting, strategy-package contracts, or research/authority boundaries. The author must first finish a concrete reviewable result. A separate self-review is useful but is not independent review; record the exact reviewed head and reviewer, and keep the PR draft if a required review is unavailable. Documentation and routine fixes outside those boundaries need a focused self-review, not a new approval ceremony. Follow the development loop for scope-change triggers and evidence limits.
+
 ## Scope and authority
 
-- TL-001 public-data recording is locally implemented. Before TL-002, complete the separate TL-001A engine bakeoff and TL-001B data/publication-rights decision; do not silently fold either into TL-001.
+- TL-001 public-data recording is integrated and TL-001A selected pinned LEAN. Use the [engine decision](docs/decisions/TL-001A-INITIAL-ENGINE-SELECTION.md); do not reopen selection without new evidence of a blocking requirement. TL-001B permits the documented bounded local historical use but remains open for timely forward data and optional publication. Keep these boundaries independent of TL-002 synthetic work.
 - Coinbase BTC-USD is the first reference fixture, not the product boundary or an approved public research-data source. Keep the research core venue- and product-agnostic through explicit contracts and capabilities, but do not build unused adapters before their roadmap slice.
 - TideLab-authored work is Apache-2.0. Preserve third-party licenses, source and replacement/relinking obligations, contributor agreements, and trademark rules; never imply that TideLab's license relicenses dependencies or data.
-- Evaluate a pinned NautilusTrader release before building custom engine infrastructure. Prefer public replaceable interfaces and upstream general fixes; do not vendor, rename, or permanently fork the engine without a separately approved, evidence-backed decision. Evaluate LEAN if a critical requirement fails.
+- Prefer the selected engine's public replaceable interfaces and upstream general fixes; do not vendor, rename, or permanently fork the engine without a separately approved, evidence-backed decision. Preserve prior bakeoff evidence instead of repeating the selection as routine startup work.
 - Default to paper mode. Do not infer live trading, deposits, paid services, or account access authorization from interest in this project or a hypothetical budget.
 - Never put credentials in chat, source, test fixtures, logs, reports, or Git. Public-data work must not require a funded account.
 - Do not commit or publish market data, charts, reports, screenshots, recordings, or other derived artifacts unless their publication rights are documented for the proposed use. Unknown rights fail closed. Pending TL-001B, do not fetch new Coinbase market data for strategy development or automated analysis; use synthetic or otherwise permitted fixtures.
@@ -40,4 +48,4 @@ The intake validator and later CI check record structure; they cannot prove the 
 
 Inspect guidance/handoff, branch, working tree, upstream, fresh remote refs, issues/PRs, findings, and exact-head CI. Preserve unrelated work and resolve inherited debt. Use issue-linked focused branches, coherent Conventional commits, and draft PRs. Respect existing authority and gates; do not reset, force-push, indiscriminately stage, or weaken checks.
 
-At closeout, report head, issue/PR, local checks, remote CI, merge state, remaining changes, and blockers with an owning issue/next action. For this initial non-repository planning workspace, no artificial commit or PR is required.
+At closeout, report head, issue/PR, local checks, remote CI, merge state, remaining changes, and blockers with an owning issue/next action. Read-only reviews do not require artificial commits or PRs.
