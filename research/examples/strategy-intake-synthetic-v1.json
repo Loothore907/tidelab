@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "candidate_id": "synthetic-intake-example",
+  "version": 1,
+  "stage": "captured",
+  "source": {
+    "kind": "synthetic_example",
+    "title": "TideLab invented intake example without a trading rule",
+    "authors": ["TideLab"],
+    "locator": "urn:tidelab:synthetic:intake-example",
+    "revision": "v1",
+    "content_sha256": null,
+    "accessed_utc": "2026-09-25T00:00:00Z"
+  },
+  "claim": {
+    "attributed_summary": "This invented item demonstrates source attribution and review status only.",
+    "economic_rationale": null
+  },
+  "interpretation": {
+    "product_scope": null,
+    "timeframe": null,
+    "required_data": [],
+    "required_capabilities": [],
+    "entry": null,
+    "exit": null,
+    "sizing": null,
+    "timing": null,
+    "open_questions": ["No trading rule has been supplied."]
+  },
+  "rights": {
+    "implementation_use": "unknown",
+    "redistribution": "unknown",
+    "evidence_reference": null
+  },
+  "decision": {
+    "issue_url": null,
+    "authority_reference": null,
+    "authorized_scope": null,
+    "retirement_reason": null
+  }
+}
