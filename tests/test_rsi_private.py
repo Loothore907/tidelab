@@ -125,6 +125,7 @@ def test_full_private_route_uses_invented_archives_once(tmp_path, monkeypatch):
     assert rsi.execute('test') == {'status': 'reviewed', 'jobs': 30, 'results_private': True}
     summary = batch.read(rsi.study() / 'attempt/summary.json')
     assert len(summary['jobs']) == 30 and all(x['status'] == 'completed' for x in summary['jobs'])
+    assert all(x['metrics']['evidence'] == 'descriptive_private_historical_scenario' for x in summary['jobs'])
     assert batch.recover(rsi.study() / 'attempt', rsi.registry_path()) == summary
     with closing(sqlite3.connect(rsi.registry_path())) as db:
         assert db.execute('SELECT COUNT(*) FROM trial_attempts').fetchone()[0] == 30

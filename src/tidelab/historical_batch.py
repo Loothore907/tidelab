@@ -1,4 +1,4 @@
-"""Registered synthetic historical batches. No real-data execution or promotion."""
+"""Shared registered replay; synthetic default, explicit private policy, no promotion."""
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -235,12 +235,13 @@ class Metrics:
             self.fees += Decimal(fill["fee"])
             self.notional += Decimal(fill["quantity"]) * Decimal(fill["price"])
 
-    def result(self):
+    def result(self, *, kind="synthetic"):
         return {"net_return": str(self.final / self.initial - 1), "max_drawdown": str(self.drawdown),
                 "fill_count": self.fills, "round_trips": self.round_trips, "fees": str(self.fees),
                 "turnover": str(self.notional / self.initial), "exposure": str(Decimal(self.held) / self.count),
                 "terminal_units": str(self.units), "terminal_equity": str(self.final),
-                "scored_bars": self.count, "evidence": "descriptive_synthetic_scenario"}
+                "scored_bars": self.count, "evidence": ("descriptive_synthetic_scenario" if kind == "synthetic"
+                    else "descriptive_private_historical_scenario")}
 
 
 def complete_job(registry, batch_id, item, directory):
@@ -393,7 +394,7 @@ def _run(plan_path, descriptor_path, database, registry_path, output, retry_of, 
                                    benchmark=job["benchmark"], emit=metrics.emit)
                     stream.flush()
                     os.fsync(stream.fileno())
-                result.update(status="completed", metrics=metrics.result())
+                result.update(status="completed", metrics=metrics.result(kind=descriptor["kind"]))
             except (ValueError, ArithmeticError, OSError) as exc:
                 result.update(status="failed", reason="evaluation_failed")
                 write(directory / "failure.json", {"exception": type(exc).__name__, "reason": str(exc),
