@@ -18,7 +18,7 @@ For a TradingView source, save the exact published Pine text manually as a UTF-8
 
 ## Strategy manifest
 
-The [deterministic strategy pipeline](decisions/TL-003-DETERMINISTIC-STRATEGY-PIPELINE.md) makes normalized, versioned packages the scalable path from source intake to batch testing. Source-specific parsers produce those packages or report an unsupported/ambiguous status; an agent does not hand-code and judge each candidate as the default workflow. The current package evaluator runs only TideLab-authored synthetic contract checks. Historical batch research and pinned LEAN parity remain separate implementation slices.
+The [deterministic strategy pipeline](decisions/TL-003-DETERMINISTIC-STRATEGY-PIPELINE.md) makes normalized, versioned packages the scalable path from source intake to batch testing. Source-specific parsers produce those packages or report an unsupported/ambiguous status; an agent does not hand-code and judge each candidate as the default workflow. The current package evaluator runs only TideLab-authored synthetic contract checks. The supported synthetic package path now has [pinned LEAN execution parity](evidence/TL-003-PACKAGE-LEAN-PARITY.md). The [shared historical backend contract](decisions/TL-003-HISTORICAL-BATCH-BACKEND.md) defines the next synthetic implementation; historical research remains separately authorized.
 
 Register a manifest before evaluation containing:
 
