@@ -28,7 +28,7 @@ AUTHORITY = "issue-95-synthetic-foundation"
 METRICS = ["net_return", "max_drawdown", "fill_count", "round_trips", "fees", "turnover", "exposure"]
 SOURCES = ["historical_batch.py", "historical_input.py", "strategy_batch.py", "trial_registry.py",
            "experiment_identity.py", "package_lean_parity.py", "strategy_intake.py", "domain.py",
-           "rsi_private.py"]
+           "rsi_private.py", "private_history.py", "channel_breakout.py", "batch_review.py"]
 
 
 def digest(raw: bytes) -> str:
@@ -194,7 +194,7 @@ def prepare_jobs(plan: dict, descriptor: dict, packages: dict, package_validator
             if source.get("error"):
                 raise ValueError(source["error"])
             parsed = package_validator(source["package"], source["record"])
-            if parsed.warmup > descriptor["partitions"][job["market"]]["warmup_bars"]:
+            if parsed.preceding_warmup > descriptor["partitions"][job["market"]]["warmup_bars"]:
                 raise UnsupportedPackage("insufficient_declared_warmup")
             semantic = {"rule": source["package"]["rule"], "requirements": source["package"]["requirements"]}
             if job["benchmark"]:

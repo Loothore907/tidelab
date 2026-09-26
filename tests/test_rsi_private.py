@@ -169,6 +169,7 @@ def test_policy_and_disposition_precedence():
 @pytest.mark.parametrize('damage', ['gap', 'duplicate', 'source', 'unclosed', 'nan', 'provenance'])
 def test_private_rows_reject_bad_inputs(monkeypatch, damage):
     monkeypatch.setattr(rsi, 'ROWS', 2)
+    monkeypatch.setattr(rsi, 'END', isoformat_utc(parse_utc(rsi.FIRST) + timedelta(hours=2)))
     rows = []
     for i in range(2):
         when = isoformat_utc(parse_utc(rsi.FIRST) + timedelta(hours=i))

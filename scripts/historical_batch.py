@@ -14,7 +14,9 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     demo = commands.add_parser("demo")
     demo.add_argument("--output", type=Path, required=True)
-    demo.add_argument("--scale", action="store_true")
+    modes = demo.add_mutually_exclusive_group()
+    modes.add_argument("--scale", action="store_true")
+    modes.add_argument("--channel", action="store_true")
     launch = commands.add_parser("run")
     for field in ("plan", "snapshot", "database", "registry", "output"):
         launch.add_argument("--" + field, type=Path, required=True)
@@ -26,8 +28,12 @@ def main():
     args = parser.parse_args()
     if args.command == "demo":
         args.output.mkdir(parents=True, exist_ok=False)
-        plan, snapshot, database = create_demo(args.output / "fixture", scale=args.scale)
+        plan, snapshot, database = create_demo(args.output / "fixture", scale=args.scale, channel=args.channel)
         result = run(plan, snapshot, database, args.output / "trials.sqlite3", args.output / "attempt")
+        if args.channel:
+            from tidelab.channel_breakout import review_artifacts
+            from tidelab.historical_batch import write
+            write(args.output / "review.json", review_artifacts(args.output / "attempt"))
     elif args.command == "run":
         result = run(args.plan, args.snapshot, args.database, args.registry, args.output, retry_of=args.retry_of)
     else:

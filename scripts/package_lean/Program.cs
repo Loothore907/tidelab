@@ -51,6 +51,7 @@ sealed class SyntheticFee(decimal rate, decimal adverse) : FeeModel
 sealed class PackageAlgorithm : QCAlgorithm
 {
     private static RelativeStrengthIndex _rsi = new(14, MovingAverageType.Wilders);
+    private static DonchianChannel _channel = new(480, 240);
     private readonly List<OrderEvent> _filled = new();
     public override void OnOrderEvent(OrderEvent orderEvent)
     {
@@ -70,6 +71,8 @@ sealed class PackageAlgorithm : QCAlgorithm
         {
             "number" => 1,
             "rsi_wilder" => 15,
+            "donchian_upper" => 481,
+            "donchian_lower" => 241,
             "close" => node.GetProperty("lag").GetInt32() + 1,
             "sma" => node.GetProperty("lag").GetInt32() + node.GetProperty("window").GetInt32(),
             "gt" or "lt" => Math.Max(Warmup(node.GetProperty("left")), Warmup(node.GetProperty("right"))),
@@ -83,6 +86,8 @@ sealed class PackageAlgorithm : QCAlgorithm
     {
         var op = node.GetProperty("op").GetString();
         if (op == "rsi_wilder") return _rsi.Current.Value;
+        if (op == "donchian_upper") return _channel.UpperBand.Current.Value;
+        if (op == "donchian_lower") return _channel.LowerBand.Current.Value;
         if (op == "number") return D(node.GetProperty("value"));
         var end = closes.Count - node.GetProperty("lag").GetInt32();
         return op switch
@@ -108,6 +113,7 @@ sealed class PackageAlgorithm : QCAlgorithm
     {
         var schema = input.GetProperty("package").GetProperty("schema_version").GetInt32();
         _rsi = new RelativeStrengthIndex(14, MovingAverageType.Wilders);
+        _channel = new DonchianChannel(480, 240);
         var rule = input.GetProperty("package").GetProperty("rule");
         var entryRule = rule.GetProperty("entry");
         var exitRule = rule.GetProperty("exit");
@@ -120,6 +126,9 @@ sealed class PackageAlgorithm : QCAlgorithm
         var unit = D(costs.GetProperty("quantity_unit"));
         var scoreStart = input.TryGetProperty("score_start", out var score) ? score.GetInt32() : 0;
         var bars = input.GetProperty("fixture").GetProperty("bars").EnumerateArray().ToArray();
+        if (scoreStart < 0 || scoreStart >= bars.Length ||
+            (scoreStart > 0 && scoreStart < (schema == 3 ? warmup - 1 : warmup)))
+            throw new ArgumentException("Invalid scoring boundary");
 
         SetTimeZone(TimeZones.Utc);
         SetAccountCurrency("USD");
@@ -165,6 +174,11 @@ sealed class PackageAlgorithm : QCAlgorithm
                     CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
                 var opening = D(bar.GetProperty("open"));
                 var close = D(bar.GetProperty("close"));
+                var high = schema == 3 ? D(bar.GetProperty("high")) : 0m;
+                var low = schema == 3 ? D(bar.GetProperty("low")) : 0m;
+                if (schema == 3 && (low <= 0 || high < Math.Max(opening, close) ||
+                    low > Math.Min(opening, close) || high < low))
+                    throw new ArgumentException("Explicit consistent OHLC required");
                 SetDateTime(start);
                 security.SetMarketPrice(new Tick(start, security.Symbol, opening, opening));
                 Portfolio.CashBook["TL"].CurrencyConversion.ConversionRate = opening;
@@ -214,8 +228,18 @@ sealed class PackageAlgorithm : QCAlgorithm
                         ["cash"] = S(Portfolio.CashBook["USD"].Amount), ["units"] = S(security.Holdings.Quantity),
                         ["equity"] = S(Portfolio.TotalPortfolioValue) };
                     if (schema == 2) { row["rsi"] = S(_rsi.Current.Value); row["rsi_ready"] = _rsi.IsReady; }
+                    if (schema == 3)
+                    {
+                        row["channel_upper"] = _channel.UpperBand.IsReady ? S(_channel.UpperBand.Current.Value) : null;
+                        row["channel_lower"] = _channel.LowerBand.IsReady ? S(_channel.LowerBand.Current.Value) : null;
+                        row["channel_ready"] = _channel.IsReady;
+                        row["high"] = S(high); row["low"] = S(low);
+                    }
                     traces.Add(row);
                 }
+                // The decision and trace above observe only the previous completed window.
+                if (schema == 3)
+                    _channel.Update(new TradeBar(start, security.Symbol, opening, high, low, close, 0m, TimeSpan.FromHours(1)));
             }
             if (Transactions.GetOpenOrders().Count != 0 || ErrorMessages.Count != 0)
                 throw new InvalidOperationException("LEAN retained open orders or reported errors: " + string.Join("; ", ErrorMessages));
