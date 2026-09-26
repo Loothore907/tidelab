@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "grammar_version": "tidelab-pine-v5-subset-1",
+  "source_sha256": "f907327ff5d1a42f8afc2877e2c1055f0d0c8f5e3f7865566f279b2ddb3450c5",
+  "signals": [
+    {
+      "index": 1,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 2,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 3,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 4,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 5,
+      "entry": false,
+      "exit": true
+    },
+    {
+      "index": 6,
+      "entry": false,
+      "exit": true
+    },
+    {
+      "index": 7,
+      "entry": false,
+      "exit": true
+    },
+    {
+      "index": 8,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 9,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 10,
+      "entry": true,
+      "exit": false
+    }
+  ]
+}

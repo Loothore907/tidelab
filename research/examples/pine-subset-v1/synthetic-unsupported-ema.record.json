@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "candidate_id": "synthetic-pine-unsupported-ema",
+  "version": 1,
+  "stage": "captured",
+  "source": {
+    "kind": "synthetic_example",
+    "title": "TideLab invented unsupported EMA syntax example",
+    "authors": [
+      "TideLab"
+    ],
+    "locator": "urn:tidelab:synthetic:pine-unsupported-ema",
+    "revision": "pine-v5-subset-1",
+    "content_sha256": "56981df7298f44ff96896cb1d47f4dfe9ce0e081a73badf368370d0e5c1c940c",
+    "accessed_utc": "2026-09-26T00:00:00Z"
+  },
+  "claim": {
+    "attributed_summary": "Invented Pine syntax fixture for a named unsupported outcome; no market-performance claim.",
+    "economic_rationale": "None; this family checks deterministic strategy-package mechanics only."
+  },
+  "interpretation": {
+    "product_scope": "One synthetic spot-like instrument and cash; no market candidate is selected.",
+    "timeframe": "One closed synthetic hourly bar per decision, with a next-hour hypothetical fill.",
+    "required_data": [
+      "TideLab-authored complete synthetic hourly open and close bars."
+    ],
+    "required_capabilities": [
+      "Synthetic long/cash target and deterministic next-open fill contract."
+    ],
+    "entry": null,
+    "exit": null,
+    "sizing": null,
+    "timing": null,
+    "open_questions": [
+      "EMA entry semantics are outside the pinned TideLab Pine subset."
+    ]
+  },
+  "rights": {
+    "implementation_use": "documented",
+    "redistribution": "documented",
+    "evidence_reference": "TideLab-authored synthetic example under the repository Apache-2.0 license"
+  },
+  "decision": {
+    "issue_url": "https://github.com/Loothore907/tidelab/issues/95",
+    "authority_reference": null,
+    "authorized_scope": null,
+    "retirement_reason": null
+  }
+}
