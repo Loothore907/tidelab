@@ -140,6 +140,9 @@ def validate_record(record: Any) -> dict[str, Any]:
             raise ValueError("repository source must pin a full commit SHA")
         if source["kind"] == "tradingview_script" and source["content_sha256"] is None:
             raise ValueError("TradingView source needs a content hash before specification")
+        if (source["kind"] == "tradingview_script"
+                and source["revision"] != f"sha256:{source['content_sha256']}"):
+            raise ValueError("TradingView source revision must equal its content hash")
     if item["stage"] == "implementation_selected":
         if (rights["implementation_use"] != "documented" or decision["issue_url"] is None
                 or decision["authority_reference"] is None
@@ -227,6 +230,10 @@ class IntakeRegistry:
 
     def register(self, record: Mapping[str, Any]) -> bool:
         checked = validate_record(dict(record))
+        if (checked["source"]["kind"] == "tradingview_script"
+                and checked["stage"] in {"specified", "implementation_selected"}):
+            from tidelab.pine_source import verify_pine
+            verify_pine(checked, self.path.parent / "pine_sources")
         digest = record_digest(checked)
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -268,6 +275,9 @@ class IntakeRegistry:
         checked = validate_record(dict(record))
         if checked["stage"] != "implementation_selected":
             raise ValueError("candidate has not reached implementation_selected")
+        if checked["source"]["kind"] == "tradingview_script":
+            from tidelab.pine_source import verify_pine
+            verify_pine(checked, self.path.parent / "pine_sources")
         latest = self.latest(checked["candidate_id"])
         if latest is None or record_digest(latest) != record_digest(checked):
             raise ValueError("selected record is not the latest registered version")

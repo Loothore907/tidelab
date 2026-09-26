@@ -19,7 +19,7 @@ This is a navigation map, not a second source of authority. For a fresh session,
 - `src/tidelab/coinbase.py`, `stream.py`: bounded public reference-adapter ingestion and observations; not an approved strategy-data source.
 - `src/tidelab/storage.py`, `service.py`, `cli.py`, `__main__.py`: local persistence, orchestration, and entry points.
 - `research/first-pass-universe-v1.json`, `src/tidelab/universe_coverage.py`: fixed five-asset plan and read-only exact-source coverage gate; no ranking or data acquisition.
-- `src/tidelab/strategy_intake.py`, `scripts/strategy_intake.py`, `research/examples/strategy-intake-synthetic-v1.json`: source metadata validation and append-only local intake. This does not import source code or implement a strategy.
+- `src/tidelab/strategy_intake.py`, `src/tidelab/pine_source.py`, `scripts/strategy_intake.py`, `research/examples/strategy-intake-synthetic-v1.json`: source metadata validation, append-only local intake and ignored exact-byte Pine snapshots. These do not download, execute or implement a strategy.
 - `tests/`: fixture-based behavioral checks; `.github/workflows/ci.yml`: remote check definition. Passing local tests does not imply exact-head CI passed.
 - `docs/evidence/`: dated observations and bakeoff/preflight reports. A branch's unmerged evidence will not appear on `main` until integration.
 
