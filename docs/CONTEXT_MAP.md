@@ -36,4 +36,4 @@ This is a navigation map, not a second source of authority. For a fresh session,
 
 For questions outside these paths, start with a short `search-docs`, `decision`, `evidence`, or `impact` query. Open its cited lines and nearby context before acting. The map can become stale; current repository and provider state must be checked live.
 
-- [Shared historical batch backend contract](decisions/TL-003-HISTORICAL-BATCH-BACKEND.md): next synthetic implementation, reuse boundaries, admission/recovery and acceptance; not an implemented historical runner or real-data authorization.
+- `src/tidelab/historical_batch.py`, `historical_input.py`, `trial_registry.py`, `scripts/historical_batch.py`: [registered synthetic historical backend](evidence/TL-003-HISTORICAL-BATCH-BACKEND.md), [contract](decisions/TL-003-HISTORICAL-BATCH-BACKEND.md). Complete batch inventory, existing trial accounting, partition/cost replay and recovery; third-party execution disabled.

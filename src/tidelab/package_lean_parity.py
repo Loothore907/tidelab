@@ -16,7 +16,7 @@ from typing import Any
 
 from tidelab.domain import canonical_json
 from tidelab.strategy_batch import (SYNTHETIC_COST, UnsupportedPackage,
-                                    evaluate_synthetic, parse_json_bytes,
+                                    evaluate_synthetic, replay_package, validate_cost, parse_json_bytes,
                                     parse_package, parse_synthetic_bars)
 
 LEAN_PIN = "88bce0fc6fe282378ee73c54cef1090d0d7a73ee"
@@ -62,6 +62,14 @@ def validate_input(package: dict, record: dict, fixture: dict):
     for item in fixture["bars"]:
         _domain(item["open"])
         _domain(item["close"])
+    validate_package_domain(package, record)
+    return strategy, bars
+
+
+def validate_package_domain(package: dict, record: dict):
+    strategy = parse_package(package, record)
+    if record["source"]["kind"] != "synthetic_example":
+        raise UnsupportedPackage("synthetic_intake_required")
     _domain(package["rule"]["target_fraction"])
 
     def walk(node):
@@ -74,10 +82,11 @@ def validate_input(package: dict, record: dict, fixture: dict):
             for item in node:
                 walk(item)
     walk(package["rule"])
-    return strategy, bars
+    return strategy
 
 
-def engine_input(package: dict, fixture: dict) -> dict:
+def engine_input(package: dict, fixture: dict, cost: dict | None = None,
+                 score_start: int = 0) -> dict:
     """Canonicalize validated decimal text, not rules or computed decisions.
 
     Python Decimal also accepts exponent notation, separators and Unicode digits.
@@ -100,7 +109,9 @@ def engine_input(package: dict, fixture: dict) -> dict:
             for value in node:
                 walk(value)
     walk(package["rule"])
-    return {"package": package, "fixture": fixture, "cost": dict(SYNTHETIC_COST)}
+    return {"package": package, "fixture": fixture,
+            "cost": {key: format(value, "f") for key, value in validate_cost(cost or SYNTHETIC_COST).items()},
+            "score_start": score_start}
 
 
 def compare_traces(expected: Any, observed: Any, path: str = "trace") -> list[dict]:
@@ -142,17 +153,19 @@ def compare_traces(expected: Any, observed: Any, path: str = "trace") -> list[di
 
 
 def run_parity(package_path: Path, record_path: Path, fixture_path: Path,
-               lean_root: Path, dotnet: str, output: Path) -> dict:
+               lean_root: Path, dotnet: str, output: Path, *,
+               cost: dict | None = None, score_start: int = 0) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
+    cost = dict(SYNTHETIC_COST) if cost is None else cost
     sources = source_identity()
     _write(output / "attempt.json", {
         "contract": CONTRACT, "started_utc": datetime.now(timezone.utc).isoformat(),
         "state": "started", "lean_pin": LEAN_PIN,
         "tidelab_head": _git(ROOT, "rev-parse", "HEAD"),
         "tidelab_dirty": bool(_git(ROOT, "status", "--porcelain")),
-        "cost": SYNTHETIC_COST,
-        "cost_sha256": sha256(canonical_json(SYNTHETIC_COST).encode()).hexdigest(),
+        "cost": cost,
+        "cost_sha256": sha256(canonical_json(cost).encode()).hexdigest(),
         "runtime_sources": sources,
     })
     try:
@@ -171,7 +184,8 @@ def run_parity(package_path: Path, record_path: Path, fixture_path: Path,
         _write(output / "identities.json", identities)
         strategy, bars = validate_input(inputs["package"], inputs["record"], inputs["fixture"])
         trace = []
-        summary = evaluate_synthetic(strategy, bars, trace=trace)
+        summary = replay_package(strategy, bars, **validate_cost(cost),
+                                 score_start=score_start, emit=trace.append)
         expected = {"trace": trace, "order_count": summary["fill_count"],
                     "fill_count": summary["fill_count"]}
         _write(output / "python.json", expected)
@@ -183,7 +197,7 @@ def run_parity(package_path: Path, record_path: Path, fixture_path: Path,
         sdk = subprocess.check_output([dotnet, "--version"], text=True, encoding="utf-8").strip()
         if not sdk.startswith("10."):
             raise ValueError("dotnet_10_required")
-        _write(output / "engine-input.json", engine_input(inputs["package"], inputs["fixture"]))
+        _write(output / "engine-input.json", engine_input(inputs["package"], inputs["fixture"], cost, score_start))
         _write(output / "runtime.json", {
             "dotnet_sdk": sdk, "lean_pin": LEAN_PIN,
             "engine_input_sha256": sha256((output / "engine-input.json").read_bytes()).hexdigest()})
