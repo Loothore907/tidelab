@@ -1,6 +1,6 @@
 # TideLab handoff
 
-Updated 2026-09-26 Alaska time. [PR #101](https://github.com/Loothore907/tidelab/pull/101) integrated package/LEAN parity at `4af818f1b11b0bbb19b2fa37cca09a558a09f5ad`; [exact-main CI 36262679740](https://github.com/Loothore907/tidelab/actions/runs/36262679740) passed all three jobs. This is the verified base for the historical batch specification, not evidence that its backend exists. Recheck fresh refs, review and exact-head CI on continuation. `node scripts/tidelab-context.mjs current` is navigation, not live evidence.
+Updated 2026-09-26 Alaska time. Historical batch implementation started from clean main `7f2c776a286cbec92aeef4461c585257f88f825f`, where [PR #102](https://github.com/Loothore907/tidelab/pull/102) integrated the contract and [main CI 36263425827](https://github.com/Loothore907/tidelab/actions/runs/36263425827) passed. Recheck the current #95 implementation PR, exact-head CI, reviewer findings and working tree before continuation; this base checkpoint is not proof of implementation integration.
 
 ## Purpose and authority
 
@@ -24,7 +24,7 @@ TideLab-authored code is Apache-2.0. Keep strategy, risk, data, paper authority 
 
 ## Independent open gates
 
-**#95, scalable strategy pipeline:** The normalized-package parser, narrow Pine frontend and synthetic ledger now have a [package-to-LEAN execution comparison](docs/evidence/TL-003-PACKAGE-LEAN-PARITY.md). Supported packages drive actual LEAN backtesting orders, fills and portfolio accounting under invented open/close events; this is not AlgorithmManager/feed acceptance. The local acceptance suite passed all six LEAN cases plus eight unit/retention/comparison cases. PR #101 is merged at the checkpoint above. General source parsing, a rights-gated historical batch backend and search-aware review remain open. No external candidate or real-data batch trial follows from this foundation. Keep #3 and #48 independent.
+**#95, scalable strategy pipeline:** The normalized-package parser, narrow Pine frontend and synthetic ledger now have a [package-to-LEAN execution comparison](docs/evidence/TL-003-PACKAGE-LEAN-PARITY.md). Supported packages drive actual LEAN backtesting orders, fills and portfolio accounting under invented open/close events; this is not AlgorithmManager/feed acceptance. The local acceptance suite passed all six LEAN cases plus eight unit/retention/comparison cases. PR #101 is merged at the checkpoint above. A [registered synthetic historical backend](docs/evidence/TL-003-HISTORICAL-BATCH-BACKEND.md) now implements the package-to-results workflow; verify its integration separately. General source parsing, real-data enablement and search-aware review remain open. No external candidate or real-data batch trial follows from this foundation. Keep #3 and #48 independent.
 
 **#48, execution authority:** The current report and snapshot source is a test-owned local mock. A fresh pair of reads and a SQLite transaction cannot prove that an external broker supplies one coherent account/order/execution state or prevent a correction after the last read. There is no verified correction reversal/replacement protocol or hold-release path, no unattended paper safety claim, and no live authority. [The snapshot contract](docs/evidence/TL-002-SYNTHETIC-SNAPSHOT-EVIDENCE.md), [late-correction check](docs/evidence/TL-002-H1-POST-HANDOFF-CORRECTION.md) and [roadmap](docs/ROADMAP.md) identify the boundary.
 
@@ -32,11 +32,11 @@ TideLab-authored code is Apache-2.0. Keep strategy, risk, data, paper authority 
 
 ## First action next session
 
-Use the development loop: one bounded pickup of guidance, fresh refs, current #95 PR/review/CI state and working tree. Finish any pending specification review/integration within existing authority before implementation.
+Use the development loop: one bounded pickup of guidance, fresh refs, the current #95 historical backend PR/review/CI state and working tree. Complete any pending implementation integration within existing authority before expanding scope.
 
-The owner approved specifying the [shared historical batch backend](docs/decisions/TL-003-HISTORICAL-BATCH-BACKEND.md). That contract is the authoritative next brief: reuse package replay, pinned LEAN comparison and existing research trial accounting; add atomic batch admission, bounded partition reading, complete artifacts and recovery. It specifies the interfaces and synthetic acceptance; no backend implementation or real-data experiment is claimed.
+The owner approved implementing the [shared backend contract](docs/decisions/TL-003-HISTORICAL-BATCH-BACKEND.md), including the ordinary review and gated integration sequence. The [implementation/evidence guide](docs/evidence/TL-003-HISTORICAL-BATCH-BACKEND.md) describes the runnable synthetic development CLI, existing-registry batch admission, shared replay, common costs/metrics, captured snapshot rows and artifact-only recovery. Both normalized packages have actual pinned LEAN comparisons under baseline/stress and scored boundaries. The scale workload preserves failures rather than filtering them. Exact local/remote/review results belong in the implementation PR and #95.
 
-The recommended next implementation is one complete synthetic development batch through that contract, including two markets, distinct packages, common baseline/stress costs, benchmarks, failures, crash recovery and actual LEAN comparison. Keep third-party data mode disabled. Candidate selection, an exact real snapshot, search budget and phase authority require a separate concrete research proposal. Do not open frozen partitions, expand parsers, revisit the engine or append broker work as prerequisites.
+After integration, the next recommended decision is a concrete bounded proposal for real-data enablement and one approved batch experiment: candidate set/source rights, exact permitted snapshot, exposure history, finite search budget, partitions, costs and review criteria. Third-party execution, validation and untouched modes are still disabled. Prepare that proposal without opening real price payloads or modifying frozen studies. Do not automatically expand parsers, revisit the engine, or add broker work.
 
 The closed #86 screen, H1 and the private low-volatility study remain separately auditable. Do not retune, rerun an opened phase or publish private results.
 

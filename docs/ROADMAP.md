@@ -125,4 +125,4 @@ TL-001A and TL-001B are separate reviewable slices after TL-001 integration. Evi
 
 ## Shared historical batch next slice
 
-Under #95, the [backend contract](decisions/TL-003-HISTORICAL-BATCH-BACKEND.md) specifies a reusable package-to-results path with atomic batch admission, existing trial accounting, common costs, partition boundaries and recovery. First implement and demonstrate the whole path using synthetic SQLite history and pinned LEAN comparison. Real candidate selection, snapshot approval and phase/trial budgets remain separate; the specification does not implement or authorize them.
+Under #95, the [backend contract](decisions/TL-003-HISTORICAL-BATCH-BACKEND.md) specifies a reusable package-to-results path with atomic batch admission, existing trial accounting, common costs, partition boundaries and recovery. The [first backend implementation](evidence/TL-003-HISTORICAL-BATCH-BACKEND.md) exercises that path using synthetic SQLite history and pinned LEAN comparison; verify its PR/CI integration. Real candidate selection, snapshot approval and phase/trial budgets remain separate; the synthetic backend does not authorize them.

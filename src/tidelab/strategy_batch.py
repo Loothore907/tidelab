@@ -14,7 +14,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import re
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from tidelab.domain import canonical_json, parse_utc
 from tidelab.strategy_intake import record_digest, validate_record
@@ -231,7 +231,45 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
                        fee_rate: Decimal = Decimal(SYNTHETIC_COST["fee_rate"]),
                        adverse_rate: Decimal = Decimal(SYNTHETIC_COST["adverse_rate"]),
                        trace: list[dict[str, Any]] | None = None) -> dict[str, str | int]:
-    """One closed-bar/next-open full-fill contract test, never a market claim."""
+    """Compatibility wrapper for the original synthetic contract CLI."""
+    result = replay_package(strategy, bars, initial_cash=initial_cash,
+                            fee_rate=fee_rate, adverse_rate=adverse_rate,
+                            emit=trace.append if trace is not None else None)
+    result["status"] = "synthetic_contract_tested"
+    return result
+
+
+def validate_cost(cost: Mapping[str, str]) -> dict[str, Decimal]:
+    if set(cost) != set(SYNTHETIC_COST):
+        raise ValueError("invalid_cost_fields")
+    values = {key: _decimal(value, key) for key, value in cost.items()}
+    for value in values.values():
+        if abs(value) > Decimal("1e9") or value.as_tuple().exponent < -8:
+            raise UnsupportedPackage("outside_cost_domain")
+    if (values["initial_cash"] <= 0 or values["quantity_unit"] <= 0
+            or not 0 <= values["fee_rate"] < 1 or not 0 <= values["adverse_rate"] < 1):
+        raise ValueError("invalid_cost")
+    return values
+
+
+def replay_package(strategy: ParsedStrategy, bars: Sequence[Bar], *,
+                   initial_cash: Decimal = Decimal(SYNTHETIC_COST["initial_cash"]),
+                   fee_rate: Decimal = Decimal(SYNTHETIC_COST["fee_rate"]),
+                   adverse_rate: Decimal = Decimal(SYNTHETIC_COST["adverse_rate"]),
+                   quantity_unit: Decimal = _UNIT, score_start: int = 0,
+                   benchmark: str | None = None,
+                   emit: Callable[[dict[str, Any]], None] | None = None) -> dict[str, str | int]:
+    """Shared deterministic replay; callers own data authorization and admission.
+
+    score_start indexes the first scored bar; prior bars update indicators only.
+    The zero default preserves the original synthetic contract's warmup trace.
+    """
+    if (type(score_start) is not int or not 0 <= score_start < len(bars)
+            or (score_start and score_start < strategy.warmup)
+            or benchmark not in (None, "cash", "passive")):
+        raise ValueError("invalid_scoring_boundary")
+    validate_cost({"initial_cash": str(initial_cash), "fee_rate": str(fee_rate),
+                   "adverse_rate": str(adverse_rate), "quantity_unit": str(quantity_unit)})
     if (len(bars) <= strategy.warmup or any(
             not isinstance(value, Decimal) or not value.is_finite() or value < 0
             for value in (initial_cash, fee_rate, adverse_rate))
@@ -248,6 +286,8 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
     closes = [bar.close for bar in bars]
     for index, bar in enumerate(bars):
         fill = None
+        if benchmark == "passive" and index == score_start:
+            pending = ("buy", cash * strategy.target_fraction)
         if pending:
             side, target = pending
             if side == "sell":
@@ -258,7 +298,7 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
             else:
                 price = bar.open * (1 + adverse_rate)
                 amount = min(target, cash)
-                bought = (amount / (price * (1 + fee_rate))).quantize(_UNIT, rounding=ROUND_DOWN)
+                bought = (amount / (price * (1 + fee_rate)) / quantity_unit).to_integral_value(rounding=ROUND_DOWN) * quantity_unit
                 if bought <= 0:
                     raise ValueError("synthetic target below executable unit")
                 quantity = bought
@@ -271,7 +311,7 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
             pending = None
         entry = exit_signal = None
         action = "hold"
-        if index + 1 >= strategy.warmup and index != len(bars) - 1:
+        if benchmark is None and index >= score_start and index + 1 >= strategy.warmup and index != len(bars) - 1:
             entry = _boolean(strategy.entry, closes, index)
             exit_signal = _boolean(strategy.exit, closes, index)
             if units and exit_signal:
@@ -283,14 +323,16 @@ def evaluate_synthetic(strategy: ParsedStrategy, bars: Sequence[Bar], *,
                 decisions += 1
         if cash < 0 or units < 0:
             raise AssertionError("synthetic cash or inventory became negative")
-        if trace is not None:
-            trace.append({"index": index,
+        if abs(cash + units * bar.close) > Decimal("79228162514264337593543950335"):
+            raise ArithmeticError("cross_runtime_portfolio_overflow")
+        if emit is not None and index >= score_start:
+            emit({"index": index,
                           "close_utc": (bar.start + _HOUR).isoformat().replace("+00:00", "Z"),
                           "entry": entry, "exit": exit_signal, "action": action,
                           "fill": fill, "cash": str(cash), "units": str(units),
                           "equity": str(cash + units * bar.close)})
     equity = cash + units * bars[-1].close
-    return {"status": "synthetic_contract_tested", "strategy_id": strategy.strategy_id,
+    return {"status": "replay_completed", "strategy_id": strategy.strategy_id,
             "version": strategy.version, "package_sha256": strategy.package_sha256,
             "source_candidate_id": strategy.source_candidate_id,
             "source_version": strategy.source_version,

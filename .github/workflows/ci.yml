@@ -32,13 +32,15 @@ jobs:
       - name: Compare packages through LEAN orders and portfolio
         env:
           TIDELAB_LEAN_ROOT: ${{ github.workspace }}/artifacts/lean-source
-        run: python -m pytest tests/test_package_lean_parity.py --basetemp=artifacts/package-parity-ci
+        run: python -m pytest tests/test_package_lean_parity.py tests/test_historical_batch.py --basetemp=artifacts/package-parity-ci
       - name: Retain synthetic parity attempts and engine logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: package-lean-parity-${{ github.sha }}
-          path: artifacts/package-parity-ci/**/attempt/
+          path: |
+            artifacts/package-parity-ci/**/attempt/
+            artifacts/package-parity-ci/**/lean-attempt/
           if-no-files-found: error
 
   test:

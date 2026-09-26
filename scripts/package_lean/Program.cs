@@ -112,6 +112,7 @@ sealed class PackageAlgorithm : QCAlgorithm
         var feeRate = D(costs.GetProperty("fee_rate"));
         var adverse = D(costs.GetProperty("adverse_rate"));
         var unit = D(costs.GetProperty("quantity_unit"));
+        var scoreStart = input.TryGetProperty("score_start", out var score) ? score.GetInt32() : 0;
         var bars = input.GetProperty("fixture").GetProperty("bars").EnumerateArray().ToArray();
 
         SetTimeZone(TimeZones.Utc);
@@ -185,7 +186,7 @@ sealed class PackageAlgorithm : QCAlgorithm
                 closes.Add(close);
                 bool? entry = null, exit = null;
                 var action = "hold";
-                if (closes.Count >= warmup && index != bars.Length - 1)
+                if (index >= scoreStart && closes.Count >= warmup && index != bars.Length - 1)
                 {
                     entry = Predicate(entryRule, closes);
                     exit = Predicate(exitRule, closes);
@@ -199,7 +200,7 @@ sealed class PackageAlgorithm : QCAlgorithm
                 }
                 if (Portfolio.CashBook["USD"].Amount < 0 || security.Holdings.Quantity < 0)
                     throw new InvalidOperationException("Negative cash or holdings");
-                traces.Add(new { index, close_utc = U(UtcTime), entry, exit, action, fill = fillTrace,
+                if (index >= scoreStart) traces.Add(new { index, close_utc = U(UtcTime), entry, exit, action, fill = fillTrace,
                     cash = S(Portfolio.CashBook["USD"].Amount), units = S(security.Holdings.Quantity),
                     equity = S(Portfolio.TotalPortfolioValue) });
             }
