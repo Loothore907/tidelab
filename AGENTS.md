@@ -8,6 +8,8 @@ For bounded orientation across sessions, use the repo-local `tidelab-context` sk
 
 Apply [the development loop](docs/DEVELOPMENT_LOOP.md) to implementation work. Start with one bounded pickup and a short work brief: product outcome, classification, issue/base, scope, observable acceptance and failure cases, and integration authority. Continue within existing approval; ask only for material changes or missing authority.
 
+The working standard is **effort from the next idea's source to an honest result**. For import/workflow changes, compare preparation and execution effort before/after, including hand-authored records/traces, files, commands, interventions and per-strategy code edits. Never call a prepared manifest's one-command execution zero-effort onboarding. Batch related usability fixes into one useful outcome; retain coherent reviewable commits. Generate evidence with existing tools, write only durable decisions or changed operating instructions, and update existing documentation rather than adding a report per slice. The development loop defines the measurement and review rules; do not add a parallel process checklist.
+
 ### Standing session approval and follow-through
 
 The scope agreed at the beginning of a session is standing authorization for all actions within that scope. Repeated approvals waste the owner's time. Do not turn implementation steps, bounded slices, PR boundaries, handoffs or required distinct reviews into new owner-approval gates. Own routine technical decisions and carry authorized work through implementation, ordinary failure repair, meaningful tests, documentation, required review, commits, pushes, PRs, exact-head CI and gated integration.
