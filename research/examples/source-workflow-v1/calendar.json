@@ -1,0 +1,28 @@
+{
+  "schema_version": 4,
+  "strategy_id": "caporale-plastun-btc-monday-utc",
+  "version": 1,
+  "source": {
+    "candidate_id": "synthetic-monday-utc",
+    "version": 1,
+    "record_sha256": "3eb767fa023f142469f6cf1823cbc78a631b2b4864c2ac40fced06b9e57e6f4d"
+  },
+  "requirements": {
+    "interval_seconds": 3600,
+    "product_class": "spot",
+    "position_mode": "long_cash"
+  },
+  "rule": {
+    "entry": {
+      "op": "utc_calendar",
+      "weekday": 1,
+      "hour": 0
+    },
+    "exit": {
+      "op": "utc_calendar",
+      "weekday": 2,
+      "hour": 0
+    },
+    "target_fraction": "0.25"
+  }
+}

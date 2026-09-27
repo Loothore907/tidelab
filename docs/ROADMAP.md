@@ -131,6 +131,8 @@ The backend is ahead of ingestion and orchestration. Many prepared packages can 
 
 ## Next outcome: repeatable source-to-results workflow
 
+Implementation checkpoint: the [source workflow](evidence/TL-003-SOURCE-WORKFLOW.md) now delivers this bounded authored-corpus outcome. The acceptance below remains the original brief; review and exact-head CI are recorded in the implementation PR. Further source support requires evidence from configuration-only corpus extensions, not another individually engineered study.
+
 Owner direction, 2026-09-26 Alaska: make TideLab a repeatable automated testing environment for multiple strategies from multiple sources. The next #95 slice is **foundation integration**, not another selected hypothesis or real-data evaluation. The agreed consumer is an operator supplying a fixed collection of source files plus intake records and receiving a complete batch report through one command.
 
 Reuse the existing intake metadata, normalized JSON packages, bounded Pine compiler, source conformance checks, synthetic ledger, historical batch backend, TrialRegistry, costs, benchmarks, reporting and pinned LEAN comparison. The demonstrated gap is the connection between those components: source compilation and batch-plan assembly still require manual coordination. Do not add another evaluator, scheduler, strategy-specific runner or general authorization framework.

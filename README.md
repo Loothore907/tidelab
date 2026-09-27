@@ -26,10 +26,10 @@ The product goal is a repeatable automated testing environment for multiple stra
 | Source translation | Narrow deterministic Pine subset; general papers/repositories/Pine still require interpretation or report unsupported |
 | Historical batches | Finite inventories, common benchmarks, complete outcomes, retained traces/manifests and artifact recovery |
 | Engine comparison | Actual pinned LEAN orders/fills/portfolio under controlled synthetic clocks/data; no production-feed claim |
-| Source-to-results automation | Components exist, but compilation, plan assembly and private admission still require manual or candidate-specific work |
+| Source-to-results automation | One manifest/command connects authored JSON/Pine compilation to complete synthetic historical results; general source translation and private admission remain separate |
 | Scale and research evidence | Repeated-template synthetic workloads and audited private studies; not broad source coverage or a demonstrated economic edge |
 
-RSI, channel and Monday private studies are finished; grants are consumed and reports/audits remain private. The next [bounded #95 milestone](docs/ROADMAP.md#next-outcome-repeatable-source-to-results-workflow) connects existing normalized JSON and Pine inputs to the shared historical backend through one manifest/command, using only authored synthetic data. Every input must retain an outcome, supported inputs require no per-strategy code, and coverage/manual effort must be measured. No new trading rule, general paper parser, real-data trial or evaluator is included. Start from the [current handoff](HANDOFF.md).
+RSI, channel and Monday private studies are finished; grants are consumed and reports/audits remain private. The [#95 source workflow](docs/evidence/TL-003-SOURCE-WORKFLOW.md) connects existing normalized JSON and Pine inputs to the shared historical backend through one manifest/command, using only authored synthetic data. Its ten-input corpus demonstrates three rule structures and complete rejected, duplicate and failed accounting; supported additions require files/configuration only. No new trading rule, general paper parser, real-data trial or evaluator is included. Start from the [current handoff](HANDOFF.md).
 
 ## Project documents
 

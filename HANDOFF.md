@@ -2,19 +2,17 @@
 
 Updated 2026-09-26 Alaska time. Verified research checkpoint: main `2b8783cbe5b58296638104009557c32d66c573b6`, clean and synchronized, no open PRs; [PR #109](https://github.com/Loothore907/tidelab/pull/109) merged and all three [exact-main CI jobs](https://github.com/Loothore907/tidelab/actions/runs/36284533727) passed. This documentation update follows that checkpoint; resolve current HEAD and recheck live Git/GitHub rather than treating the recorded SHA as forever current.
 
-## Product outcome and current gap
+## Product outcome delivered
 
-TideLab's goal is a repeatable, automated environment that ingests and tests multiple strategies from multiple sources. Its shared evaluation backend is working; multi-source ingestion and orchestration remain limited. Prepared packages can run through common costs, execution and accounting, but interpreting external sources, assembling plans and admitting private studies still requires too much manual/candidate-specific work. More individually engineered studies are not the next platform milestone.
+The [repeatable source workflow](docs/evidence/TL-003-SOURCE-WORKFLOW.md) connects the existing intake/compiler, conformance, capability checks, synthetic ledger and historical backend through one manifest/command. The authored ten-input corpus covers JSON and the existing Pine subset, three rule structures, malformed/unsupported/prose inputs, duplicates and retained execution failures. Six compiled inputs yield 16 jobs: ten completed, four duplicates, two deliberate below-unit failures; six completed strategy/cost comparisons use pinned LEAN.
 
-The authoritative next work brief is [Next outcome: repeatable source-to-results workflow](docs/ROADMAP.md#next-outcome-repeatable-source-to-results-workflow), owned by [#95](https://github.com/Loothore907/tidelab/issues/95). Deliver one manifest/command from a fixed corpus of existing supported source formats and intake records to complete synthetic historical batch results, with no per-strategy Python edits for supported inputs. Reuse existing components; no new backtester, strategy or generalized paper parser.
+This is foundation integration under #95, not another strategy study. Supported additions require source/record/trace/configuration files only. Existing recovery completes artifact metadata without replay; incomplete execution needs explicit abort and never creates a parity pass. General prose/Pine/repository interpretation, private admission and economic evidence remain outside this capability.
 
 ## First action next session
 
-Read AGENTS.md, this handoff, README.md, docs/ROADMAP.md and docs/DEVELOPMENT_LOOP.md. Use the repo-local `tidelab-context` skill for one bounded pickup, then verify working changes, fresh remote refs, open issues/PRs, review findings and exact-head CI. Resolve inherited integration debt without disturbing unrelated work.
+Read the repository guidance and the [workflow evidence and reproducible command](docs/evidence/TL-003-SOURCE-WORKFLOW.md). Use one bounded context pickup, then verify live branch, GitHub, reviews and exact-head CI. The implementation PR carries its exact reviewed SHA and integration evidence; the historical checkpoint above is not a claim about a future HEAD.
 
-Proceed with the roadmap's bounded foundation integration on a focused #95 branch from current main. Freeze a small authored corpus using normalized JSON and the existing Pine subset, with multiple rule structures and explicit invalid/unsupported/ambiguous/duplicate cases. Connect compilation and plan assembly to the existing historical backend, preserve source-to-result identities and all outcomes, and demonstrate one-command execution, reproducibility, existing recovery and measured manual effort on invented history.
-
-The owner agreed this platform direction and wants the bounded sequence carried through rather than repeated step approvals. Finish concrete implementation, meaningful tests, any required distinct review, CI and authorized integration together. Do not ask again for routine steps already in that scope. Stop for a failed gate or material scope/risk/authority change. The current session updates documentation only; this handoff does not claim the new workflow is implemented.
+Recommended next action: extend the corpus through files/configuration to measure actual unsupported-source needs before proposing a separately bounded parser extension. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
 
 ## Built and reusable
 
@@ -42,4 +40,4 @@ The #86 screen, H1 and private low-volatility work remain separately auditable. 
 - **#21 model work:** optional, outside this slice. Deterministic computation remains the evaluator.
 - No accounts, credentials, orders, deposits, spend, outreach, new data acquisition or public real-data outputs. TideLab-authored work remains Apache-2.0; preserve third-party licenses. Keep engine selection settled unless new blocking evidence warrants reopening it.
 
-One active outcome: the repeatable supported-source-to-results workflow. Expand only when its measured gaps justify another bounded slice.
+The bounded authored source-to-results workflow is implemented. Expand only when its measured coverage gaps justify another bounded slice.
