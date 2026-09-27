@@ -1,0 +1,16 @@
+//@version=5
+// Authored comment; no execution or timing effect.
+strategy("TideLab Synthetic Three", overlay=false, pyramiding=0, process_orders_on_close=false, calc_on_every_tick=false, default_qty_type=strategy.percent_of_equity, default_qty_value=25)
+	// Ordinary comment between statements.
+entrySignal = close > ta.sma(close, 3)
+	// Ordinary comment between statements.
+exitSignal = close < ta.sma(close, 3)
+	// Ordinary comment between statements.
+if entrySignal
+    // Indented ordinary comment.
+    strategy.entry("L", strategy.long)
+	// Ordinary comment between statements.
+if exitSignal
+	// Ordinary comment between statements.
+    strategy.close("L")
+	// Ordinary comment between statements.

@@ -2,6 +2,8 @@
 
 Issue [#95](https://github.com/Loothore907/tidelab/issues/95). This is intake foundation using only TideLab-authored source and invented hourly bars. It selects no external candidate and performs no market-data trial.
 
+The original grammar below remains the default. The [opt-in grammar-2 extension](TL-003-PINE-COMMENTS.md) adds bounded full-line comments for the integrated source workflow, preserving these grammar-1 outcomes.
+
 ## Accepted source grammar
 
 `tidelab-pine-v5-subset-1` accepts UTF-8 without BOM, LF line endings and exactly these eight lines with a final LF. Text in angle brackets is a bounded token; all other spaces, punctuation and indentation are literal.

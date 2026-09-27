@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "candidate_id": "synthetic-pine-comments-directive",
+  "version": 1,
+  "stage": "captured",
+  "source": {
+    "kind": "synthetic_example",
+    "title": "TideLab authored Pine comment directive",
+    "authors": [
+      "TideLab"
+    ],
+    "locator": "urn:tidelab:synthetic:pine-comments:directive",
+    "revision": "pine-v5-subset-2",
+    "content_sha256": "53fe92539d38ef59f71faf8a3b5d799bf292579da178d6e270ac55e3aed050e8",
+    "accessed_utc": "2026-09-26T00:00:00Z"
+  },
+  "claim": {
+    "attributed_summary": "Authored full-line comment frontend fixture; existing SMA(3) rule only, no market-performance or TradingView equivalence claim.",
+    "economic_rationale": "None; this family checks deterministic strategy-package mechanics only."
+  },
+  "interpretation": {
+    "product_scope": "One synthetic spot-like instrument and cash; no market candidate is selected.",
+    "timeframe": "One closed synthetic hourly bar per decision, with a next-hour hypothetical fill.",
+    "required_data": [
+      "TideLab-authored complete synthetic hourly open and close bars."
+    ],
+    "required_capabilities": [
+      "Synthetic long/cash target and deterministic next-open fill contract."
+    ],
+    "entry": null,
+    "exit": null,
+    "sizing": null,
+    "timing": null,
+    "open_questions": [
+      "Unsupported syntax probe; must not produce runnable jobs."
+    ]
+  },
+  "rights": {
+    "implementation_use": "documented",
+    "redistribution": "documented",
+    "evidence_reference": "TideLab-authored synthetic example under the repository Apache-2.0 license"
+  },
+  "decision": {
+    "issue_url": "https://github.com/Loothore907/tidelab/issues/95",
+    "authority_reference": null,
+    "authorized_scope": null,
+    "retirement_reason": null
+  }
+}

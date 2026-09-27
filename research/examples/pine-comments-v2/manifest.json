@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "kind": "tidelab_authored_synthetic",
+  "corpus": "pine-comments-v2",
+  "inputs": [
+    {
+      "id": "comment",
+      "format": "pine_subset",
+      "grammar_version": "tidelab-pine-v5-subset-2",
+      "source": {
+        "path": "comment.pine",
+        "sha256": "1ccd9ff5baa70734de8a49c11468f8de091150fa1da2f2f1fb10aaa4413b15bf"
+      },
+      "record": {
+        "path": "comment.record.json",
+        "sha256": "6ecfc0438420358880332975618d639b56b55cd040e0695c5702a01122180a26"
+      },
+      "trace": {
+        "path": "comment.trace.json",
+        "sha256": "8887119fda2bb592c635fd4200b88ea5fe007e05b8f82705a31f3c48a67f2e85"
+      }
+    },
+    {
+      "id": "original",
+      "format": "pine_subset",
+      "source": {
+        "path": "../source-workflow-v1/pine-sma.pine",
+        "sha256": "27797dcf0ea1e68a292d37492cdef834cb4a334d1339e111c56cd49a6151db1a"
+      },
+      "record": {
+        "path": "../source-workflow-v1/pine-sma.record.json",
+        "sha256": "025a0b70b09e91fe111cecfe6a799186059c36d615c9cabdcca2d2e86f7e3bac"
+      },
+      "trace": {
+        "path": "../source-workflow-v1/pine-sma.trace.json",
+        "sha256": "fc466ffb2482867d69f8fdaf7791533223c6f065833fdfe4d664890b0ccf10e6"
+      }
+    },
+    {
+      "id": "interspersed",
+      "format": "pine_subset",
+      "grammar_version": "tidelab-pine-v5-subset-2",
+      "source": {
+        "path": "interspersed.pine",
+        "sha256": "27d7e392a85e14d53d33eb6123f6e5a04cc21975a5ad8150953aebdbbac4e84c"
+      },
+      "record": {
+        "path": "interspersed.record.json",
+        "sha256": "8cc2b171a8d3cf72265233f080d5bfd60fb765884c4246cd3af9163d8436ceaf"
+      },
+      "trace": {
+        "path": "interspersed.trace.json",
+        "sha256": "977e4706bedd6921647e22fd31933403a249585157654660f0beaf888b4c77e5"
+      }
+    },
+    {
+      "id": "directive",
+      "format": "pine_subset",
+      "grammar_version": "tidelab-pine-v5-subset-2",
+      "source": {
+        "path": "directive.pine",
+        "sha256": "53fe92539d38ef59f71faf8a3b5d799bf292579da178d6e270ac55e3aed050e8"
+      },
+      "record": {
+        "path": "directive.record.json",
+        "sha256": "2bfc11bb2dc52c9d54a44b18a1d81d650cbd9b87035ca5c2624e095ace6bf153"
+      },
+      "trace": null
+    },
+    {
+      "id": "same-close",
+      "format": "pine_subset",
+      "grammar_version": "tidelab-pine-v5-subset-2",
+      "source": {
+        "path": "same-close.pine",
+        "sha256": "25b1972b2d3b0f5ac6824dabb1bc55a1bdca0d8d6246e482b5aa0325d86afd6d"
+      },
+      "record": {
+        "path": "same-close.record.json",
+        "sha256": "04233983763c1591fb37d6e97cd402d48a9322edc30a0328d9c301ea2983a08e"
+      },
+      "trace": null
+    },
+    {
+      "id": "inline",
+      "format": "pine_subset",
+      "grammar_version": "tidelab-pine-v5-subset-2",
+      "source": {
+        "path": "inline.pine",
+        "sha256": "cbc8240a1b3c48f0adb80b105634f007aa78fd6af9ce5068f26076cf141b4e14"
+      },
+      "record": {
+        "path": "inline.record.json",
+        "sha256": "43503da22f6fb52531db8443a8bc0202156cadf2482c7599a1ca9596045c458a"
+      },
+      "trace": null
+    }
+  ],
+  "history": {
+    "path": "../source-workflow-v1/history.json",
+    "sha256": "a5b43eb09d597c3d1b324dd0a2e8ae4bd76b71c86ae974417379eba856fcbc57"
+  },
+  "warmup_bars": 3,
+  "costs": {
+    "baseline": {
+      "fee_rate": "0.0025",
+      "adverse_rate": "0.001",
+      "initial_cash": "10000",
+      "quantity_unit": "0.03"
+    },
+    "stress": {
+      "fee_rate": "0.005",
+      "adverse_rate": "0.002",
+      "initial_cash": "10000",
+      "quantity_unit": "0.03"
+    }
+  },
+  "benchmark_allocation": "0.25"
+}
