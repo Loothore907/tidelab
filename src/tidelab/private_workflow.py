@@ -1,4 +1,4 @@
-"""Shared one-shot private workflow for the frozen RSI and channel bindings.
+"""Shared one-shot private workflow for frozen owner-approved bindings.
 
 Bindings own exact authority, package, window and review policy. This module
 only performs the established snapshot/admission mechanics; it grants nothing.
@@ -26,10 +26,12 @@ def make_plan(binding, descriptor: dict, record: dict) -> dict:
              "record_sha256": batch.digest((canonical_json(record) + "\n").encode())}]
     jobs = [{"package": binding.PACKAGE_ID, "market": m, "cost": c, "benchmark": b}
             for m in binding.MARKETS for b in (None, "cash", "passive") for c in ("baseline", "stress")]
+    if len(jobs) != binding.JOBS:
+        raise ValueError("frozen_inventory_count_mismatch")
     return {"schema_version": 1, "kind": "third_party", "family": binding.FAMILY, "generation": "v1",
         "parent_experiment": None, "phase": "development", "issue": 95, "authority": binding.GRANT,
         "markets": binding.MARKETS, "partitions": {"development": {"start": binding.START, "end": binding.END}},
-        "packages": refs, "jobs": jobs, "costs": binding.COSTS, "budget": 30, "max_bars": 10000,
+        "packages": refs, "jobs": jobs, "costs": binding.COSTS, "budget": binding.JOBS, "max_bars": 10000,
         "benchmark_allocation": "0.25", "metrics": batch.METRICS, "selection": "none", "retention": "retain_all_local",
         "snapshot_sha256": batch.digest((canonical_json(descriptor) + "\n").encode())}
 
@@ -74,7 +76,7 @@ def prepare(binding, reviewed: str) -> dict:
         reg.reserve_access(binding.GRANT, "snapshot_complete", {"receipt_sha256": batch.digest((binding.study() / "prepared.json").read_bytes()),
             "descriptor_sha256": batch.digest((binding.study() / "snapshot.json").read_bytes()),
             "plan_sha256": batch.digest((binding.study() / "plan.json").read_bytes())})
-        return {"status": "prepared", "markets": 5}
+        return {"status": "prepared", "markets": len(binding.MARKETS)}
     except Exception as exc:
         batch.write(binding.study() / "preparation-failed.json", {"status": "failed", "reason": type(exc).__name__, "detail": str(exc)})
         raise
@@ -98,7 +100,7 @@ def execute(binding, reviewed: str) -> dict:
         raise ValueError("snapshot_file_changed")
     result = batch.run(binding.study() / "plan.json", binding.study() / "snapshot.json", binding.study() / "snapshot.sqlite3",
         binding.registry_path(), binding.study() / "attempt", _policy=binding.policy(record, descriptor))
-    if "jobs" not in result or len(result["jobs"]) != 30: raise ValueError("batch_incomplete")
+    if "jobs" not in result or len(result["jobs"]) != binding.JOBS: raise ValueError("batch_incomplete")
     verdict = binding.review(result)
     batch.write(binding.study() / "review.json", verdict)
     reg.reserve_access(binding.GRANT, "review", {"review_sha256": batch.digest((binding.study() / "review.json").read_bytes()),

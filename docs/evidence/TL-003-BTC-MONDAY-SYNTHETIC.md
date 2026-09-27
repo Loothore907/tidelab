@@ -1,6 +1,6 @@
 # BTC Monday: selected implementation and synthetic evidence
 
-Owner: [#95](https://github.com/Loothore907/tidelab/issues/95). This is a selected strategy implementation through the existing package, replay, historical batch and pinned LEAN paths. The owner approved this bounded implementation, synthetic tests, distinct review and gated integration. Price access, a new snapshot and a real-data trial remain unapproved. The candidate's private policy and entry points fail before database access.
+Owner: [#95](https://github.com/Loothore907/tidelab/issues/95). This is a selected strategy implementation through the existing package, replay, historical batch and pinned LEAN paths. The owner approved this bounded implementation, synthetic tests, distinct review and gated integration. At this implementation-only checkpoint, price access, a new snapshot and a real-data trial were unapproved. The later [bounded private flow](TL-003-MONDAY-PRIVATE-ADMISSION.md) records the subsequent end-to-end approval. The candidate's private policy and entry points fail before database access.
 
 ## Source and interpretation
 
@@ -31,8 +31,8 @@ Hand-specified assertions distinguish close-clock decisions from open-clock or s
 
 Local verification on this implementation: 221 Python tests passed, 34 optional-runtime cases skipped on Windows; all seven focused native LEAN cases passed in WSL; two context tests passed. PR checks provide the exact-head remote regression evidence. Distinct review and merge state belong in the PR, not this pre-integration receipt.
 
-## Next decision and limits
+## Subsequent approval and limits
 
-After distinct review and exact-head integration, the next owner decision is the frozen one-BTC, already-exposed 2024 proposal: one separately approved snapshot and six private jobs, no variants or retries, $0 acquisition/spend and a 30-minute run ceiling. It is not a holdout. Future admission must bind that exact proposal, selected intake, canonical store and finite inventory, followed by review of the concrete implementation before execution. No grant is created by this slice. Existing RSI/channel grants remain consumed and their private artifacts and canonical anchor must be preserved.
+The subsequent [private admission](TL-003-MONDAY-PRIVATE-ADMISSION.md) carries the later approval for the frozen one-BTC, already-exposed 2024 proposal: one separately approved snapshot and six private jobs, no variants or retries, $0 acquisition/spend and a 30-minute run ceiling. It is not a holdout. Admission must bind that exact proposal, selected intake, canonical store and finite inventory, followed by review of the concrete implementation before execution. No grant is created by this slice. Existing RSI/channel grants remain consumed and their private artifacts and canonical anchor must be preserved.
 
 General source parsing, broad admission, timely data rights (#3) and execution authority (#48) remain independent. The proposal is a specific reviewed translation; it does not imply the platform can parse arbitrary papers.

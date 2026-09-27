@@ -29,7 +29,7 @@ METRICS = ["net_return", "max_drawdown", "fill_count", "round_trips", "fees", "t
 SOURCES = ["historical_batch.py", "historical_input.py", "strategy_batch.py", "trial_registry.py",
            "experiment_identity.py", "package_lean_parity.py", "strategy_intake.py", "domain.py",
            "rsi_private.py", "private_history.py", "channel_breakout.py", "batch_review.py",
-           "private_workflow.py", "channel_private.py", "btc_monday.py"]
+           "private_workflow.py", "channel_private.py", "btc_monday.py", "monday_private.py"]
 
 
 def digest(raw: bytes) -> str:
