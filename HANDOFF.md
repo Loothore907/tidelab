@@ -16,7 +16,7 @@ The approved [configuration-only corpus extension](docs/evidence/TL-003-SOURCE-C
 
 The [bounded Pine comment extension](docs/evidence/TL-003-PINE-COMMENTS.md) now accepts ordinary full-line comments through an explicit grammar-2 manifest choice, preserving original hashes, legacy grammar-1 outcomes and execution-option rejections. Its six-input corpus yields three compiled inputs, three rejections, six completed jobs and four duplicates; both executed strategy/cost cases match pinned LEAN. It adds syntax coverage, not another rule structure.
 
-Recommended next action: assess a bounded alias-reference extension against the retained alias probe, with an explicit grammar and independent conformance acceptance before implementation. That extension needs its own scope decision. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
+Outstanding follow-through: the alias-reference extension was proposed but has not been implemented; the retained alias probe still reports unsupported. The owner clarified that all actions within the agreed session scope are approved, without renewed approval for each slice. Apply the standing-approval rule in `AGENTS.md`, retain explicit grammar/conformance checks, and carry pending in-scope work forward rather than returning another approval request or acknowledgment alone. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
 
 ## Built and reusable
 
