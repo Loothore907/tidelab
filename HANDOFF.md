@@ -1,6 +1,6 @@
 # TideLab handoff
 
-Updated 2026-09-26 Alaska time. Verified pickup: main `cf910015f9f70875cbc232947cb000f91689f80a`, clean and synchronized, no open PRs; [PR #111](https://github.com/Loothore907/tidelab/pull/111) merged and all three [exact-main CI jobs](https://github.com/Loothore907/tidelab/actions/runs/36288125177) passed. This corpus extension follows that checkpoint; resolve current HEAD and recheck live Git/GitHub instead of treating this recorded SHA as forever current.
+Updated 2026-09-26 Alaska time. Verified pickup: main `1aa55bfa4a0973e3706e1848bcaba47b282cf3a3`, clean and synchronized, no open PRs; [PR #112](https://github.com/Loothore907/tidelab/pull/112) merged and all three [exact-main CI jobs](https://github.com/Loothore907/tidelab/actions/runs/36289447068) passed. The bounded comment extension follows that checkpoint; resolve current HEAD and recheck live Git/GitHub instead of treating this recorded SHA as forever current.
 
 ## Product outcome delivered
 
@@ -14,7 +14,9 @@ Read the repository guidance and the [workflow evidence and reproducible command
 
 The approved [configuration-only corpus extension](docs/evidence/TL-003-SOURCE-COVERAGE-V2.md) now covers 18 inputs and five existing rule structures with the unchanged runtime. Its 22 jobs retain 16 completions, four duplicates and two deliberate failures. Normalized RSI/channel inputs work; authored Pine probes expose translation and strict-syntax gaps.
 
-Recommended next action: a separately bounded Pine comment-handling change that preserves exact original source hashes and all execution-option rejections. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
+The [bounded Pine comment extension](docs/evidence/TL-003-PINE-COMMENTS.md) now accepts ordinary full-line comments through an explicit grammar-2 manifest choice, preserving original hashes, legacy grammar-1 outcomes and execution-option rejections. Its six-input corpus yields three compiled inputs, three rejections, six completed jobs and four duplicates; both executed strategy/cost cases match pinned LEAN. It adds syntax coverage, not another rule structure.
+
+Recommended next action: assess a bounded alias-reference extension against the retained alias probe, with an explicit grammar and independent conformance acceptance before implementation. That extension needs its own scope decision. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
 
 ## Built and reusable
 

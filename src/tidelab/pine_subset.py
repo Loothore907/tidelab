@@ -15,6 +15,7 @@ from tidelab.strategy_intake import record_digest, validate_record
 
 
 GRAMMAR_VERSION = "tidelab-pine-v5-subset-1"
+COMMENT_GRAMMAR_VERSION = "tidelab-pine-v5-subset-2"
 MAX_SOURCE_BYTES = 16 * 1024
 _HEADER = re.compile(
     r'strategy\("([A-Za-z0-9 _-]{1,64})", overlay=false, pyramiding=0, '
@@ -30,8 +31,9 @@ class PineFrontendError(ValueError):
         self.code = code
 
 
-def compile_pine(source_bytes: bytes, record: Mapping[str, Any]) -> dict[str, Any]:
-    """Compile only the documented eight-line grammar into package v1."""
+def compile_pine(source_bytes: bytes, record: Mapping[str, Any], *,
+                 grammar_version: str = GRAMMAR_VERSION) -> dict[str, Any]:
+    """Compile the pinned grammar; v2 additionally permits full-line comments."""
     if len(source_bytes) > MAX_SOURCE_BYTES:
         raise PineFrontendError("source_size_exceeded")
     digest = sha256(source_bytes).hexdigest()
@@ -45,9 +47,28 @@ def compile_pine(source_bytes: bytes, record: Mapping[str, Any]) -> dict[str, An
         raise PineFrontendError("invalid_utf8") from exc
     if source.startswith("\ufeff") or "\r" in source or not source.endswith("\n"):
         raise PineFrontendError("invalid_source_encoding")
-    lines = source.splitlines()
+    if grammar_version not in (GRAMMAR_VERSION, COMMENT_GRAMMAR_VERSION):
+        raise PineFrontendError("unsupported_grammar_version")
+    if grammar_version == COMMENT_GRAMMAR_VERSION:
+        # LF alone terminates a comment. Never interpret Unicode/control line
+        # separators as boundaries that could turn comment text into code.
+        if any(c in source for c in "\v\f\x1c\x1d\x1e\x85\u2028\u2029"):
+            raise PineFrontendError("invalid_source_encoding")
+        lines = source[:-1].split("\n")
+    else:
+        lines = source.splitlines()
     if not lines or lines[0] != "//@version=5":
         raise PineFrontendError("unsupported_pine_version")
+    if grammar_version == COMMENT_GRAMMAR_VERSION:
+        statements = [lines[0]]
+        for line in lines[1:]:
+            stripped = line.lstrip(" \t")
+            if stripped.startswith("//"):
+                if stripped[2:].lstrip(" \t").startswith("@"):
+                    raise PineFrontendError("unsupported_pine_directive")
+                continue
+            statements.append(line)
+        lines = statements
     if len(lines) < 8:
         raise PineFrontendError("incomplete_subset_program")
     if len(lines) > 8:

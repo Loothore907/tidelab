@@ -14,7 +14,7 @@ from tidelab import historical_batch as batch
 from tidelab.domain import canonical_json, isoformat_utc
 from tidelab.historical_input import FIELDS, SOURCE, row_digest
 from tidelab.package_lean_parity import run_parity, validate_package_domain
-from tidelab.pine_subset import compile_pine, PineFrontendError
+from tidelab.pine_subset import GRAMMAR_VERSION, compile_pine, PineFrontendError
 from tidelab.storage import TideStore
 from tidelab.strategy_batch import (SYNTHETIC_COST, SYNTHETIC_ENGINE, UnsupportedPackage,
     parse_json_bytes, parse_synthetic_bars, signal_trace, validate_cost)
@@ -58,9 +58,11 @@ def _manifest(path):
         raise ValueError("finite_input_inventory_required")
     seen = set()
     for item in manifest["inputs"]:
-        if (set(item) != {"id", "format", "source", "record", "trace"}
+        if (set(item) - {"grammar_version"} != {"id", "format", "source", "record", "trace"}
                 or not batch.TOKEN.fullmatch(item["id"]) or item["id"] in seen
-                or item["format"] not in ("normalized_json", "pine_subset", "prose")):
+                or item["format"] not in ("normalized_json", "pine_subset", "prose")
+                or ("grammar_version" in item and (item["format"] != "pine_subset"
+                    or not isinstance(item["grammar_version"], str)))):
             raise ValueError("invalid_source_inventory")
         seen.add(item["id"])
         for name in ("source", "record"):
@@ -113,6 +115,8 @@ def _compile(manifest_path, raw, manifest, output, ledger):
                    "file_sha256": item["source"]["sha256"],
                    "record_sha256": item["record"]["sha256"], "jobs": []}
         outcomes.append(outcome)
+        if "grammar_version" in item:
+            outcome["grammar_version"] = item["grammar_version"]
         try:
             source = _capture(root, item["source"], captured / f"source-{index}.raw")
             record_raw = _capture(root, item["record"], captured / f"record-{index}.json")
@@ -129,7 +133,8 @@ def _compile(manifest_path, raw, manifest, output, ledger):
             if item["format"] == "prose":
                 outcome.update(status="needs_source_parser", reason="prose_requires_interpretation")
                 continue
-            package = (compile_pine(source, record) if item["format"] == "pine_subset"
+            package = (compile_pine(source, record, grammar_version=item.get("grammar_version", GRAMMAR_VERSION))
+                       if item["format"] == "pine_subset"
                        else parse_json_bytes(source))
             parsed = validate_package_domain(package, record)
             if parsed.preceding_warmup > manifest["warmup_bars"]:

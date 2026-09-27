@@ -285,3 +285,79 @@ def test_expanded_corpus_actual_lean(tmp_path, monkeypatch):
     assert_expanded(result)
     assert result["parity"]["status"] == "matched", result["parity"]
     assert [r["job_index"] for r in result["parity"]["cases"]] == batch.read(EXPANDED / "expected.json")["parity_job_indices"]
+
+
+COMMENTS = CORPUS.parent / "pine-comments-v2"
+
+
+def assert_comments(result):
+    assert result["status"] == "accounted"
+    assert result["compilation_counts"] == {"compiled": 3, "unsupported": 3}
+    assert result["distinct_rule_structures"] == 1  # Comments are not new rules.
+    assert result["job_counts"] == {"completed": 6, "duplicate": 4}
+    assert result["historical"]["submitted_jobs"] == 10
+    assert result["historical"]["attempt_count"] == 6
+    assert [x["reason"] for x in result["inputs"][3:]] == [
+        "unsupported_pine_directive", "unsupported_strategy_options", "unsupported_signal_expression"]
+    for item in result["inputs"]:
+        assert len(item["jobs"]) == (2 if item["status"] == "compiled" else 0)
+        for index in item["jobs"]:
+            assert result["admission"][index]["inputs"]["package_sha256"] == item["package_sha256"]
+    assert len({x["file_sha256"] for x in result["inputs"][:3]}) == 3
+    assert len({x["package_sha256"] for x in result["inputs"][:3]}) == 3
+    assert [result["admission"][i]["duplicate_of"] for i in (2,3,4,5)] == [0,1,0,1]
+
+
+def test_comment_corpus_determinism_trace_and_no_replay_recovery(tmp_path, monkeypatch):
+    from fractions import Fraction
+    manifest = batch.read(COMMENTS / "manifest.json")
+    history = batch.read(COMMENTS / manifest["history"]["path"])["bars"]
+    closes = [Fraction(b["close"]) for b in history]
+    # Independent direct arithmetic on every frozen expected source trace.
+    for item in manifest["inputs"][:3]:
+        trace = batch.read(COMMENTS / item["trace"]["path"])
+        assert trace["source_sha256"] == item["source"]["sha256"]
+        for row in trace["signals"]:
+            i = row["index"]
+            average = sum(closes[i-2:i+1]) / 3
+            assert (row["entry"], row["exit"]) == (closes[i] > average, closes[i] < average)
+    monkeypatch.setattr(workflow, "DATA", tmp_path)
+    first = workflow.run(COMMENTS / "manifest.json", tmp_path / "first")
+    second = workflow.run(COMMENTS / "manifest.json", tmp_path / "second")
+    assert_comments(first)
+    assert_comments(second)
+    assert first["semantic_sha256"] == second["semantic_sha256"]
+    assert first["trace_sha256"] == second["trace_sha256"]
+    monkeypatch.setattr(batch, "replay_package", lambda *a, **kw: pytest.fail("replay"))
+    monkeypatch.setattr(workflow, "compile_pine", lambda *a, **kw: pytest.fail("compile"))
+    assert workflow.recover(tmp_path / "first") == first
+    # Even a change confined to a comment invalidates retained source identity.
+    path = tmp_path / "first/sources/source-0.raw"
+    path.write_bytes(path.read_bytes() + b"// another comment\n")
+    with pytest.raises(ValueError, match="digest_mismatch"):
+        workflow.recover(tmp_path / "first")
+
+
+def test_grammar_selection_fails_closed_and_is_pine_only(setup):
+    manifest, output = setup
+    change(manifest, lambda m: m["inputs"][1].update(grammar_version="unknown-version"))
+    result = workflow.run(manifest, output)
+    assert result["inputs"][1]["status"] == "unsupported"
+    assert result["inputs"][1]["reason"] == "unsupported_grammar_version"
+    assert result["inputs"][1]["jobs"] == []
+    change(manifest, lambda m: m["inputs"][0].update(grammar_version="tidelab-pine-v5-subset-2"))
+    with pytest.raises(ValueError, match="invalid_source_inventory"):
+        workflow.run(manifest, output.with_name("invalid"))
+
+
+@pytest.mark.skipif(not os.environ.get("TIDELAB_LEAN_ROOT"), reason="actual pinned LEAN CI")
+def test_comment_corpus_actual_lean(tmp_path, monkeypatch):
+    monkeypatch.setattr(workflow, "DATA", tmp_path)
+    result = workflow.run(COMMENTS / "manifest.json", tmp_path / "comments",
+        lean_root=Path(os.environ["TIDELAB_LEAN_ROOT"]), dotnet=os.environ.get("TIDELAB_DOTNET", "dotnet"))
+    assert_comments(result)
+    assert result["parity"]["status"] == "matched", result["parity"]
+    assert [r["job_index"] for r in result["parity"]["cases"]] == [0,1]
+    monkeypatch.setattr(batch, "replay_package", lambda *a, **kw: pytest.fail("replay"))
+    monkeypatch.setattr(workflow, "run_parity", lambda *a, **kw: pytest.fail("parity replay"))
+    assert workflow.recover(tmp_path / "comments") == result

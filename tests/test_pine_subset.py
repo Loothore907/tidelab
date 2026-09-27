@@ -97,3 +97,69 @@ def test_batch_retains_unsupported_source_and_conformance_failure(tmp_path, monk
         pine_subset_batch.run(source_dir, [source_dir / "synthetic-sma-2.record.json",
                                            source_dir / "synthetic-sma-3.record.json"],
                               fixture, output)
+
+
+COMMENT_VERSION = "tidelab-pine-v5-subset-2"
+
+
+def compile_changed(raw, record=None, **kwargs):
+    bound = deepcopy(record or load_record(SOURCES / "synthetic-sma-3.record.json"))
+    bound["source"]["content_sha256"] = sha256(raw).hexdigest()
+    return compile_pine(raw, bound, grammar_version=COMMENT_VERSION, **kwargs)
+
+
+def test_comments_preserve_raw_identity_and_rule_at_every_statement_boundary():
+    raw = (SOURCES / "synthetic-sma-3.pine").read_bytes()
+    record = load_record(SOURCES / "synthetic-sma-3.record.json")
+    original = compile_pine(raw, record)
+    lines = raw.splitlines(keepends=True)
+    for i in range(1, len(lines) + 1):
+        changed = b"".join(lines[:i]) + b" \t// quoted text, // delimiters and code are inert\n" + b"".join(lines[i:])
+        compiled = compile_changed(changed)
+        assert compiled["rule"] == original["rule"]
+        assert compiled["requirements"] == original["requirements"]
+        assert compiled["strategy_id"] == "synthetic-pine-" + sha256(changed).hexdigest()[:16]
+        assert compiled["source"]["record_sha256"] != original["source"]["record_sha256"]
+        with pytest.raises(PineFrontendError, match="source_binding_mismatch"):
+            compile_pine(changed, record, grammar_version=COMMENT_VERSION)
+        bound = deepcopy(record)
+        bound["source"]["content_sha256"] = sha256(changed).hexdigest()
+        with pytest.raises(PineFrontendError, match="unsupported_extra_statement"):
+            compile_pine(changed, bound)  # Old manifests still select grammar 1.
+    assert compile_changed(raw) == original
+
+
+@pytest.mark.parametrize("suffix,reason", [
+    (b"//@version=6\n", "unsupported_pine_directive"),
+    (b" // @strategy_alert_message ignored?\n", "unsupported_pine_directive"),
+    (b"\t//@version=5\n", "unsupported_pine_directive"),
+    (b"\n", "unsupported_extra_statement"),
+    (b"average = ta.sma(close, 3)\n", "unsupported_extra_statement"),
+    (b"/* block comment */\n", "unsupported_extra_statement"),
+    (b"// comment\r\n", "invalid_source_encoding"),
+    (b"// comment\xe2\x80\xa8strategy.entry()\n", "invalid_source_encoding"),
+    (b"// comment\x0bcode\n", "invalid_source_encoding"),
+    (b"// \xff\n", "invalid_utf8"),
+    (b"// " + b"x" * 16384 + b"\n", "source_size_exceeded"),
+])
+def test_comment_grammar_rejects_directives_and_unsupported_boundaries(suffix, reason):
+    raw = (SOURCES / "synthetic-sma-3.pine").read_bytes()
+    with pytest.raises(PineFrontendError, match=reason):
+        compile_changed(raw + suffix)
+
+
+@pytest.mark.parametrize("old,new,reason", [
+    (b"//@version=5", b"// preamble\n//@version=5", "unsupported_pine_version"),
+    (b"process_orders_on_close=false", b"process_orders_on_close=true", "unsupported_strategy_options"),
+    (b"calc_on_every_tick=false", b"calc_on_every_tick=true", "unsupported_strategy_options"),
+    (b"pyramiding=0", b"pyramiding=1", "unsupported_strategy_options"),
+    (b"ta.sma(close, 3)", b"ta.sma(close, 3) // trailing", "unsupported_signal_expression"),
+    (b"ta.sma", b"ta.rsi", "unsupported_signal_expression"),
+    (b'    strategy.entry("L", strategy.long)', b'// strategy.entry("L", strategy.long)', "incomplete_subset_program"),
+    (b'    strategy.entry("L", strategy.long)', b'strategy.entry("L", strategy.long)', "unsupported_order_semantics"),
+    (b'strategy.close("L")', b'strategy.exit("L")', "unsupported_order_semantics"),
+])
+def test_comments_cannot_relax_execution_or_expression_contract(old, new, reason):
+    raw = (SOURCES / "synthetic-sma-3.pine").read_bytes() + b"// ordinary comment\n"
+    with pytest.raises(PineFrontendError, match=reason):
+        compile_changed(raw.replace(old, new, 1))
