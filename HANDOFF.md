@@ -1,6 +1,6 @@
 # TideLab handoff
 
-Updated 2026-09-26 Alaska time. Verified research checkpoint: main `2b8783cbe5b58296638104009557c32d66c573b6`, clean and synchronized, no open PRs; [PR #109](https://github.com/Loothore907/tidelab/pull/109) merged and all three [exact-main CI jobs](https://github.com/Loothore907/tidelab/actions/runs/36284533727) passed. This documentation update follows that checkpoint; resolve current HEAD and recheck live Git/GitHub rather than treating the recorded SHA as forever current.
+Updated 2026-09-26 Alaska time. Verified pickup: main `cf910015f9f70875cbc232947cb000f91689f80a`, clean and synchronized, no open PRs; [PR #111](https://github.com/Loothore907/tidelab/pull/111) merged and all three [exact-main CI jobs](https://github.com/Loothore907/tidelab/actions/runs/36288125177) passed. This corpus extension follows that checkpoint; resolve current HEAD and recheck live Git/GitHub instead of treating this recorded SHA as forever current.
 
 ## Product outcome delivered
 
@@ -12,7 +12,9 @@ This is foundation integration under #95, not another strategy study. Supported 
 
 Read the repository guidance and the [workflow evidence and reproducible command](docs/evidence/TL-003-SOURCE-WORKFLOW.md). Use one bounded context pickup, then verify live branch, GitHub, reviews and exact-head CI. The implementation PR carries its exact reviewed SHA and integration evidence; the historical checkpoint above is not a claim about a future HEAD.
 
-Recommended next action: extend the corpus through files/configuration to measure actual unsupported-source needs before proposing a separately bounded parser extension. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
+The approved [configuration-only corpus extension](docs/evidence/TL-003-SOURCE-COVERAGE-V2.md) now covers 18 inputs and five existing rule structures with the unchanged runtime. Its 22 jobs retain 16 completions, four duplicates and two deliberate failures. Normalized RSI/channel inputs work; authored Pine probes expose translation and strict-syntax gaps.
+
+Recommended next action: a separately bounded Pine comment-handling change that preserves exact original source hashes and all execution-option rejections. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
 
 ## Built and reusable
 
@@ -27,7 +29,7 @@ The previous 1,000-package synthetic check and repeated-template historical work
 
 ## Closed private studies: preserve, never repeat
 
-RSI v1, channel v1 and Monday v1 are complete. Their finite batches, accounting audits and independent audits are finished; grants are consumed. Authoritative private artifacts are under `data/research_program/rsi-v1/`, `channel-v1/` and `monday-v1/`. Monday's `closeout.json` binds its report and audit receipts at the checkpoint above. Inspect receipts privately only when necessary; do not publish outcomes or metrics in public documentation.
+RSI v1, channel v1 and Monday v1 are complete. Their finite batches, accounting audits and independent audits are finished; grants are consumed. Authoritative private artifacts are under `data/research_program/rsi-v1/`, `channel-v1/` and `monday-v1/`. Monday's `closeout.json` binds its report and audit receipts from the completed private-study checkpoint. Inspect receipts privately only when necessary; do not publish outcomes or metrics in public documentation.
 
 Preserve `data/research_program/trials.sqlite3`, the original `data/strategy_intake/RSI-BATCH-V1-STORE.json` anchor, every prior row and all retained failures/receipts. Do not initialize a replacement store, renew a grant, invoke old authorize/prepare/run commands, retune, rerun or open later partitions. The next foundation slice uses isolated invented-data stores and has no real-price authority.
 

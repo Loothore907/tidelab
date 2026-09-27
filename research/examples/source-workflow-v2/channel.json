@@ -1,0 +1,42 @@
+{
+  "schema_version": 3,
+  "strategy_id": "qc-channel-breakout-480-240-long-cash",
+  "version": 1,
+  "source": {
+    "candidate_id": "synthetic-source-coverage-channel",
+    "version": 1,
+    "record_sha256": "37e7e89d36b2f9ec400bf0749ba098f9c08e5a00d3fa0d8b46de27c9863c2ecd"
+  },
+  "requirements": {
+    "interval_seconds": 3600,
+    "product_class": "spot",
+    "position_mode": "long_cash"
+  },
+  "rule": {
+    "entry": {
+      "op": "gt",
+      "left": {
+        "op": "close",
+        "lag": 0
+      },
+      "right": {
+        "op": "donchian_upper",
+        "window": 480,
+        "lag": 1
+      }
+    },
+    "exit": {
+      "op": "lt",
+      "left": {
+        "op": "close",
+        "lag": 0
+      },
+      "right": {
+        "op": "donchian_lower",
+        "window": 240,
+        "lag": 1
+      }
+    },
+    "target_fraction": "0.25"
+  }
+}
