@@ -18,6 +18,8 @@ The [bounded Pine comment extension](docs/evidence/TL-003-PINE-COMMENTS.md) now 
 
 Outstanding follow-through: the alias-reference extension was proposed but has not been implemented; the retained alias probe still reports unsupported. The owner clarified that all actions within the agreed session scope are approved, without renewed approval for each slice. Apply the standing-approval rule in `AGENTS.md`, retain explicit grammar/conformance checks, and carry pending in-scope work forward rather than returning another approval request or acknowledgment alone. Do not automatically add a strategy study, evaluator, real-data trial or generalized private-admission framework. Preserve all completed studies below.
 
+Owner direction from the subsequent platform discussion: prioritize effort from a new idea's source to an honest result. Apply the updated [development loop](docs/DEVELOPMENT_LOOP.md): include preparation in the baseline, batch related import usability work, and generate evidence while keeping written documentation proportional. The next implementation brief should demonstrate a representative additional supported input without per-strategy runtime edits and clearly retain unsupported outcomes. The pending alias work belongs to that useful import outcome; broader grammar scope still needs to be concrete before coding. This process update does not implement the importer or reopen any private study.
+
 ## Built and reusable
 
 - Source/intake metadata, exact revision/digest and implementation-rights records: `strategy_intake.py`, `pine_source.py`. They do not automatically resolve rights or prose ambiguities.
