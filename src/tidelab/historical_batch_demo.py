@@ -13,17 +13,17 @@ from tidelab.storage import TideStore
 from tidelab.strategy_batch import SYNTHETIC_COST
 
 
-def create_demo(directory: Path, *, scale: bool = False, channel: bool = False) -> tuple[Path, Path, Path]:
-    if scale and channel:
+def create_demo(directory: Path, *, scale: bool = False, channel: bool = False, monday: bool = False) -> tuple[Path, Path, Path]:
+    if sum((scale, channel, monday)) > 1:
         raise ValueError("choose_one_demonstration")
     directory.mkdir(parents=True, exist_ok=False)
     database = directory / "synthetic.sqlite3"
     TideStore(database).initialize()
-    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    bar_count = 9264 if channel else (2000 if scale else 12)
-    warmup = 480 if channel else 3
+    start = datetime(2024 if monday else 2026, 1, 1, tzinfo=timezone.utc)
+    bar_count = 8784 if monday else (9264 if channel else (2000 if scale else 12))
+    warmup = 0 if monday else (480 if channel else 3)
     markets = ["synthetic:" + name + "-USD" for name in
-               (["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON"] if channel else ["ALPHA", "BETA"])]
+               (["ALPHA"] if monday else (["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON"] if channel else ["ALPHA", "BETA"]))]
     descriptor = {"schema_version": 1, "kind": "synthetic", "source": SOURCE, "venue": "tidelab",
                   "interval_seconds": 3600, "rights_reference": "TideLab-authored",
                   "receipt": "tidelab-synthetic-generator-v1", "partitions": {}}
@@ -57,13 +57,17 @@ def create_demo(directory: Path, *, scale: bool = False, channel: bool = False) 
     specs = [(examples / "strategy-batch-packages/synthetic-sma-3-v1.json", examples / "strategy-batch-synthetic-record-v1.json"),
              (examples / "strategy-parity-logic-v1.json", examples / "strategy-parity-logic-record-v1.json")]
     refs = []
-    for index in range(1 if channel else (100 if scale else 2)):
+    for index in range(1 if channel or monday else (100 if scale else 2)):
         package_path, record_path = specs[index % 2]
         package = json.loads(package_path.read_bytes())
         if channel:
             record_path = examples / "channel-breakout-synthetic-record-v1.json"
             from tidelab.channel_breakout import package as channel_package
             package = channel_package(json.loads(record_path.read_bytes()))
+        if monday:
+            record_path = examples / "btc-monday-synthetic-record-v1.json"
+            from tidelab.btc_monday import package as monday_package
+            package = monday_package(json.loads(record_path.read_bytes()))
         if scale:
             package["strategy_id"] = f"synthetic-scale-{index}"
             package["rule"]["target_fraction"] = str(Decimal(index + 1) / 100)
@@ -77,11 +81,11 @@ def create_demo(directory: Path, *, scale: bool = False, channel: bool = False) 
             for ref in refs for market in markets for cost in ("baseline", "stress")]
     jobs.extend({"package": refs[0]["id"], "market": market, "cost": cost, "benchmark": benchmark}
                 for market in markets for cost in ("baseline", "stress") for benchmark in ("cash", "passive"))
-    if channel:
+    if channel or monday:
         jobs = [{"package": refs[0]["id"], "market": market, "cost": cost, "benchmark": benchmark}
                 for market in markets for benchmark in (None, "cash", "passive") for cost in ("baseline", "stress")]
     # Rejections are part of the public synthetic demonstration, not hidden fixtures.
-    for label, raw in (() if channel else (("malformed", b'{bad'), ("unsupported", None))):
+    for label, raw in (() if channel or monday else (("malformed", b'{bad'), ("unsupported", None))):
         if raw is None:
             package = json.loads(specs[0][0].read_bytes())
             package["rule"]["entry"] = {"op": "ema"}
@@ -90,10 +94,10 @@ def create_demo(directory: Path, *, scale: bool = False, channel: bool = False) 
         refs.append({"id": label, "package": f"{label}.json", "record": "record-0.json",
                      "package_sha256": digest(raw), "record_sha256": refs[0]["record_sha256"]})
         jobs.append({"package": label, "market": markets[0], "cost": "baseline", "benchmark": None})
-    if not channel:
+    if not (channel or monday):
         jobs.append(deepcopy(jobs[0]))
     end = start + bar_count * HOUR
-    plan = {"schema_version": 1, "kind": "synthetic", "family": "synthetic-channel-demo" if channel else ("synthetic-batch-scale" if scale else "synthetic-batch-demo"),
+    plan = {"schema_version": 1, "kind": "synthetic", "family": "synthetic-monday-demo" if monday else "synthetic-channel-demo" if channel else ("synthetic-batch-scale" if scale else "synthetic-batch-demo"),
             "generation": "v1", "parent_experiment": None, "phase": "development", "issue": 95, "authority": AUTHORITY,
             "markets": markets, "partitions": {
                 "development": {"start": isoformat_utc(start + warmup * HOUR), "end": isoformat_utc(end)},

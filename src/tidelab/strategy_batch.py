@@ -64,7 +64,7 @@ class ParsedStrategy:
     @property
     def preceding_warmup(self) -> int:
         # v1/v2 retain their historical extra warmup observation.
-        return self.warmup - 1 if self.schema_version == 3 else self.warmup
+        return self.warmup - 1 if self.schema_version in (3, 4) else self.warmup
 
 
 def _decimal(value: Any, name: str, *, positive: bool = False) -> Decimal:
@@ -86,6 +86,12 @@ def _expr(node: Any, kind: str, depth: int, counter: list[int], schema: int = 1)
     if counter[0] > _MAX_NODES:
         raise ValueError("rule expression exceeds node limit")
     op = node.get("op")
+    if kind == "boolean" and op == "utc_calendar" and schema == 4:
+        if (set(node) != {"op", "weekday", "hour"}
+                or type(node["weekday"]) is not int or not 1 <= node["weekday"] <= 7
+                or type(node["hour"]) is not int or not 0 <= node["hour"] <= 23):
+            raise UnsupportedPackage("invalid_utc_calendar_slot")
+        return 1
     if kind == "number" and op in {"donchian_upper", "donchian_lower"} and schema == 3:
         window = 480 if op == "donchian_upper" else 240
         if (node != {"op": op, "window": window, "lag": 1}
@@ -132,7 +138,7 @@ def parse_package(package: Mapping[str, Any], record: Mapping[str, Any]) -> Pars
     if (not isinstance(package, dict) or set(package) !=
             {"schema_version", "strategy_id", "version", "source", "requirements", "rule"}):
         raise ValueError("strategy package fields differ")
-    if (type(package["schema_version"]) is not int or package["schema_version"] not in (1, 2, 3)
+    if (type(package["schema_version"]) is not int or package["schema_version"] not in (1, 2, 3, 4)
             or type(package["version"]) is not int or package["version"] < 1):
         raise ValueError("unsupported strategy package version")
     if not isinstance(package["strategy_id"], str) or not _ID.fullmatch(package["strategy_id"]):
@@ -239,6 +245,14 @@ class CloseSeries(list):
             for bar in bars:
                 validate_ohlc(bar)
             result.bars = bars
+        if schema == 4:
+            for index, bar in enumerate(bars):
+                when = bar.start
+                if (not isinstance(when, datetime) or when.tzinfo != timezone.utc
+                        or when.minute or when.second or when.microsecond
+                        or (index and when != bars[index - 1].start + _HOUR)):
+                    raise ValueError("calendar_requires_contiguous_utc_hours")
+            result.bars = bars
         return result
 
     def _prior_extreme(self, window: int, field: str, upper: bool):
@@ -308,6 +322,9 @@ def _numeric(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> 
 
 def _boolean(node: Mapping[str, Any], closes: Sequence[Decimal], index: int) -> bool:
     op = node["op"]
+    if op == "utc_calendar":
+        when = closes.bars[index].start + _HOUR
+        return when.isoweekday() == node["weekday"] and when.hour == node["hour"]
     if op == "gt":
         return _numeric(node["left"], closes, index) > _numeric(node["right"], closes, index)
     if op == "lt":

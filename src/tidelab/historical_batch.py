@@ -29,7 +29,7 @@ METRICS = ["net_return", "max_drawdown", "fill_count", "round_trips", "fees", "t
 SOURCES = ["historical_batch.py", "historical_input.py", "strategy_batch.py", "trial_registry.py",
            "experiment_identity.py", "package_lean_parity.py", "strategy_intake.py", "domain.py",
            "rsi_private.py", "private_history.py", "channel_breakout.py", "batch_review.py",
-           "private_workflow.py", "channel_private.py"]
+           "private_workflow.py", "channel_private.py", "btc_monday.py"]
 
 
 def digest(raw: bytes) -> str:
@@ -173,7 +173,7 @@ def preflight(plan: dict, descriptor: dict) -> None:
     for market, part in descriptor["partitions"].items():
         if (not TOKEN.fullmatch(market) or set(part) != {"start", "end", "warmup_bars", "sha256"}
                 or not DIGEST.fullmatch(part["sha256"])
-                or type(part["warmup_bars"]) is not int or part["warmup_bars"] < 1
+                or type(part["warmup_bars"]) is not int or part["warmup_bars"] < 0
                 or {k: part[k] for k in ("start", "end")} != plan["partitions"]["development"]
                 or int((ranges[0][1] - ranges[0][0]) / HOUR) + part["warmup_bars"] > plan["max_bars"]):
             raise ValueError("invalid_snapshot_partition")

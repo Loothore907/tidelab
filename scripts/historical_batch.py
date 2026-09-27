@@ -17,6 +17,7 @@ def main():
     modes = demo.add_mutually_exclusive_group()
     modes.add_argument("--scale", action="store_true")
     modes.add_argument("--channel", action="store_true")
+    modes.add_argument("--monday", action="store_true")
     launch = commands.add_parser("run")
     for field in ("plan", "snapshot", "database", "registry", "output"):
         launch.add_argument("--" + field, type=Path, required=True)
@@ -28,7 +29,7 @@ def main():
     args = parser.parse_args()
     if args.command == "demo":
         args.output.mkdir(parents=True, exist_ok=False)
-        plan, snapshot, database = create_demo(args.output / "fixture", scale=args.scale, channel=args.channel)
+        plan, snapshot, database = create_demo(args.output / "fixture", scale=args.scale, channel=args.channel, monday=args.monday)
         result = run(plan, snapshot, database, args.output / "trials.sqlite3", args.output / "attempt")
         if args.channel:
             from tidelab.channel_breakout import review_artifacts
