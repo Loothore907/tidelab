@@ -1,0 +1,146 @@
+{
+  "source_sha256": "b4f6d3cb7b630af9b5eed25119e6421576aed9ac6f2fb5f468c6228d177d72cf",
+  "history_sha256": "a5b43eb09d597c3d1b324dd0a2e8ae4bd76b71c86ae974417379eba856fcbc57",
+  "signals": [
+    {
+      "index": 1,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 2,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 3,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 4,
+      "entry": false,
+      "exit": true
+    },
+    {
+      "index": 5,
+      "entry": false,
+      "exit": true
+    },
+    {
+      "index": 6,
+      "entry": true,
+      "exit": false
+    },
+    {
+      "index": 7,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 8,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 9,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 10,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 11,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 12,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 13,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 14,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 15,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 16,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 17,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 18,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 19,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 20,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 21,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 22,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 23,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 24,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 25,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 26,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 27,
+      "entry": false,
+      "exit": false
+    },
+    {
+      "index": 28,
+      "entry": false,
+      "exit": false
+    }
+  ]
+}

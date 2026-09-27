@@ -1,0 +1,10 @@
+//@version=5
+strategy("TideLab Synthetic Three", overlay=false, pyramiding=0, process_orders_on_close=false, calc_on_every_tick=false, default_qty_type=strategy.percent_of_equity, default_qty_value=25)
+average = ta.sma(close, 3)
+average := close
+entrySignal = close > average
+exitSignal = close < average
+if entrySignal
+    strategy.entry("L", strategy.long)
+if exitSignal
+    strategy.close("L")
