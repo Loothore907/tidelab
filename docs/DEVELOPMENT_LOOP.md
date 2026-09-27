@@ -8,6 +8,8 @@ TideLab should ingest supported strategy sources and evaluate approved candidate
 
 The agent owns technical judgment: challenge a proposed approach when evidence suggests a simpler or better route, name assumptions, and explain consequences in plain language. The owner decides goals, tradeoffs, candidate/trial scope and material authority; the owner should not have to detect semantic or architectural errors unaided. These rules apply regardless of model. Model choice is not a substitute for evidence or review.
 
+An approved bounded sequence carries through its named implementation, tests, required review, CI, integration and any explicitly included research stages. Separate candidate/data/trial boundaries must be satisfied by the scope of that approval; they do not require repeatedly requesting the same approval at each stage. A later handoff preserves the scope and consumed stages. Ask only for missing material authority or a material change; a failed gate stops dependent work and is never bypassed.
+
 ## 1. Make one brief before implementation
 
 After one bounded repository/remote pickup, write the brief in the session and carry it into the issue or PR. Reuse it across turns; do not create another planning document per session. Include only the relevant facts:
