@@ -22,10 +22,12 @@ from tidelab.strategy_batch import (SYNTHETIC_COST, SYNTHETIC_ENGINE,
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _KINDS = {"synthetic_strategy_batch": "package_count",
-          "synthetic_pine_subset_batch": "source_count"}
+          "synthetic_pine_subset_batch": "source_count",
+          "synthetic_source_workflow": "source_count"}
 _SCOPES = {"synthetic_strategy_batch": "synthetic_contract_only_no_market_claim",
            "synthetic_pine_subset_batch":
-           "synthetic_contract_only_no_tradingview_or_market_claim"}
+           "synthetic_contract_only_no_tradingview_or_market_claim",
+           "synthetic_source_workflow": "synthetic_compilation_only_no_research_authority"}
 _MAX_ARTIFACT = 64 * 1024 * 1024
 
 
@@ -35,6 +37,15 @@ def cost_sha256() -> str:
 
 def _stages(kind: str, outcome: dict) -> tuple[str, str, str]:
     status = outcome["status"]
+    if kind == "synthetic_source_workflow":
+        stages = {"compiled": ("accepted", "matched", "not_run"),
+                  "invalid": ("rejected", "not_run", "not_run"),
+                  "unsupported": ("unsupported", "not_run", "not_run"),
+                  "needs_source_parser": ("missing", "not_run", "not_run"),
+                  "conformance_failed": ("accepted", "failed", "not_run")}
+        if status not in stages:
+            raise ValueError("unknown source workflow outcome")
+        return stages[status]
     if status == "synthetic_contract_tested":
         if kind == "synthetic_pine_subset_batch" and outcome.get("conformance") != "matched":
             raise ValueError("Pine conformance status missing")

@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "kind": "tidelab_authored_synthetic",
+  "corpus": "source-workflow-v1",
+  "inputs": [
+    {
+      "id": "sma",
+      "format": "normalized_json",
+      "source": {
+        "path": "sma.json",
+        "sha256": "8c5623f8791a5d7bb079cee5a041bc80976cb61d3dd82497a48a62d4ea8e1abd"
+      },
+      "record": {
+        "path": "sma.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": {
+        "path": "sma.trace.json",
+        "sha256": "b180bd23c00ee4331a8bca8feec2dd525e321a7d85058a1d49cf76245f922de7"
+      }
+    },
+    {
+      "id": "pine-sma",
+      "format": "pine_subset",
+      "source": {
+        "path": "pine-sma.pine",
+        "sha256": "27797dcf0ea1e68a292d37492cdef834cb4a334d1339e111c56cd49a6151db1a"
+      },
+      "record": {
+        "path": "pine-sma.record.json",
+        "sha256": "025a0b70b09e91fe111cecfe6a799186059c36d615c9cabdcca2d2e86f7e3bac"
+      },
+      "trace": {
+        "path": "pine-sma.trace.json",
+        "sha256": "fc466ffb2482867d69f8fdaf7791533223c6f065833fdfe4d664890b0ccf10e6"
+      }
+    },
+    {
+      "id": "logic",
+      "format": "normalized_json",
+      "source": {
+        "path": "logic.json",
+        "sha256": "4ddce5f306d5e545044ee7a2665fdcf8510645232285c8b851ecc7e96d06498d"
+      },
+      "record": {
+        "path": "logic.record.json",
+        "sha256": "b31e7566a61d982dd13ffaf5ad854cc6387bd444732790e145d3fa0ea064f12a"
+      },
+      "trace": {
+        "path": "logic.trace.json",
+        "sha256": "5ff84b99073ab5b0e759a43b55f7e25decca0df4484059b67d81af008fa52cbf"
+      }
+    },
+    {
+      "id": "calendar",
+      "format": "normalized_json",
+      "source": {
+        "path": "calendar.json",
+        "sha256": "75cc2149ec474df5066b172d2e19ad99a2344d167e5915636bfda5e25eedab82"
+      },
+      "record": {
+        "path": "calendar.record.json",
+        "sha256": "f348c09ce1c36447a83fdb8e2085fdab87979c913a844c3bfaf7d4dd5032214c"
+      },
+      "trace": {
+        "path": "calendar.trace.json",
+        "sha256": "e7da2c230f5bb043b55c036d6e6f17a993c06526823dab9aa5117751a078adce"
+      }
+    },
+    {
+      "id": "malformed",
+      "format": "normalized_json",
+      "source": {
+        "path": "malformed.json",
+        "sha256": "0fad202fbcabc5aa98fc722f02ebcd19326a9fdfb010a9962aca72ab295d0c37"
+      },
+      "record": {
+        "path": "malformed.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": null
+    },
+    {
+      "id": "unsupported-pine",
+      "format": "pine_subset",
+      "source": {
+        "path": "unsupported-pine.pine",
+        "sha256": "56981df7298f44ff96896cb1d47f4dfe9ce0e081a73badf368370d0e5c1c940c"
+      },
+      "record": {
+        "path": "unsupported-pine.record.json",
+        "sha256": "32aec934f604b5e5590042c665743935e2c66f451e0089ce98c95a5fe92d08b9"
+      },
+      "trace": null
+    },
+    {
+      "id": "ambiguous-prose",
+      "format": "prose",
+      "source": {
+        "path": "ambiguous-prose.txt",
+        "sha256": "3eac4823342fdf75ebf930370df0d5b2d258e626989e24be641d8d6ae80d4546"
+      },
+      "record": {
+        "path": "ambiguous-prose.record.json",
+        "sha256": "bf328118bbfca79ca18464f1e5cc3bea2ce49ba0f6cfde6601a45577101e92cd"
+      },
+      "trace": null
+    },
+    {
+      "id": "duplicate-sma",
+      "format": "normalized_json",
+      "source": {
+        "path": "sma.json",
+        "sha256": "8c5623f8791a5d7bb079cee5a041bc80976cb61d3dd82497a48a62d4ea8e1abd"
+      },
+      "record": {
+        "path": "sma.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": {
+        "path": "sma.trace.json",
+        "sha256": "b180bd23c00ee4331a8bca8feec2dd525e321a7d85058a1d49cf76245f922de7"
+      }
+    },
+    {
+      "id": "capability",
+      "format": "normalized_json",
+      "source": {
+        "path": "capability.json",
+        "sha256": "04d9ddcd41e5788ad4e1aac181696aa0612c876af447e6bd7ad6330ffdb99101"
+      },
+      "record": {
+        "path": "capability.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": null
+    },
+    {
+      "id": "below-unit",
+      "format": "normalized_json",
+      "source": {
+        "path": "below-unit.json",
+        "sha256": "851a1547f995fc1b64ced4b851bcbb5ef32787db1d9924916d84ff02c5fd285c"
+      },
+      "record": {
+        "path": "below-unit.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": {
+        "path": "below-unit.trace.json",
+        "sha256": "189d53cafdc09986839b557731d55d5fc953077bdcbf2c9d369111f3a09a32d3"
+      }
+    }
+  ],
+  "history": {
+    "path": "history.json",
+    "sha256": "a5b43eb09d597c3d1b324dd0a2e8ae4bd76b71c86ae974417379eba856fcbc57"
+  },
+  "warmup_bars": 3,
+  "costs": {
+    "baseline": {
+      "fee_rate": "0.0025",
+      "adverse_rate": "0.001",
+      "initial_cash": "10000",
+      "quantity_unit": "0.03"
+    },
+    "stress": {
+      "fee_rate": "0.005",
+      "adverse_rate": "0.002",
+      "initial_cash": "10000",
+      "quantity_unit": "0.03"
+    }
+  },
+  "benchmark_allocation": "0.25"
+}

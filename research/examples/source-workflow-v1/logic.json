@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "strategy_id": "synthetic-parity-logic",
+  "version": 1,
+  "source": {
+    "candidate_id": "synthetic-parity-logic",
+    "version": 1,
+    "record_sha256": "86f8641d536860bc17f760bb63eb3da87afdcef6455b3af6f2ca5d1e0292fcc5"
+  },
+  "requirements": {
+    "interval_seconds": 3600,
+    "product_class": "spot",
+    "position_mode": "long_cash"
+  },
+  "rule": {
+    "entry": {
+      "op": "and",
+      "args": [
+        {
+          "op": "gt",
+          "left": {
+            "op": "close",
+            "lag": 0
+          },
+          "right": {
+            "op": "sma",
+            "window": 3,
+            "lag": 0
+          }
+        },
+        {
+          "op": "gt",
+          "left": {
+            "op": "close",
+            "lag": 0
+          },
+          "right": {
+            "op": "close",
+            "lag": 1
+          }
+        },
+        {
+          "op": "gt",
+          "left": {
+            "op": "number",
+            "value": "1"
+          },
+          "right": {
+            "op": "number",
+            "value": "0"
+          }
+        }
+      ]
+    },
+    "exit": {
+      "op": "or",
+      "args": [
+        {
+          "op": "lt",
+          "left": {
+            "op": "close",
+            "lag": 0
+          },
+          "right": {
+            "op": "sma",
+            "window": 3,
+            "lag": 0
+          }
+        },
+        {
+          "op": "not",
+          "arg": {
+            "op": "gt",
+            "left": {
+              "op": "close",
+              "lag": 0
+            },
+            "right": {
+              "op": "close",
+              "lag": 1
+            }
+          }
+        }
+      ]
+    },
+    "target_fraction": "0.25"
+  }
+}
