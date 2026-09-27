@@ -1,6 +1,6 @@
 # TideLab handoff
 
-Updated 2026-09-26 Alaska time. [PR #104](https://github.com/Loothore907/tidelab/pull/104) integrated the RSI/private-batch slice at main `2882c780a810662042b6204c6b95519aec6cda98`; all three [exact-main CI jobs](https://github.com/Loothore907/tidelab/actions/runs/36269738664) passed. Independent review approved the identical source tree at `51836763469b586ff78693cbb91a7bd7d9e3e665`. The authorized private workflow is complete and its one-shot grant is consumed. This is a continuation checkpoint, not authority to execute it again. Recheck fresh Git/CI state after this documentation update.
+Updated 2026-09-26 Alaska time. Base for the current BTC Monday implementation is main `c0d6b8e67b92beca48456a3d1e47a8547c0f723c` (PR #107); all three exact-main CI jobs passed in run `36280813533`. The current slice requires distinct review and exact-head CI before integration; verify its PR and fresh Git state. Prior RSI and channel workflows are complete with consumed grants. This checkpoint grants no permission to repeat them.
 
 ## Purpose and authority
 
@@ -32,13 +32,13 @@ TideLab-authored code is Apache-2.0. Keep strategy, risk, data, paper authority 
 
 ## First action next session
 
-PR #106 integrated the [channel-breakout implementation](docs/evidence/TL-003-CHANNEL-BREAKOUT-SYNTHETIC.md) at main `9eed1226eee8ac92709f58ce98abd58e741388b4`; distinct review and all three exact-main CI jobs passed. The owner then explicitly approved the [bounded private admission and trial](docs/evidence/TL-003-CHANNEL-PRIVATE-ADMISSION.md): reviewed implementation/integration first, followed by exactly one snapshot and one 30-job batch under the frozen private proposal. This is a new channel grant; RSI remains consumed.
+The owner approved the [BTC Monday implementation and synthetic verification](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md), including a separate reviewer and gated integration. It adds a schema-4 UTC calendar predicate through the existing package/replay/batch/LEAN path. Its six-job invented-history demonstration is one package and cash/passive benchmarks at two costs. This is implementation evidence, not a market result.
 
-Current continuation: check the #95 admission PR and fresh Git/CI, then inspect ignored `data/research_program/channel-v1/` and the canonical grant events before any execution. If already attempted, audit retained artifacts only; never repeat authorization, preparation or replay. The private `CHANNEL-BREAKOUT-V1-TRIAL-AUTHORITY.json` and proposal under `data/strategy_intake/` define the exact scope. Preserve the original canonical store/anchor, all prior rows and every partial/failure artifact. The CLI's 30-minute run cap permits no retry. Private review/audit/report are the authoritative outcome; public documents intentionally contain no market results.
+First verify the current PR, independent review and exact-head CI. If integrated, the next decision is the frozen private `data/strategy_intake/BTC-MONDAY-V1-PROPOSAL.md`: one BTC 2024 snapshot and six jobs, $0 spend, no variants/retries. **Price access, snapshot and trial are not approved.** The selected v2 intake and `BTC-MONDAY-V1-IMPLEMENTATION-AUTHORITY.json` only authorize implementation. Do not infer a grant from that selection or from older approvals; the current Monday private entry points deliberately fail closed.
 
-The RSI workflow remains finished. Its report and review/audit receipts stay private under `data/research_program/rsi-v1/`. Preserve `data/research_program/trials.sqlite3`, the `data/strategy_intake/RSI-BATCH-V1-STORE.json` anchor and all consumed grant events. Do not rerun it, retune it, open later partitions or publish private findings. Shared helper extraction does not alter its authority.
+Both previous workflows are finished; audit retained artifacts only if needed. Preserve `data/research_program/trials.sqlite3`, its original `data/strategy_intake/RSI-BATCH-V1-STORE.json` anchor, all consumed grant events and private reports/review/audit receipts under `data/research_program/rsi-v1/` and `data/research_program/channel-v1/`. Do not rerun, retune, open later partitions or publish private findings. Shared code does not renew authority.
 
-One outcome remains the reusable source-to-package-to-batch path, not an agent-led sequence of bespoke evaluators. The new slice adds actual high/low carriage and versioned prior-window channel bounds; it reuses replay, costs, trial accounting, review and pinned LEAN. Its scale evidence is entirely invented input, not evidence of a profitable candidate. Keep the [development loop](docs/DEVELOPMENT_LOOP.md) active and #3/#48 independent.
+The single outcome remains the reusable source-to-package-to-batch path. The Monday slice uses the completed-close UTC clock without another evaluator or scheduler. General paper parsing remains unsupported. Keep the [development loop](docs/DEVELOPMENT_LOOP.md) active and #3/#48 independent.
 
 The closed #86 screen, H1 and the private low-volatility study remain separately auditable. Do not retune, rerun an opened phase or publish private results.
 

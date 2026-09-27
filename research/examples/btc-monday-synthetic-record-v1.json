@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "candidate_id": "synthetic-monday-utc",
+  "version": 1,
+  "stage": "specified",
+  "source": {
+    "kind": "synthetic_example",
+    "title": "TideLab invented UTC Monday calendar conformance fixture",
+    "authors": [
+      "TideLab"
+    ],
+    "locator": "urn:tidelab:synthetic:monday-utc",
+    "revision": "v1",
+    "content_sha256": null,
+    "accessed_utc": "2026-09-27T00:00:00Z"
+  },
+  "claim": {
+    "attributed_summary": "TideLab-authored synthetic conformance data for the separately selected source-attributed Monday adaptation documented in docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md. No market-performance claim.",
+    "economic_rationale": "Calendar and next-open accounting conformance only."
+  },
+  "interpretation": {
+    "product_scope": "One synthetic spot-like instrument and cash; no market candidate is selected.",
+    "timeframe": "One closed synthetic hourly bar per decision, with a next-hour hypothetical fill.",
+    "required_data": [
+      "TideLab-authored contiguous UTC hourly opens and closes."
+    ],
+    "required_capabilities": [
+      "Synthetic long/cash target and deterministic next-open fill contract."
+    ],
+    "entry": "Flat at Monday 00:00 UTC completed close.",
+    "exit": "Held at Tuesday 00:00 UTC completed close.",
+    "sizing": "25% of signal-time cash; fee-inclusive next-open units floored to 0.00000001.",
+    "timing": "Current completed close, zero preceding warmup; next scored open; no catch-up, final signal or terminal sale.",
+    "open_questions": []
+  },
+  "rights": {
+    "implementation_use": "documented",
+    "redistribution": "documented",
+    "evidence_reference": "TideLab-authored synthetic example under the repository Apache-2.0 license"
+  },
+  "decision": {
+    "issue_url": "https://github.com/Loothore907/tidelab/issues/95",
+    "authority_reference": null,
+    "authorized_scope": null,
+    "retirement_reason": null
+  }
+}

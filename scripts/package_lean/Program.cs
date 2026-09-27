@@ -70,6 +70,7 @@ sealed class PackageAlgorithm : QCAlgorithm
         return op switch
         {
             "number" => 1,
+            "utc_calendar" => 1,
             "rsi_wilder" => 15,
             "donchian_upper" => 481,
             "donchian_lower" => 241,
@@ -99,8 +100,10 @@ sealed class PackageAlgorithm : QCAlgorithm
         };
     }
 
-    private static bool Predicate(JsonElement node, List<decimal> closes) => node.GetProperty("op").GetString() switch
+    private bool Predicate(JsonElement node, List<decimal> closes) => node.GetProperty("op").GetString() switch
     {
+        "utc_calendar" => ((int)UtcTime.DayOfWeek + 6) % 7 + 1 == node.GetProperty("weekday").GetInt32()
+            && UtcTime.Hour == node.GetProperty("hour").GetInt32(),
         "gt" => Number(node.GetProperty("left"), closes) > Number(node.GetProperty("right"), closes),
         "lt" => Number(node.GetProperty("left"), closes) < Number(node.GetProperty("right"), closes),
         "and" => node.GetProperty("args").EnumerateArray().All(arg => Predicate(arg, closes)),
@@ -127,7 +130,7 @@ sealed class PackageAlgorithm : QCAlgorithm
         var scoreStart = input.TryGetProperty("score_start", out var score) ? score.GetInt32() : 0;
         var bars = input.GetProperty("fixture").GetProperty("bars").EnumerateArray().ToArray();
         if (scoreStart < 0 || scoreStart >= bars.Length ||
-            (scoreStart > 0 && scoreStart < (schema == 3 ? warmup - 1 : warmup)))
+            (scoreStart > 0 && scoreStart < (schema is 3 or 4 ? warmup - 1 : warmup)))
             throw new ArgumentException("Invalid scoring boundary");
 
         SetTimeZone(TimeZones.Utc);
