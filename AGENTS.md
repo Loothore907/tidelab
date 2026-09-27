@@ -8,6 +8,16 @@ For bounded orientation across sessions, use the repo-local `tidelab-context` sk
 
 Apply [the development loop](docs/DEVELOPMENT_LOOP.md) to implementation work. Start with one bounded pickup and a short work brief: product outcome, classification, issue/base, scope, observable acceptance and failure cases, and integration authority. Continue within existing approval; ask only for material changes or missing authority.
 
+### Standing session approval and follow-through
+
+The scope agreed at the beginning of a session is standing authorization for all actions within that scope. Repeated approvals waste the owner's time. Do not turn implementation steps, bounded slices, PR boundaries, handoffs or required distinct reviews into new owner-approval gates. Own routine technical decisions and carry authorized work through implementation, ordinary failure repair, meaningful tests, documentation, required review, commits, pushes, PRs, exact-head CI and gated integration.
+
+When the owner says "approved", "proceed" or equivalent, perform the pending authorized action. Do not respond with acknowledgment alone, replace execution with another proposal, or silently drop the pending work when the owner corrects the process or asks for status. Track what was proposed, authorized, completed and still outstanding; if execution has not happened, say so plainly and explain the actual blocker, if any. A reviewable slice may finish without ending the broader approved outcome.
+
+Distinct review is a quality gate the agent arranges, not another permission request to the owner. Continue within existing authorization and fix ordinary failures without bypassing gates. Ask only when authority is genuinely missing or an action materially changes the agreed scope, target, external effect or risk, or when approval has been revoked. Identify the specific boundary and why existing authorization does not cover it; a new subtask or implementation detail alone is not such a change. Preserve explicit exclusions, consumed grants and independent data/research/execution boundaries.
+
+### Outcome and review
+
 Keep one active product outcome. Before another abstraction, evaluator, frontend, or prerequisite, identify the concrete consumer and why existing code cannot serve it. Stop expanding when acceptance passes. At closeout, compare the actual diff and evidence with the original brief; passing tests alone do not establish product alignment. Explain tradeoffs and uncertainties without requiring the owner to supply domain expertise.
 
 Use a distinct review before merging changes to shared strategy semantics, execution/accounting, strategy-package contracts, or research/authority boundaries. The author must first finish a concrete reviewable result. A separate self-review is useful but is not independent review; record the exact reviewed head and reviewer, and keep the PR draft if a required review is unavailable. Documentation and routine fixes outside those boundaries need a focused self-review, not a new approval ceremony. Follow the development loop for scope-change triggers and evidence limits.
