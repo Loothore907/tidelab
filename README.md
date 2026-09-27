@@ -16,6 +16,21 @@ Open API access alone does not establish research or publication rights. Coinbas
 
 [OKX BTC-USDT spot archives](docs/evidence/TL-001B-OKX-HISTORICAL-20260924.md) are selected for **local historical research**: 28,344 contiguous hourly bars were validated through a delayed daily archive. The four other markets in the fixed first-pass universe were also acquired and audited privately; their detailed coverage report stays under ignored `data/okx/`. These are not a timely paper feed or permission to publish real-data results. TL-001B remains open for a timely forward source.
 
+## Platform status and next milestone
+
+The product goal is a repeatable automated testing environment for multiple strategies from multiple sources. The shared evaluation backend is ahead of source ingestion and orchestration.
+
+| Capability | Current evidence and limitation |
+| --- | --- |
+| Prepared strategy packages | Versioned, source-bound normalized JSON; shared costs, replay and accounting across supported rule types |
+| Source translation | Narrow deterministic Pine subset; general papers/repositories/Pine still require interpretation or report unsupported |
+| Historical batches | Finite inventories, common benchmarks, complete outcomes, retained traces/manifests and artifact recovery |
+| Engine comparison | Actual pinned LEAN orders/fills/portfolio under controlled synthetic clocks/data; no production-feed claim |
+| Source-to-results automation | Components exist, but compilation, plan assembly and private admission still require manual or candidate-specific work |
+| Scale and research evidence | Repeated-template synthetic workloads and audited private studies; not broad source coverage or a demonstrated economic edge |
+
+RSI, channel and Monday private studies are finished; grants are consumed and reports/audits remain private. The next [bounded #95 milestone](docs/ROADMAP.md#next-outcome-repeatable-source-to-results-workflow) connects existing normalized JSON and Pine inputs to the shared historical backend through one manifest/command, using only authored synthetic data. Every input must retain an outcome, supported inputs require no per-strategy code, and coverage/manual effort must be measured. No new trading rule, general paper parser, real-data trial or evaluator is included. Start from the [current handoff](HANDOFF.md).
+
 ## Project documents
 
 - [Core plan and assumptions](docs/PLAN.md)
@@ -154,10 +169,10 @@ The [TL-003 v1 preregistration](docs/experiments/FIVE-MARKET-SCREEN-V1-PREREGIST
 
 TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) selected pinned LEAN for the bounded initial integration. TL-001B [data-rights gate](https://github.com/Loothore907/tidelab/issues/3) remains open for an on-time forward source; OKX monthly/daily archives are selected for local historical research only. TL-002 has a bounded synthetic H1 policy proposal, LEAN local report, partial/cancel restart, atomic report-to-next-exit handoff, costed synthetic liquidity checks, trial metrics, and a private registered development runner. The local development and one validation attempt underwent independent private accounting and decision review. Their market-data-derived gate record stays under ignored `data/`; keep its outcome private and do not open untouched evaluation, retune or promote frozen H1 v1. External broker finality remains open.
 
-- [Registered synthetic historical batch backend](docs/evidence/TL-003-HISTORICAL-BATCH-BACKEND.md): package-to-results CLI, batch admission, common metrics and recovery; real-data execution remains disabled.
+- [Registered synthetic historical batch backend](docs/evidence/TL-003-HISTORICAL-BATCH-BACKEND.md): package-to-results CLI, batch admission, common metrics and recovery. The general CLI is synthetic-only; separately bound private studies are complete and their grants consumed.
 
 - [Channel-breakout synthetic extension](docs/evidence/TL-003-CHANNEL-BREAKOUT-SYNTHETIC.md): reviewed source adaptation, actual high/low channel semantics, shared 30-job invented-history demonstration and native LEAN comparison. Implementation authorization does not grant a private trial.
 
-- [Channel private admission](docs/evidence/TL-003-CHANNEL-PRIVATE-ADMISSION.md): one separately approved grant through shared snapshot and batch mechanics, with canonical-store preservation and private-only results.
+- [Channel private admission](docs/evidence/TL-003-CHANNEL-PRIVATE-ADMISSION.md): completed one-shot workflow through shared snapshot and batch mechanics; preserve its consumed grant, canonical store and private results.
 
-- [BTC Monday synthetic extension](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md): selected UTC calendar adaptation, zero preceding warmup, six-job invented-history path and native LEAN comparison. The later [one-shot private flow](docs/evidence/TL-003-MONDAY-PRIVATE-ADMISSION.md) has explicit approval; inspect consumed grant events before continuation.
+- [BTC Monday synthetic extension](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md): selected UTC calendar adaptation, zero preceding warmup, six-job invented-history path and native LEAN comparison. The later [one-shot private flow](docs/evidence/TL-003-MONDAY-PRIVATE-ADMISSION.md) is complete and audited; its grant is consumed. Do not rerun it.
