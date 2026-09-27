@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "strategy_id": "lean-rsi-long-cash-hourly",
+  "version": 1,
+  "source": {
+    "candidate_id": "synthetic-source-coverage-rsi",
+    "version": 1,
+    "record_sha256": "d83aa01a26b6aa107a23e39cfe79c03154676d1b53631f0040774f77ba42cf57"
+  },
+  "requirements": {
+    "interval_seconds": 3600,
+    "product_class": "spot",
+    "position_mode": "long_cash"
+  },
+  "rule": {
+    "entry": {
+      "op": "lt",
+      "left": {
+        "op": "rsi_wilder",
+        "period": 14,
+        "lag": 0
+      },
+      "right": {
+        "op": "number",
+        "value": "30"
+      }
+    },
+    "exit": {
+      "op": "gt",
+      "left": {
+        "op": "rsi_wilder",
+        "period": 14,
+        "lag": 0
+      },
+      "right": {
+        "op": "number",
+        "value": "70"
+      }
+    },
+    "target_fraction": "0.25"
+  }
+}

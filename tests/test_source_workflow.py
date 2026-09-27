@@ -188,3 +188,100 @@ def test_manifest_through_actual_pinned_lean_and_artifact_recovery(setup, monkey
     monkeypatch.setattr(batch, "replay_package", lambda *a, **kw: pytest.fail("replay"))
     monkeypatch.setattr(workflow, "run_parity", lambda *a, **kw: pytest.fail("parity replay"))
     assert workflow.recover(output) == result
+
+
+EXPANDED = CORPUS.parent / "source-workflow-v2"
+
+
+def assert_expanded(result):
+    expected = batch.read(EXPANDED / "expected.json")
+    assert result["status"] == "accounted"
+    assert len(result["inputs"]) == expected["inputs"]
+    assert result["compilation_counts"] == expected["compilation_counts"]
+    assert result["job_counts"] == expected["job_counts"]
+    assert result["distinct_rule_structures"] == expected["distinct_rule_structures"]
+    assert result["historical"]["submitted_jobs"] == expected["jobs"]
+    assert result["historical"]["attempt_count"] == expected["attempts"]
+    assert result["historical"]["terminal_attempt_count"] == expected["attempts"]
+    for item in result["inputs"]:
+        assert len(item["jobs"]) == (2 if item["status"] == "compiled" else 0)
+        if item["id"] in expected["rejections"]:
+            status, reason = expected["rejections"][item["id"]]
+            assert item["status"] == status
+            if reason is not None:
+                assert item["reason"] == reason
+
+
+def test_expanded_corpus_with_unchanged_workflow(tmp_path, monkeypatch):
+    monkeypatch.setattr(workflow, "DATA", tmp_path)
+    first = workflow.run(EXPANDED / "manifest.json", tmp_path / "first")
+    second = workflow.run(EXPANDED / "manifest.json", tmp_path / "second")
+    assert_expanded(first)
+    assert_expanded(second)
+    assert first["semantic_sha256"] == second["semantic_sha256"]
+    assert first["trace_sha256"] == second["trace_sha256"]
+    assert len(first["trace_sha256"]) == 18  # Includes both retained partial failures.
+    # Independent fill locations: channel rejects the current wick as its own
+    # breakout reference; RSI waits for its existing below-30 / above-70 signals.
+    for index, expected_fills in ((14,[484,486]), (16,[481,483,486,487])):
+        trace = [json.loads(line) for line in (tmp_path / f"first/attempt/job-{index}/trace.jsonl").read_text().splitlines()]
+        assert [r["fill"]["index"] for r in trace if r["fill"]] == expected_fills
+    monkeypatch.setattr(batch, "replay_package", lambda *a, **kw: pytest.fail("replay during recovery"))
+    assert workflow.recover(tmp_path / "first") == first
+
+
+def test_expanded_expected_traces_independent_arithmetic():
+    """Audit this fixed fixture only; no package parser/evaluator is called."""
+    from datetime import datetime, timedelta
+    from fractions import Fraction
+    manifest = batch.read(EXPANDED / "manifest.json")
+    history = batch.read(EXPANDED / "history.json")["bars"]
+    closes = [Fraction(b["close"]) for b in history]
+    # The first 480 equal closes imply zero gain/loss. The selected LEAN contract
+    # defines zero-loss RSI as 100. Independent rational recurrence thereafter.
+    gain = loss = Fraction(0)
+    rsi = []
+    for i, close in enumerate(closes):
+        if i:
+            delta = close - closes[i-1]
+            gain = (13 * gain + max(delta, 0)) / 14
+            loss = (13 * loss + max(-delta, 0)) / 14
+        rsi.append(Fraction(100) if not loss else 100 * gain / (gain + loss))
+    for item in manifest["inputs"]:
+        if item["trace"] is None:
+            continue
+        trace = batch.read(EXPANDED / item["trace"]["path"])["signals"]
+        for row in trace:
+            i = row["index"]
+            if item["id"] == "calendar":
+                close_time = datetime.fromisoformat(history[i]["start_utc"].replace("Z", "+00:00")) + timedelta(hours=1)
+                entry = close_time.isoweekday() == 1 and close_time.hour == 0
+                exit_signal = close_time.isoweekday() == 2 and close_time.hour == 0
+            elif item["id"] == "rsi":
+                entry, exit_signal = rsi[i] < 30, rsi[i] > 70
+            elif item["id"] == "channel":
+                entry = closes[i] > max(Fraction(b["high"]) for b in history[i-480:i])
+                exit_signal = closes[i] < min(Fraction(b["low"]) for b in history[i-240:i])
+            else:
+                window = 2 if item["id"] == "pine-sma2" else 3
+                average = sum(closes[i-window+1:i+1]) / window
+                entry, exit_signal = closes[i] > average, closes[i] < average
+                if item["id"] == "logic":
+                    entry = entry and closes[i] > closes[i-1]
+                    exit_signal = exit_signal or closes[i] <= closes[i-1]
+            assert (row["entry"], row["exit"]) == (entry, exit_signal), (item["id"], i)
+    # Newly supplied normalized rules are exact reuse, not a retuned hypothesis.
+    from tidelab.rsi_private import package as rsi_package
+    from tidelab.channel_breakout import package as channel_package
+    for name, builder in (("rsi", rsi_package), ("channel", channel_package)):
+        assert batch.read(EXPANDED / f"{name}.json") == builder(batch.read(EXPANDED / f"{name}.record.json"))
+
+
+@pytest.mark.skipif(not os.environ.get("TIDELAB_LEAN_ROOT"), reason="actual pinned LEAN CI")
+def test_expanded_corpus_actual_lean(tmp_path, monkeypatch):
+    monkeypatch.setattr(workflow, "DATA", tmp_path)
+    result = workflow.run(EXPANDED / "manifest.json", tmp_path / "expanded",
+        lean_root=Path(os.environ["TIDELAB_LEAN_ROOT"]), dotnet=os.environ.get("TIDELAB_DOTNET", "dotnet"))
+    assert_expanded(result)
+    assert result["parity"]["status"] == "matched", result["parity"]
+    assert [r["job_index"] for r in result["parity"]["cases"]] == batch.read(EXPANDED / "expected.json")["parity_job_indices"]

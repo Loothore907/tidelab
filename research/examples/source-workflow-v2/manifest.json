@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "kind": "tidelab_authored_synthetic",
+  "corpus": "source-workflow-v2",
+  "inputs": [
+    {
+      "id": "sma",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/sma.json",
+        "sha256": "8c5623f8791a5d7bb079cee5a041bc80976cb61d3dd82497a48a62d4ea8e1abd"
+      },
+      "record": {
+        "path": "../source-workflow-v1/sma.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": {
+        "path": "sma.trace.json",
+        "sha256": "e3a766253fc9638d53b8118ab17c5ec28365072e89bc5f8eed6bde3777814d32"
+      }
+    },
+    {
+      "id": "pine-sma",
+      "format": "pine_subset",
+      "source": {
+        "path": "../source-workflow-v1/pine-sma.pine",
+        "sha256": "27797dcf0ea1e68a292d37492cdef834cb4a334d1339e111c56cd49a6151db1a"
+      },
+      "record": {
+        "path": "../source-workflow-v1/pine-sma.record.json",
+        "sha256": "025a0b70b09e91fe111cecfe6a799186059c36d615c9cabdcca2d2e86f7e3bac"
+      },
+      "trace": {
+        "path": "pine-sma.trace.json",
+        "sha256": "c6e973a301e6e44e656737a790e47d8cffc5dc98bb31a65b9ad8fc4e036049c1"
+      }
+    },
+    {
+      "id": "logic",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/logic.json",
+        "sha256": "4ddce5f306d5e545044ee7a2665fdcf8510645232285c8b851ecc7e96d06498d"
+      },
+      "record": {
+        "path": "../source-workflow-v1/logic.record.json",
+        "sha256": "b31e7566a61d982dd13ffaf5ad854cc6387bd444732790e145d3fa0ea064f12a"
+      },
+      "trace": {
+        "path": "logic.trace.json",
+        "sha256": "9c05a5147bed58c4bc9e2c7219092ed9eb07fe94378eb672e8d595aec1e63128"
+      }
+    },
+    {
+      "id": "calendar",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/calendar.json",
+        "sha256": "75cc2149ec474df5066b172d2e19ad99a2344d167e5915636bfda5e25eedab82"
+      },
+      "record": {
+        "path": "../source-workflow-v1/calendar.record.json",
+        "sha256": "f348c09ce1c36447a83fdb8e2085fdab87979c913a844c3bfaf7d4dd5032214c"
+      },
+      "trace": {
+        "path": "calendar.trace.json",
+        "sha256": "51e530189a5a86e4333ad7ec19c5aa74e1619de373388a3f1f49349d47bd0db5"
+      }
+    },
+    {
+      "id": "malformed",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/malformed.json",
+        "sha256": "0fad202fbcabc5aa98fc722f02ebcd19326a9fdfb010a9962aca72ab295d0c37"
+      },
+      "record": {
+        "path": "../source-workflow-v1/malformed.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": null
+    },
+    {
+      "id": "unsupported-pine",
+      "format": "pine_subset",
+      "source": {
+        "path": "../source-workflow-v1/unsupported-pine.pine",
+        "sha256": "56981df7298f44ff96896cb1d47f4dfe9ce0e081a73badf368370d0e5c1c940c"
+      },
+      "record": {
+        "path": "../source-workflow-v1/unsupported-pine.record.json",
+        "sha256": "32aec934f604b5e5590042c665743935e2c66f451e0089ce98c95a5fe92d08b9"
+      },
+      "trace": null
+    },
+    {
+      "id": "ambiguous-prose",
+      "format": "prose",
+      "source": {
+        "path": "../source-workflow-v1/ambiguous-prose.txt",
+        "sha256": "3eac4823342fdf75ebf930370df0d5b2d258e626989e24be641d8d6ae80d4546"
+      },
+      "record": {
+        "path": "../source-workflow-v1/ambiguous-prose.record.json",
+        "sha256": "bf328118bbfca79ca18464f1e5cc3bea2ce49ba0f6cfde6601a45577101e92cd"
+      },
+      "trace": null
+    },
+    {
+      "id": "duplicate-sma",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/sma.json",
+        "sha256": "8c5623f8791a5d7bb079cee5a041bc80976cb61d3dd82497a48a62d4ea8e1abd"
+      },
+      "record": {
+        "path": "../source-workflow-v1/sma.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": {
+        "path": "duplicate-sma.trace.json",
+        "sha256": "e3a766253fc9638d53b8118ab17c5ec28365072e89bc5f8eed6bde3777814d32"
+      }
+    },
+    {
+      "id": "capability",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/capability.json",
+        "sha256": "04d9ddcd41e5788ad4e1aac181696aa0612c876af447e6bd7ad6330ffdb99101"
+      },
+      "record": {
+        "path": "../source-workflow-v1/capability.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": null
+    },
+    {
+      "id": "below-unit",
+      "format": "normalized_json",
+      "source": {
+        "path": "../source-workflow-v1/below-unit.json",
+        "sha256": "851a1547f995fc1b64ced4b851bcbb5ef32787db1d9924916d84ff02c5fd285c"
+      },
+      "record": {
+        "path": "../source-workflow-v1/below-unit.record.json",
+        "sha256": "8540c1e8fd4539a6da299497f85027d019fa1c187453eba98794103eb1692ec2"
+      },
+      "trace": {
+        "path": "below-unit.trace.json",
+        "sha256": "7ba33d706e32fdbd84675ac7bfa6619112a64bf18bd84499cdba8afc79cce4be"
+      }
+    },
+    {
+      "id": "pine-sma2",
+      "format": "pine_subset",
+      "source": {
+        "path": "../pine-subset-v1/synthetic-sma-2.pine",
+        "sha256": "f907327ff5d1a42f8afc2877e2c1055f0d0c8f5e3f7865566f279b2ddb3450c5"
+      },
+      "record": {
+        "path": "pine-sma2.record.json",
+        "sha256": "87b937bcbdf2cc56d9e5476f1e778f9ad78bca1be23deb65dd5a80322f4dbf81"
+      },
+      "trace": {
+        "path": "pine-sma2.trace.json",
+        "sha256": "41027a36df9cba5d2af9faa819b25433ff7b486c337c932fee9ee15e61e88826"
+      }
+    },
+    {
+      "id": "rsi",
+      "format": "normalized_json",
+      "source": {
+        "path": "rsi.json",
+        "sha256": "8e7e92e186b4a78f475ad2c7c78171ae0df191650faa52fd8a4cefd37d15a5fd"
+      },
+      "record": {
+        "path": "rsi.record.json",
+        "sha256": "f5f10d200c086f88e95d0f40c78e08da48c33ba10e54d11baa0d68cd540dbe6c"
+      },
+      "trace": {
+        "path": "rsi.trace.json",
+        "sha256": "b47bfcd12198fcd01ab07eb59608a8604a4ffb720e41462cd7bf2b9901248254"
+      }
+    },
+    {
+      "id": "channel",
+      "format": "normalized_json",
+      "source": {
+        "path": "channel.json",
+        "sha256": "c4b1cc837c3d8ffaf0878ddfc770dbef68c1e2a8f221206ebccba33e47fe86e5"
+      },
+      "record": {
+        "path": "channel.record.json",
+        "sha256": "e6dffc8681cbaf9b1364eda9e34e346c67402c0de688e5ac190c8447d8d34adf"
+      },
+      "trace": {
+        "path": "channel.trace.json",
+        "sha256": "d0cd3024bc9523f0d5b175976b7192505bc35682c75b6eb68ea00df1f31b00a4"
+      }
+    },
+    {
+      "id": "pine-rsi",
+      "format": "pine_subset",
+      "source": {
+        "path": "pine-rsi.pine",
+        "sha256": "2c3787664b44942c07cb7ec4828d27e29f51cb5deab8cd29662cbd970d22d399"
+      },
+      "record": {
+        "path": "pine-rsi.record.json",
+        "sha256": "3d66e739d978ba38d2ae8f3848843bdeac3d35e0403e718f32022dc6ae4c1ca4"
+      },
+      "trace": null
+    },
+    {
+      "id": "pine-channel",
+      "format": "pine_subset",
+      "source": {
+        "path": "pine-channel.pine",
+        "sha256": "266de74fc7e442934a78786b74ff77e7fa3314204829506bcb34c3d1019882d5"
+      },
+      "record": {
+        "path": "pine-channel.record.json",
+        "sha256": "30d9b6b2cd33f21eda8a62658656d3f385ce31be13319a20ceb0ba424ee2b551"
+      },
+      "trace": null
+    },
+    {
+      "id": "pine-sma-alias",
+      "format": "pine_subset",
+      "source": {
+        "path": "pine-sma-alias.pine",
+        "sha256": "bd974abece6e5580c66838ac024ac472ef004dcc603e78873ea332bdf29fd22a"
+      },
+      "record": {
+        "path": "pine-sma-alias.record.json",
+        "sha256": "6da83637b0f2ca9dc97e827b62f56026b9a1eec1437032b6a0fb0cba7d7bb437"
+      },
+      "trace": null
+    },
+    {
+      "id": "pine-sma-comment",
+      "format": "pine_subset",
+      "source": {
+        "path": "pine-sma-comment.pine",
+        "sha256": "1ccd9ff5baa70734de8a49c11468f8de091150fa1da2f2f1fb10aaa4413b15bf"
+      },
+      "record": {
+        "path": "pine-sma-comment.record.json",
+        "sha256": "7d79baee9dfc38cb4ec9dc191fbe80a2874c17aa2eec2d295f5f2158e0e385f9"
+      },
+      "trace": null
+    },
+    {
+      "id": "pine-same-close",
+      "format": "pine_subset",
+      "source": {
+        "path": "pine-same-close.pine",
+        "sha256": "a822317d6148819fce19dc7fcfae6546497c5c8e79c4a2242d0fd2ce3df0fe3f"
+      },
+      "record": {
+        "path": "pine-same-close.record.json",
+        "sha256": "e16cadbe68a37dba64acb460ae2ef556d9046bf8b154eda20af3311ff0ef247b"
+      },
+      "trace": null
+    }
+  ],
+  "history": {
+    "path": "history.json",
+    "sha256": "39f060fde711ec6f813022fc2a5868983042d8a7a52503eea5236d639c0fcd93"
+  },
+  "warmup_bars": 480,
+  "costs": {
+    "baseline": {
+      "fee_rate": "0.0025",
+      "adverse_rate": "0.001",
+      "initial_cash": "10000",
+      "quantity_unit": "0.03"
+    },
+    "stress": {
+      "fee_rate": "0.005",
+      "adverse_rate": "0.002",
+      "initial_cash": "10000",
+      "quantity_unit": "0.03"
+    }
+  },
+  "benchmark_allocation": "0.25"
+}
