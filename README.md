@@ -160,4 +160,4 @@ TL-001A [engine evaluation](https://github.com/Loothore907/tidelab/issues/2) sel
 
 - [Channel private admission](docs/evidence/TL-003-CHANNEL-PRIVATE-ADMISSION.md): one separately approved grant through shared snapshot and batch mechanics, with canonical-store preservation and private-only results.
 
-- [BTC Monday synthetic extension](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md): selected UTC calendar adaptation, zero preceding warmup, six-job invented-history path and native LEAN comparison. No price access, snapshot or private trial is authorized.
+- [BTC Monday synthetic extension](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md): selected UTC calendar adaptation, zero preceding warmup, six-job invented-history path and native LEAN comparison. The later [one-shot private flow](docs/evidence/TL-003-MONDAY-PRIVATE-ADMISSION.md) has explicit approval; inspect consumed grant events before continuation.

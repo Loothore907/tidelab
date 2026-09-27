@@ -1,6 +1,6 @@
 # TideLab handoff
 
-Updated 2026-09-26 Alaska time. Base for the current BTC Monday implementation is main `c0d6b8e67b92beca48456a3d1e47a8547c0f723c` (PR #107); all three exact-main CI jobs passed in run `36280813533`. The current slice requires distinct review and exact-head CI before integration; verify its PR and fresh Git state. Prior RSI and channel workflows are complete with consumed grants. This checkpoint grants no permission to repeat them.
+Updated 2026-09-26 Alaska time. Base for the current BTC Monday admission is main `d1fc3affd1d266bc7f3c29899f05fc136debaa39` (PR #108); all three exact-main CI jobs passed in run `36283026465`. The current slice requires distinct review and exact-head CI before integration; verify its PR and fresh Git state. Prior RSI and channel workflows are complete with consumed grants. This checkpoint grants no permission to repeat them.
 
 ## Purpose and authority
 
@@ -32,9 +32,9 @@ TideLab-authored code is Apache-2.0. Keep strategy, risk, data, paper authority 
 
 ## First action next session
 
-The owner approved the [BTC Monday implementation and synthetic verification](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md), including a separate reviewer and gated integration. It adds a schema-4 UTC calendar predicate through the existing package/replay/batch/LEAN path. Its six-job invented-history demonstration is one package and cash/passive benchmarks at two costs. This is implementation evidence, not a market result.
+PR #108 integrated the [BTC Monday implementation](docs/evidence/TL-003-BTC-MONDAY-SYNTHETIC.md) at `d1fc3affd1d266bc7f3c29899f05fc136debaa39`; independent review and all three exact-main CI jobs passed. The owner subsequently approved the [complete bounded private flow](docs/evidence/TL-003-MONDAY-PRIVATE-ADMISSION.md): admission implementation, synthetic tests, distinct review, CI and gated integration, then one snapshot, six jobs and private accounting/independent audit. **Continue those stages without asking for approval again.** Stop only for a failed gate or material change to that scope.
 
-First verify the current PR, independent review and exact-head CI. If integrated, the next decision is the frozen private `data/strategy_intake/BTC-MONDAY-V1-PROPOSAL.md`: one BTC 2024 snapshot and six jobs, $0 spend, no variants/retries. **Price access, snapshot and trial are not approved.** The selected v2 intake and `BTC-MONDAY-V1-IMPLEMENTATION-AUTHORITY.json` only authorize implementation. Do not infer a grant from that selection or from older approvals; the current Monday private entry points deliberately fail closed.
+First check the admission PR, exact-head review/CI and fresh Git state. Then inspect `data/research_program/monday-v1/` and canonical grant events. If not yet attempted, complete the authorized flow from the next unfinished stage. If attempted, audit retained artifacts only; no retry or grant recreation. `data/strategy_intake/BTC-MONDAY-V1-TRIAL-AUTHORITY.json` binds the unchanged proposal and selected v2 record. Older implementation-only receipts record earlier scope, not a revocation of this later approval. One BTC 2024 window, zero warmup, six jobs, $0 spend, no variants/reruns or public results.
 
 Both previous workflows are finished; audit retained artifacts only if needed. Preserve `data/research_program/trials.sqlite3`, its original `data/strategy_intake/RSI-BATCH-V1-STORE.json` anchor, all consumed grant events and private reports/review/audit receipts under `data/research_program/rsi-v1/` and `data/research_program/channel-v1/`. Do not rerun, retune, open later partitions or publish private findings. Shared code does not renew authority.
 

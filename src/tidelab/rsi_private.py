@@ -28,6 +28,7 @@ FIRST = "2023-12-18T00:00:00Z"
 START = "2024-01-01T00:00:00Z"
 END = "2025-01-01T00:00:00Z"
 ROWS = 9120
+JOBS = 30
 COSTS = {"baseline": dict(SYNTHETIC_COST), "stress": {**SYNTHETIC_COST, "fee_rate": "0.005", "adverse_rate": "0.002"}}
 
 
