@@ -240,3 +240,10 @@ def test_import_bounds_and_raw_hash_binding():
     record["source"]["content_sha256"] = sha256(raw).hexdigest()
     with pytest.raises(PineFrontendError, match="source_binding_mismatch"):
         compile_pine(raw + b"// changed\n", record, grammar_version=IMPORT_VERSION)
+
+
+@pytest.mark.parametrize("name", "catch class do ellipse in is polygon range struct text throw try".split())
+def test_import_rejects_pine_v5_reserved_words(name):
+    raw = ALIAS.read_bytes().replace(b"average", name.encode())
+    with pytest.raises(PineFrontendError, match="unsupported_alias_name:" + name):
+        compile_import(raw)

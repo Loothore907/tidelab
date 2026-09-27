@@ -35,6 +35,7 @@ class PineFrontendError(ValueError):
 _TOKEN = re.compile(r'[ \t]+|"[A-Za-z0-9 _-]{1,64}"|[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)*|[0-9]+|[(),=<>]')
 _NAME = re.compile(r'[A-Za-z_][A-Za-z_0-9]{0,63}')
 _RESERVED = set("_ close open high low volume time time_close bar_index barstate ta strategy input math syminfo timeframe request na true false var varip const int float bool string color if else for while switch break continue return import export method type array matrix map and or not".split())
+_RESERVED.update("catch class do ellipse in is polygon range struct text throw try".split())
 
 
 def _tokens(line: str) -> list[str]:
