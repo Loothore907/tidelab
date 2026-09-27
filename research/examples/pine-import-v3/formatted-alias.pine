@@ -1,0 +1,15 @@
+//@version=5
+strategy ( "TideLab Synthetic Three", overlay = false, pyramiding=0, process_orders_on_close=false, calc_on_every_tick=false, default_qty_type=strategy.percent_of_equity, default_qty_value=25)
+
+// Each name is recomputed on every closed bar.
+length = 3
+price=close
+average = ta.sma ( price , length ) // same average
+copy = average
+
+enter = price > copy
+leave = price < copy
+if enter
+	strategy.entry("L", strategy.long)
+if leave
+	strategy.close("L")

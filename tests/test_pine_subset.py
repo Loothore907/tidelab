@@ -163,3 +163,87 @@ def test_comments_cannot_relax_execution_or_expression_contract(old, new, reason
     raw = (SOURCES / "synthetic-sma-3.pine").read_bytes() + b"// ordinary comment\n"
     with pytest.raises(PineFrontendError, match=reason):
         compile_changed(raw.replace(old, new, 1))
+
+
+IMPORT_VERSION = "tidelab-pine-v5-subset-3"
+ALIAS = EXAMPLES / "source-workflow-v2/pine-sma-alias.pine"
+
+
+def compile_import(raw):
+    record = deepcopy(load_record(SOURCES / "synthetic-sma-3.record.json"))
+    record["source"]["content_sha256"] = sha256(raw).hexdigest()
+    return compile_pine(raw, record, grammar_version=IMPORT_VERSION)
+
+
+def test_import_aliases_formatting_and_original_identity():
+    raw = ALIAS.read_bytes()
+    expected = compile_changed((SOURCES / "synthetic-sma-3.pine").read_bytes())
+    forms = [raw,
+        raw.replace(b"average = ta.sma(close, 3)", b"period = 3\nprice = close\naverage = ta.sma(price, period)\ncopy = average")
+           .replace(b"close > average", b"price > copy").replace(b"close < average", b"price < copy"),
+        raw.replace(b"average = ta.sma(close, 3)", b"\n// explanation\naverage=ta.sma ( close , 3 ) // trailing\n")
+           .replace(b"    strategy", b"\tstrategy"),
+        raw.replace(b"entrySignal", b"enter").replace(b"exitSignal", b"leave"),
+        raw.replace(b"if entrySignal", b"if close > average")]
+    for form in forms:
+        result = compile_import(form)
+        assert result["rule"] == expected["rule"]
+        assert result["strategy_id"] == "synthetic-pine-" + sha256(form).hexdigest()[:16]
+        with pytest.raises(PineFrontendError):
+            compile_changed(form)  # Explicit old grammar still rejects aliases.
+
+
+@pytest.mark.parametrize("old,new,reason", [
+    (b"average =", b"var average =", "unsupported_declaration"),
+    (b"average =", b"varip average =", "unsupported_declaration"),
+    (b"average =", b"    average =", "unsupported_declaration"),
+    (b"entrySignal =", b"average = close\nentrySignal =", "unsupported_alias_name:average"),
+    (b"entrySignal =", b"average := close\nentrySignal =", "unsupported_token"),
+    (b"average =", b"close = 3\naverage =", "unsupported_alias_name:close"),
+    (b"average =", b"_ = 3\naverage =", "unsupported_alias_name:_"),
+    (b"ta.sma(close, 3)", b"future\nfuture = ta.sma(close, 3)", "unsupported_reference:future"),
+    (b"ta.sma(close, 3)", b"average", "unsupported_reference:average"),
+    (b"ta.sma(close, 3)", b"ta.ema(close, 3)", "unsupported_signal_expression"),
+    (b"ta.sma(close, 3)", b"ta.sma(close, close)", "unsupported_sma_arguments"),
+    (b"ta.sma(close, 3)", b"ta.sma(close, 1)", "unsupported_sma_window"),
+    (b"ta.sma(close, 3)", b"ta.sma(close, 10001)", "unsupported_sma_window"),
+    (b"close > average", b"cl ose > average", "unsupported_signal_expression"),
+    (b"close > average", b"close >= average", "unsupported_signal_expression"),
+    (b"close < average", b"close < ta.sma(close, 2)", "unsupported_signal_pair"),
+    (b"if entrySignal", b"if average", "unsupported_signal_pair"),
+    (b"    strategy.entry", b"strategy.entry", "unsupported_order_semantics"),
+    (b"    strategy.entry", b"        strategy.entry", "unsupported_order_semantics"),
+    (b"if entrySignal", b" if entrySignal", "unsupported_order_semantics"),
+    (b"process_orders_on_close=false", b"process_orders_on_close=true", "unsupported_strategy_options"),
+    (b"calc_on_every_tick=false", b"calc_on_every_tick=true", "unsupported_strategy_options"),
+    (b"pyramiding=0", b"pyramiding=1", "unsupported_strategy_options"),
+    (b"strategy.close", b"strategy.exit", "unsupported_order_semantics"),
+    (b"strategy.long", b"strategy.short", "unsupported_order_semantics"),
+    (b"average =", b"// @directive\naverage =", "unsupported_pine_directive"),
+    (b"average =", b"/* comment */\naverage =", "unsupported_token"),
+    (b"average =", b"// comment\xe2\x80\xa8\naverage =", "invalid_source_encoding"),
+    (b"\n", b"\r\n", "invalid_source_encoding"),
+])
+def test_import_rejects_ambiguous_or_changed_semantics(old, new, reason):
+    with pytest.raises(PineFrontendError, match=reason):
+        compile_import(ALIAS.read_bytes().replace(old, new, 1))
+
+
+def test_import_bounds_and_raw_hash_binding():
+    raw = ALIAS.read_bytes()
+    many = b"".join(f"alias{i} = close\n".encode() for i in range(65))
+    with pytest.raises(PineFrontendError, match="unsupported_alias_limit"):
+        compile_import(raw.replace(b"average =", many + b"average ="))
+    with pytest.raises(PineFrontendError, match="source_size_exceeded"):
+        compile_import(raw + b"//" + b"x" * 16384 + b"\n")
+    record = deepcopy(load_record(SOURCES / "synthetic-sma-3.record.json"))
+    record["source"]["content_sha256"] = sha256(raw).hexdigest()
+    with pytest.raises(PineFrontendError, match="source_binding_mismatch"):
+        compile_pine(raw + b"// changed\n", record, grammar_version=IMPORT_VERSION)
+
+
+@pytest.mark.parametrize("name", "catch class do ellipse in is polygon range struct text throw try".split())
+def test_import_rejects_pine_v5_reserved_words(name):
+    raw = ALIAS.read_bytes().replace(b"average", name.encode())
+    with pytest.raises(PineFrontendError, match="unsupported_alias_name:" + name):
+        compile_import(raw)

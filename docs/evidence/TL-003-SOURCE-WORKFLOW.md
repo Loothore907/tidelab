@@ -35,6 +35,44 @@ invalid records, unsupported semantics and conformance discrepancies retain
 numbered outcomes. Prose is never guessed or executed. Only conformance-matched,
 capability-supported packages become historical jobs.
 
+### Importing named SMA expressions (grammar 3)
+
+For Pine inputs, explicitly select `"grammar_version": "tidelab-pine-v5-subset-3"`
+in the manifest. The [import corpus](../../research/examples/pine-import-v3/manifest.json)
+uses the same command above with that manifest and a fresh output directory.
+Versions 1 and 2 retain their original outcomes; omitting the choice still selects 1.
+
+Grammar 3 accepts blank lines, horizontal token spacing, full-line/inline `//`
+comments, and up to 64 top-level declarations before the two order blocks.
+Names can refer to previously declared names, `close`, integer window constants,
+`ta.sma(close-or-alias, integer-or-alias)`, and close-above/below-SMA comparisons.
+Declarations are evaluated per bar: persistent `var`/`varip`, reassignment,
+forward/unknown references and reserved names are rejected. Both conditions must
+resolve to the existing entry-above/exit-below rule with the same SMA window.
+The two order blocks remain entry-long then close, with ID `L`; bodies require
+four spaces or one tab. Strategy options and their order remain fixed, including
+next-open timing. No new indicator, trading rule or evaluator is introduced.
+
+The first line remains exactly `//@version=5`. UTF-8 without BOM, LF, final
+newline and 16 KiB maximum still apply. Directives after the first line, block
+comments, wrapped statements, general expressions and other order forms remain
+unsupported. Original bytes are hashed before parsing; formatting changes never
+silently overwrite a source identity. This is a bounded normalization contract,
+not general TradingView compatibility. See the official v5
+[declaration](https://www.tradingview.com/pine-script-docs/v5/language/variable-declarations/)
+and [structure](https://www.tradingview.com/pine-script-docs/v5/language/script-structure/)
+references for the distinction between per-bar declarations, reassignment and blocks.
+
+The six authored inputs include the unchanged formerly rejected alias source,
+two formatting/name/window variations and three rejected semantic changes.
+Expected results are three compiled inputs, three unsupported, eight completed
+jobs and two semantic duplicates, with four LEAN comparisons. Frozen truth sets
+are independently checked by rational SMA arithmetic. This remains one rule
+structure. Adding an input still needs source, intake record, independent trace
+and manifest references; grammar 3 removes source rewriting for this subset, not
+those preparation requirements. Per-input runtime edits remain zero. Preparation
+time is unmeasured; run timing and complete outcomes are generated in the output.
+
 ## Artifacts and accounting
 
 - `sources/`: original manifest, exact source/record/trace/history bytes, generated

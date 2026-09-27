@@ -361,3 +361,66 @@ def test_comment_corpus_actual_lean(tmp_path, monkeypatch):
     monkeypatch.setattr(batch, "replay_package", lambda *a, **kw: pytest.fail("replay"))
     monkeypatch.setattr(workflow, "run_parity", lambda *a, **kw: pytest.fail("parity replay"))
     assert workflow.recover(tmp_path / "comments") == result
+
+
+IMPORTS = CORPUS.parent / "pine-import-v3"
+
+
+def assert_imports(result):
+    assert result["status"] == "accounted"
+    assert result["compilation_counts"] == {"compiled": 3, "unsupported": 3}
+    assert result["job_counts"] == {"completed": 8, "duplicate": 2}
+    assert result["distinct_rule_structures"] == 1
+    assert [item["reason"] for item in result["inputs"][3:]] == [
+        "unsupported_token", "unsupported_reference:missing", "unsupported_strategy_options"]
+    assert all(item["jobs"] == [] for item in result["inputs"][3:])
+    assert [result["admission"][i]["duplicate_of"] for i in (2,3)] == [0,1]
+    assert len({item["package_sha256"] for item in result["inputs"][:3]}) == 3
+
+
+def test_import_workflow_preparation_baseline_and_independent_signals(tmp_path, monkeypatch):
+    from fractions import Fraction
+    from tidelab.pine_subset import compile_pine, PineFrontendError
+    manifest = batch.read(IMPORTS / "manifest.json")
+    bars = batch.read(IMPORTS / manifest["history"]["path"])["bars"]
+    closes = [Fraction(bar["close"]) for bar in bars]
+    for item in manifest["inputs"][:3]:
+        raw = (IMPORTS / item["source"]["path"]).read_bytes()
+        record = batch.read(IMPORTS / item["record"]["path"])
+        assert batch.digest(raw) == item["source"]["sha256"]
+        with pytest.raises(PineFrontendError):
+            compile_pine(raw, record, grammar_version="tidelab-pine-v5-subset-2")
+        trace = batch.read(IMPORTS / item["trace"]["path"])
+        window = 2 if item["id"] == "additional-sma2" else 3
+        # The final bar cannot produce a next-open decision in this contract.
+        assert [r["index"] for r in trace["signals"]] == list(range(window-1, len(bars)-1))
+        for row in trace["signals"]:
+            i = row["index"]
+            average = sum(closes[i-window+1:i+1]) / window
+            assert (row["entry"], row["exit"]) == (closes[i] > average, closes[i] < average)
+    monkeypatch.setattr(workflow, "DATA", tmp_path)
+    first = workflow.run(IMPORTS / "manifest.json", tmp_path / "first")
+    second = workflow.run(IMPORTS / "manifest.json", tmp_path / "second")
+    assert_imports(first)
+    assert_imports(second)
+    assert first["semantic_sha256"] == second["semantic_sha256"]
+    assert first["trace_sha256"] == second["trace_sha256"]
+    # New SMA(2) input was admitted by files/configuration through the same runtime.
+    assert first["inputs"][2]["jobs"] == [4,5]
+    monkeypatch.setattr(workflow, "compile_pine", lambda *a, **kw: pytest.fail("recompile"))
+    monkeypatch.setattr(batch, "replay_package", lambda *a, **kw: pytest.fail("replay"))
+    assert workflow.recover(tmp_path / "first") == first
+    captured = tmp_path / "first/sources/source-1.raw"
+    captured.write_bytes(captured.read_bytes() + b"// changed identity\n")
+    with pytest.raises(ValueError, match="digest_mismatch"):
+        workflow.recover(tmp_path / "first")
+
+
+@pytest.mark.skipif(not os.environ.get("TIDELAB_LEAN_ROOT"), reason="actual pinned LEAN CI")
+def test_import_workflow_actual_lean(tmp_path, monkeypatch):
+    monkeypatch.setattr(workflow, "DATA", tmp_path)
+    result = workflow.run(IMPORTS / "manifest.json", tmp_path / "imports",
+        lean_root=Path(os.environ["TIDELAB_LEAN_ROOT"]), dotnet=os.environ.get("TIDELAB_DOTNET", "dotnet"))
+    assert_imports(result)
+    assert result["parity"]["status"] == "matched", result["parity"]
+    assert [r["job_index"] for r in result["parity"]["cases"]] == [0,1,4,5]
