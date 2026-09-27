@@ -19,7 +19,7 @@ if exitSignal
     strategy.close("L")
 ```
 
-The title is 1â€“64 ASCII letters, digits, spaces, underscores or hyphens. `percent` is an integer 1â€“100; `window` is an integer 2â€“10000. Source size is at most 16 KiB. The normalized package is version 1, spot/long-cash/hourly only, with one fixed fraction and close/SMA comparisons. Source bytes are SHA-256 bound to a `synthetic_example` intake record; the package binds that exact record digest. The CLI accepts only records and fixtures under `research/examples/`, and writes a new result file under ignored `data/`.
+The title is 1–64 ASCII letters, digits, spaces, underscores or hyphens. `percent` is an integer 1–100; `window` is an integer 2–10000. Source size is at most 16 KiB. The normalized package is version 1, spot/long-cash/hourly only, with one fixed fraction and close/SMA comparisons. Source bytes are SHA-256 bound to a `synthetic_example` intake record; the package binds that exact record digest. The CLI accepts only records and fixtures under `research/examples/`, and writes a new result file under ignored `data/`.
 
 The parser does not execute Pine. Other versions, options, expressions, order forms, comments, extra lines, alternate sizing, intrabar behavior, alerts, security calls, multiple instruments, shorts and dynamic state get a named unsupported outcome. Missing or mismatched source records fail before compilation. This is a TideLab normalized signal and next-open synthetic execution contract, not a claim of full TradingView broker-emulator or order-sizing parity. The static long/cash rule is a deliberately bounded parser fixture, not a sourced trading hypothesis.
 
